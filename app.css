@@ -22,6 +22,26 @@ body{
   background: radial-gradient(1200px 600px at 15% 10%, #1a2231 0%, var(--bg) 55%) fixed;
 }
 
+/* Links: readable on dark background */
+a{
+  color: inherit;
+  text-decoration: underline dashed;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+a:hover{opacity:.9}
+
+/* Help links: tiny arrow cue instead of bright blue */
+.helpLink{
+  font-weight: 700;
+}
+.helpLink::after{
+  content:"↗";
+  font-size: .78em;
+  margin-left: .25em;
+  opacity: .65;
+}
+
 code{font-family:var(--mono)}
 .muted{color:var(--muted)}
 .small{font-size:.88rem}

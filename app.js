@@ -325,7 +325,8 @@ function downloadJson(filename, obj) {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Some browsers need a short delay before revoking
+  setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(e){} }, 250);
 }
 
 function exportLocalBackup() {
@@ -335,6 +336,10 @@ function exportLocalBackup() {
     if (!k || !k.startsWith(PREFIX)) continue;
     data[k] = localStorage.getItem(k);
   }
+  if (!Object.keys(data).length) {
+    alert('Der var ingen lokale data at tage backup af endnu.');
+    return;
+  }
   const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   downloadJson(`elevudtalelser_backup_${stamp}.json`, {
     schema: 'elevudtalelser_backup_v1',
@@ -342,6 +347,61 @@ function exportLocalBackup() {
     createdAt: new Date().toISOString(),
     data
   });
+}
+
+function getMyKStudents() {
+  const s = getSettings();
+  const studs = getStudents();
+  const meResolvedConfirmed = ((s.meResolvedConfirmed || '') + '').trim();
+  const meResolvedRaw = resolveTeacherName(((s.me || '') + '').trim()) || (((s.me || '') + '').trim());
+  const meNorm = normalizeName(meResolvedConfirmed || meResolvedRaw);
+  if (!studs.length || !meNorm) return [];
+  return sortedStudents(studs)
+    .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
+}
+
+function printAllKStudents() {
+  const list = getMyKStudents();
+  if (!list.length) {
+    alert('Der er ingen K-elever at printe (tjek elevliste og initialer).');
+    return;
+  }
+  // Build a dedicated print window with page breaks between students
+  const title = 'Elevudtalelser – print alle';
+  const styles = `
+    <style>
+      @page { size: A4; margin: 18mm 16mm; }
+      body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#000; background:#fff; }
+      h1{ font-size: 14pt; margin: 0 0 8mm 0; }
+      .entry{ page-break-after: always; }
+      .name{ font-weight: 800; margin-bottom: 3mm; }
+      pre{ white-space: pre-wrap; font: 11pt/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:0; }
+      .meta{ color:#555; font-size: 10pt; margin-bottom: 4mm; }
+    </style>
+  `;
+  const body = list.map(st => {
+    const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
+    const cls = (st.klasse ? formatClassLabel(st.klasse) : '').trim();
+    const txt = buildStatement(st, getSettings());
+    return `
+      <section class="entry">
+        <div class="name">${escapeHtml(full)}</div>
+        ${cls ? `<div class="meta">${escapeHtml(cls)}</div>` : ``}
+        <pre>${escapeHtml(txt)}</pre>
+      </section>
+    `;
+  }).join('');
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    alert('Pop-up blev blokeret. Tillad pop-ups for at printe alle.');
+    return;
+  }
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>${title}</title>${styles}</head><body>${body}</body></html>`);
+  w.document.close();
+  // Let the browser lay out the document before printing
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
 }
 
 function importLocalBackup(file) {
@@ -2381,18 +2441,15 @@ if (document.getElementById('btnDownloadElevraad')) {
     // Logo/brand: hvis setup ikke er gjort endnu, hop til Data & import
     const brandHome = $("brandHome");
     if (brandHome) brandHome.addEventListener("click", () => {
-      const ss = getSettings();
-      const hasStudents = getStudents().length > 0;
-      const hasMe = String(ss.me || "").trim().length > 0;
-      if (!hasStudents || !hasMe) {
-        setTab("set");
-        setSettingsSubtab("data");
-        renderAll();
-      } else {
-        setTab("k");
-        renderAll();
-      }
+      // Always go to Data & import (tooltip must match behavior)
+      setTab("set");
+      setSettingsSubtab("data");
+      renderAll();
     });
+
+    // K-elever: Print alle
+    const btnPrintAllK = $("btnPrintAllK");
+    if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
 
     // Hjælp-links (hop til relevante faner)
     document.body.addEventListener("click", (ev) => {
