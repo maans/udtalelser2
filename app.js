@@ -333,7 +333,7 @@ function exportLocalBackup() {
   const data = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (!k || !k.startsWith(PREFIX)) continue;
+    if (!k || !k.startsWith(LS_PREFIX)) continue;
     data[k] = localStorage.getItem(k);
   }
   if (!Object.keys(data).length) {
@@ -343,7 +343,7 @@ function exportLocalBackup() {
   const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   downloadJson(`elevudtalelser_backup_${stamp}.json`, {
     schema: 'elevudtalelser_backup_v1',
-    prefix: PREFIX,
+    prefix: LS_PREFIX,
     createdAt: new Date().toISOString(),
     data
   });
@@ -411,7 +411,7 @@ function importLocalBackup(file) {
     try {
       const obj = JSON.parse(String(reader.result || '{}'));
       if (!obj || typeof obj !== 'object' || !obj.data) throw new Error('Ugyldig backupfil.');
-      const prefix = obj.prefix || PREFIX;
+      const prefix = obj.prefix || LS_PREFIX;
 
       // Slet nuværende app-keys (samme prefix) for at undgå gamle rester
       const toRemove = [];
@@ -1079,7 +1079,7 @@ function setSettingsSubtab(sub) {
   function renderStatus() {
     const s = getSettings();
     const studs = getStudents();
-    const me = s.meResolved ? `· Initialer: ${s.meResolved}` : '';
+    const me = s.meResolved ? `· K-lærer: ${s.meResolved}` : '';
     $('statusText').textContent = studs.length ? `Elever: ${studs.length} ${me}` : `Ingen elevliste indlæst`;
   }
 
