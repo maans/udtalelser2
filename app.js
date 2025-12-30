@@ -805,6 +805,7 @@ function getOwnerKeyForStorage(){
 
 function getTextKey(unilogin, ownerKey){
   const ok = (ownerKey || getOwnerKeyForStorage() || '').trim();
+  if (!ok) return null; // e.g. ALL-mode without valgt aktiv lærer
   return KEYS.textPrefix + ok + '_' + unilogin;
 }
 
@@ -1120,9 +1121,15 @@ function defaultSettings() {
   function getMarks(kindKey){ return lsGet(kindKey, {}); }
   function setMarks(kindKey, m){ lsSet(kindKey, m); }
   function getTextFor(unilogin, ownerKey){
-    return lsGet(getTextKey(unilogin, ownerKey), { elevudvikling:'', praktisk:'', kgruppe:'', lastSavedTs:null, studentInputMeta:null });
+    const key = getTextKey(unilogin, ownerKey);
+    if (!key) return { elevudvikling:'', praktisk:'', kgruppe:'', lastSavedTs:null, studentInputMeta:null };
+    return lsGet(key, { elevudvikling:'', praktisk:'', kgruppe:'', lastSavedTs:null, studentInputMeta:null });
   }
-  function setTextFor(unilogin, obj, ownerKey){ lsSet(getTextKey(unilogin, ownerKey), obj); }
+  function setTextFor(unilogin, obj, ownerKey){
+    const key = getTextKey(unilogin, ownerKey);
+    if (!key) { alert('Vælg en aktiv lærer (til redigér/print), før du redigerer udtalelser i "Alle"-tilstand.'); return; }
+    lsSet(key, obj);
+  }
 
   function computePeriod(schoolYearEnd) {
     const endYear = Number(schoolYearEnd) || (new Date().getFullYear() + 1);
@@ -1453,8 +1460,12 @@ function setSettingsSubtab(sub) {
         })).filter(x => x.code);
         items.sort((a,b)=>a.code.localeCompare(b.code));
 
-        // Build options
+        // Build options (with a placeholder so we don't auto-pick someone in ALL-mode)
         activeSel.innerHTML = '';
+        const ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = '— Vælg aktiv lærer —';
+        activeSel.appendChild(ph);
         for (const it of items) {
           const opt = document.createElement('option');
           opt.value = it.code;
@@ -1462,12 +1473,12 @@ function setSettingsSubtab(sub) {
           activeSel.appendChild(opt);
         }
 
-        // Pick current or fallback
+        // Pick current if valid; otherwise keep empty and let user decide (or use lastConcreteTeacher logic)
         const cur = ((s.activeTeacher||'')+'').toString().toUpperCase();
-        const fallback = items[0] ? items[0].code : '';
-        activeSel.value = (items.some(x=>x.code===cur) ? cur : fallback);
-        if (activeSel.value && activeSel.value !== cur) {
-          s.activeTeacher = activeSel.value;
+        const isValid = items.some(x => x.code === cur);
+        activeSel.value = isValid ? cur : '';
+        if (!isValid && cur) {
+          s.activeTeacher = '';
           setSettings(s);
         }
       }
@@ -1617,14 +1628,22 @@ function renderKList() {
     const studs = getStudents();
     // Resolve teacher input via alias-map (MM -> Måns ...) for both filtering and UI.
     const meRaw = ((s.me || '') + '').trim();
+    const allMode = isAllTeacherRaw(meRaw);
     const meResolvedRaw = resolveTeacherName(meRaw) || meRaw;
-    const minePreview = meResolvedRaw
+    // In ALL-mode we show every student that has at least one contact-teacher.
+    const minePreview = allMode
       ? studs.filter(st => {
           const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
           const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
-          return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
+          return !!((k1 || '').trim() || (k2 || '').trim());
         })
-      : [];
+      : (meResolvedRaw
+          ? studs.filter(st => {
+              const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
+              const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
+              return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
+            })
+          : []);
     const kMsg = $('kMessage');
     if (kMsg) kMsg.classList.remove('compact');
     const kList = $('kList');
@@ -2307,18 +2326,33 @@ $('preview').textContent = buildStatement(st, getSettings());
     on('meInput','input', () => {
       const raw = $('meInput').value;
       const s = getSettings();
+      const prevRaw = ((s.me||'')+'').trim();
+      if (prevRaw && !isAllTeacherRaw(prevRaw)) s.lastConcreteTeacher = prevRaw;
+
       s.me = raw;
       s.meResolved = resolveTeacherName(raw);
+
+      if (isAllTeacherRaw(raw)) {
+        const curActive = ((s.activeTeacher||'')+'').trim();
+        if (!curActive) s.activeTeacher = (((s.lastConcreteTeacher||'')+'').toString().toUpperCase());
+      } else {
+        s.activeTeacher = '';
+      }
+
       setSettings(s);
+      state.selectedUnilogin = null;
       renderStatus();
+      if (state.tab === 'edit') setTab('k');
       if (state.tab === 'k') renderKList();
       renderSettings();
     })
     on('activeTeacherSelect','change', () => {
       const s = getSettings();
-      s.activeTeacher = ($('activeTeacherSelect').value || '').toString().toUpperCase();
+      s.activeTeacher = (($('activeTeacherSelect').value || '').toString().toUpperCase());
       setSettings(s);
+      state.selectedUnilogin = null;
       renderStatus();
+      if (state.tab === 'edit') setTab('k');
       if (state.tab === 'k') renderKList();
       if (state.tab === 'edit') renderEdit();
       renderSettings();
