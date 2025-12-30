@@ -601,14 +601,118 @@ function resolveTeacherName(raw) {
 }
 
 function updateTeacherDatalist() {
-  const dl = document.getElementById('teacherSuggest');
-  if (!dl) return;
+  // Replaces the old <datalist> UX with a custom, searchable dropdown.
+  const input = document.getElementById('meInput');
+  const menu  = document.getElementById('teacherPickerMenu');
+  const btn   = document.getElementById('teacherPickerBtn');
+  const wrap  = document.getElementById('teacherPicker');
+  if (!input || !menu || !btn || !wrap) return;
+
   const s = getSettings();
   const aliasMap = (s && s.aliasMap) ? s.aliasMap : DEFAULT_ALIAS_MAP;
-  const aliasKeys = Object.keys(aliasMap || {}).map(k => (k || "").toString().toUpperCase());
   const fullNames = getAllTeacherNamesFromStudents();
-  const options = uniqStrings([...aliasKeys, ...fullNames]);
-  dl.innerHTML = options.map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
+
+  const aliasItems = Object.keys(aliasMap || {}).map(k => {
+    const code = (k || '').toString().toUpperCase();
+    const name = (aliasMap[k] || '').toString().trim();
+    return { kind: 'alias', code, name };
+  }).filter(x => x.code);
+
+  // Full-name items (avoid duplicates)
+  const aliasNames = new Set(aliasItems.map(x => normalizeName(x.name)));
+  const nameItems = fullNames
+    .filter(n => n && !aliasNames.has(normalizeName(n)))
+    .map(n => ({ kind: 'name', code: '', name: n }));
+
+  // Sorted: aliases first, then names
+  aliasItems.sort((a,b) => a.code.localeCompare(b.code));
+  nameItems.sort((a,b) => normalizeName(a.name).localeCompare(normalizeName(b.name)));
+  const allItems = [...aliasItems, ...nameItems];
+
+  function itemMatches(it, q){
+    if (!q) return true;
+    const nq = normalizeName(q);
+    const hay = normalizeName((it.code ? it.code + ' ' : '') + it.name);
+    return hay.includes(nq);
+  }
+
+  function renderMenu(){
+    const q = (input.value || '').trim();
+    const items = allItems.filter(it => itemMatches(it, q)).slice(0, 120);
+    menu.innerHTML = '';
+    if (!items.length){
+      const empty = document.createElement('div');
+      empty.className = 'tpItem';
+      empty.style.opacity = '.75';
+      empty.style.cursor = 'default';
+      empty.textContent = 'Ingen match – skriv fx initialer eller et navn…';
+      menu.appendChild(empty);
+      return;
+    }
+    for (const it of items){
+      const row = document.createElement('div');
+      row.className = 'tpItem';
+      row.setAttribute('role','option');
+      const left = document.createElement('div');
+      left.className = 'tpLeft';
+      const right = document.createElement('div');
+      right.className = 'tpRight';
+
+      if (it.kind === 'alias'){
+        left.textContent = it.code;
+        right.textContent = it.name ? `(${it.name})` : '';
+        row.dataset.value = it.code;
+      } else {
+        left.textContent = it.name;
+        right.textContent = '';
+        row.dataset.value = it.name;
+      }
+
+      row.appendChild(left);
+      row.appendChild(right);
+
+      row.addEventListener('mousedown', (e) => {
+        // mousedown so selection happens before blur
+        e.preventDefault();
+        input.value = row.dataset.value || '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        closeMenu();
+      });
+
+      menu.appendChild(row);
+    }
+  }
+
+  function openMenu(){
+    if (!menu.hidden) return;
+    renderMenu();
+    menu.hidden = false;
+  }
+  function closeMenu(){
+    if (menu.hidden) return;
+    menu.hidden = true;
+  }
+  function toggleMenu(){
+    if (menu.hidden) openMenu(); else closeMenu();
+  }
+
+  // Init listeners once
+  if (!window.__TEACHER_PICKER_INIT__){
+    window.__TEACHER_PICKER_INIT__ = true;
+    btn.addEventListener('click', (e) => { e.preventDefault(); toggleMenu(); input.focus(); });
+    input.addEventListener('focus', () => openMenu());
+    input.addEventListener('input', () => { if (!menu.hidden) renderMenu(); });
+    document.addEventListener('click', (e) => {
+      if (!wrap.contains(e.target)) closeMenu();
+    });
+    // ESC closes
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeMenu();
+    });
+  }
+
+  // If settings/students changed, refresh suggestions when open
+  if (!menu.hidden) renderMenu();
 }
 
 function normalizePlaceholderKey(key) {

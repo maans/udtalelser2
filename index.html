@@ -117,7 +117,13 @@
         <div class="cardTitle">Identitet</div>
         <div class="field">
           <label>K-lærer (initialer eller navn)</label>
-          <input id="meInput" placeholder="fx MM, RD, MTP eller fuldt navn" type="text" list="teacherSuggest"/>
+          <div class="teacherPicker" id="teacherPicker">
+            <input id="meInput" placeholder="fx MM, RD, MTP eller fuldt navn" type="text" autocomplete="off"/>
+            <button class="tpBtn" id="teacherPickerBtn" type="button" aria-label="Vis liste">
+              ▾
+            </button>
+            <div class="tpMenu" id="teacherPickerMenu" role="listbox" aria-label="Vælg K-lærer" hidden></div>
+          </div>
           <div class="muted small">Fortolkes via alias-map og bruges til filter af K-elever.</div>
         </div>
       </div>
@@ -416,8 +422,7 @@
   <span class="muted small">Systemering af udtalelsesskrivning · MM 2026</span>
 </footer>
 
-<!-- Autocomplete til "K-lærer" (aliases + fulde navne) -->
-<datalist id="teacherSuggest"></datalist>
+<!-- (K-lærer) – custom dropdown bygges i app.js -->
 
 <script src="app.js"></script>
 </body>

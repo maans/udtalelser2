@@ -402,3 +402,57 @@ tr:hover td{background: rgba(255,255,255,.02)}
 #settingsSubtab-help .card{max-width: 980px; margin: 0 auto; padding: 1.2rem 1.25rem;}
 #settingsSubtab-help h2{font-size:1.35rem; margin-bottom:.35rem;}
 #settingsSubtab-help .muted{line-height:1.55}
+
+/* -------- Teacher picker (K-lærer) -------- */
+.teacherPicker{
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.teacherPicker .tpBtn{
+  min-width: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+  color: inherit;
+  cursor: pointer;
+}
+.teacherPicker .tpBtn:hover{ background: rgba(255,255,255,.10); }
+.teacherPicker .tpMenu{
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  max-height: 280px;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(15,18,24,.96);
+  box-shadow: 0 14px 40px rgba(0,0,0,.55);
+  padding: 6px;
+}
+.tpItem{
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.tpItem:hover, .tpItem.active{
+  background: rgba(255,255,255,.08);
+}
+.tpItem .tpLeft{
+  font-weight: 650;
+}
+.tpItem .tpRight{
+  opacity: .82;
+  font-size: 12px;
+  white-space: nowrap;
+}
+@media (max-width: 520px){
+  .tpItem{ flex-direction: column; align-items: flex-start; }
+  .tpItem .tpRight{ white-space: normal; }
+}
