@@ -141,7 +141,17 @@ input[type="text"], input[type="number"], select, textarea{
   outline:none;
 }
 textarea{resize:vertical; min-height: 90px}
-input[readonly]{opacity:.9}
+input[readonly]{
+  opacity: 1;
+  background: rgba(255,255,255,.035);
+  border-style: dashed;
+  color: rgba(230,232,238,.85);
+  cursor: default;
+}
+input[readonly]:focus{
+  box-shadow: none;
+  outline: none;
+}
 
 /* dropdown readability on dark */
 select{

@@ -630,10 +630,27 @@ function updateTeacherDatalist() {
   const allItems = [...aliasItems, ...nameItems];
 
   function itemMatches(it, q){
+    // Autocomplete behavior: match from the *start* of alias codes or name-words.
+    // This feels closer to native autocomplete than a broad "contains" search.
     if (!q) return true;
-    const nq = normalizeName(q);
-    const hay = normalizeName((it.code ? it.code + ' ' : '') + it.name);
-    return hay.includes(nq);
+    const nq = normalizeName(q).replace(/\s+/g,'');
+    if (!nq) return true;
+
+    const code = normalizeName(it.code || '').replace(/\s+/g,'');
+    const name = normalizeName(it.name || '');
+
+    // 1) Alias code prefix (e.g. "M" -> "MM")
+    if (code && code.startsWith(nq)) return true;
+
+    // 2) Word-start in name (e.g. "m" -> "Måns ...")
+    const words = name.split(/\s+/).filter(Boolean);
+    if (words.some(w => w.startsWith(nq))) return true;
+
+    // 3) Initialism prefix (e.g. "mm" -> "Måns Mårtensson")
+    const initials = words.map(w => (w[0] || '')).join('');
+    if (initials && initials.startsWith(nq)) return true;
+
+    return false;
   }
 
   function renderMenu(){
