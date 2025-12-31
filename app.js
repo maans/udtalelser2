@@ -1652,6 +1652,7 @@ function renderKList() {
             Kontaktlærer1/2 matcher initialer.
             <span id="kStatusLine" class="muted"></span>
           </div>
+          <div id="kGroupNavLine" class="kGroupNavLine"></div>
         </div>
         <div class="muted small" id="kProgLine"></div>
       </div>`;
@@ -1773,16 +1774,40 @@ function renderKList() {
     let activeGroupKey = null;
 
     if (showAllStudents) {
+      // Build partner map from full dataset (if some rows have only 1 of the two kontaktlærere)
+      const partnerOf = {};
+      totalList.forEach(st => {
+        const a = ((st.kontaktlaerer1||'')+'').trim();
+        const b = ((st.kontaktlaerer2||'')+'').trim();
+        if (a && b) {
+          if (!partnerOf[a]) partnerOf[a] = b;
+          if (!partnerOf[b]) partnerOf[b] = a;
+        }
+      });
+
+      const normalizedGroupKey = (st) => {
+        let a = ((st.kontaktlaerer1||'')+'').trim();
+        let b = ((st.kontaktlaerer2||'')+'').trim();
+        // Infer missing partner if possible
+        if (a && !b && partnerOf[a]) b = partnerOf[a];
+        if (b && !a && partnerOf[b]) a = partnerOf[b];
+
+        if (a && b) {
+          const arr = [a,b].sort((x,y)=>x.localeCompare(y,'da'));
+          return arr.join('/');
+        }
+        return (a || b || '—');
+      };
+
       const groupsMap = new Map();
       totalList.forEach(st => {
-        const k = makeGroupKey(st);
+        const k = normalizedGroupKey(st);
         if (!groupsMap.has(k)) groupsMap.set(k, []);
         groupsMap.get(k).push(st);
       });
 
       groupKeys = Array.from(groupsMap.keys()).sort((a,b)=>a.localeCompare(b,'da'));
-
-      // init / clamp group index
+// init / clamp group index
       if (typeof state.allGroupIndex !== 'number') state.allGroupIndex = 0;
       if (state.allGroupIndex < 0) state.allGroupIndex = 0;
       if (state.allGroupIndex >= groupKeys.length) state.allGroupIndex = Math.max(0, groupKeys.length-1);
@@ -1812,21 +1837,28 @@ const prog = totalList.reduce((acc, st) => {
       const myCount = sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm).length;
 
       if (showAllStudents) {
+        // Group navigation lives inside the dashed info box (like edit navigation)
         const cur = activeGroupKey || '—';
         const idx = (typeof state.allGroupIndex === 'number') ? state.allGroupIndex : 0;
         const prevKey = (groupKeys && groupKeys.length && idx > 0) ? groupKeys[idx-1] : '';
         const nextKey = (groupKeys && groupKeys.length && idx < groupKeys.length-1) ? groupKeys[idx+1] : '';
-        const labelPrev = prevKey ? `◀ ${prevKey}` : '◀';
-        const labelNext = nextKey ? `${nextKey} ▶` : '▶';
 
-        kHeaderInfo.innerHTML = `
-          <div class="k-row groupNavRow" style="align-items:center; justify-content:space-between; gap:10px;">
-            <button id="kPrevGroup" class="btn small" ${prevKey?'':'disabled'} title="Forrige K-gruppe">${labelPrev}</button>
-            <div class="muted small" style="white-space:nowrap; text-align:center; flex:1;">Gruppe: <b>${escapeHtml(cur)}</b> · ${idx+1}/${groupKeys.length} · ${displayList.length} elever</div>
-            <button id="kNextGroup" class="btn small" ${nextKey?'':'disabled'} title="Næste K-gruppe">${labelNext}</button>
-          </div>
-        `;
+        const nav = $('kGroupNavLine');
+        if (nav) {
+          const leftBtn = prevKey ? `<button id="kPrevGroup" class="btn small" title="Forrige K-gruppe">◀ ${escapeHtml(prevKey)}</button>` : `<span></span>`;
+          const rightBtn = nextKey ? `<button id="kNextGroup" class="btn small" title="Næste K-gruppe">${escapeHtml(nextKey)} ▶</button>` : `<span></span>`;
+          nav.innerHTML = `
+            <div class="kNavRow">
+              ${leftBtn}
+              <div class="kNavCenter muted small">Gruppe: <b>${escapeHtml(cur)}</b> · ${idx+1}/${groupKeys.length} · ${displayList.length} elever</div>
+              ${rightBtn}
+            </div>
+          `;
+        }
+        // Keep the header info minimal in all-mode; print button stays to the right
+        kHeaderInfo.textContent = '';
       } else {
+        const nav = $('kGroupNavLine'); if (nav) nav.textContent = '';
         kHeaderInfo.textContent = `${who || 'K-lærer'} · ${myCount} elever`;
       }
     }

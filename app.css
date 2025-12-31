@@ -482,3 +482,14 @@ tr:hover td{background: rgba(255,255,255,.02)}
 .listBlock{display:block;}
 
 .groupNavRow .btn{min-width:92px;}
+
+
+/* --- v30 tweaks: keep badges on the right of card titles --- */
+.cardTopRow{display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem}
+.cardTopRow .cardTitle{margin-bottom:0; flex:1; min-width:0}
+.cardBadges{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.35rem}
+
+/* --- v30: group navigation row inside K-elever info box --- */
+.kGroupNavLine{margin-top:.35rem}
+.kNavRow{display:flex; align-items:center; justify-content:space-between; gap:.75rem}
+.kNavCenter{flex:1; text-align:center}
