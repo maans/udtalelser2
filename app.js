@@ -366,11 +366,11 @@ function getAllStudentsForListing() {
 }
 
 function groupKeyForStudent(st) {
-  const a = normalizeName(st.kontaktlaerer1 || '');
-  const b = normalizeName(st.kontaktlaerer2 || '');
-  const parts = [a, b].filter(Boolean);
+  const a = initialsFromName(st.kontaktlaerer1 || '');
+  const b = initialsFromName(st.kontaktlaerer2 || '');
+  const parts = [a, b].filter(Boolean).sort();
   if (!parts.length) return 'Ingen K-gruppe';
-  return parts.join(' / ');
+  return parts.join('/');
 }
 
 function getGroupKeys(studs) {
@@ -395,7 +395,7 @@ function getCurrentGroupLabel() {
   const keys = getGroupKeys(all);
   if (!keys.length) return '';
   const key = keys[Math.max(0, Math.min(state.groupIndex, keys.length - 1))];
-  return `${groupLabelFromKey(key)} (${state.groupIndex+1}/${keys.length})`;
+  return `${key} (${state.groupIndex+1}/${keys.length})`;
 }
 
 
@@ -641,6 +641,16 @@ const s = getSettings();
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function initialsFromName(input) {
+  const s = (input || "").toString().trim();
+  if (!s) return "";
+  // Already initials? Keep.
+  if (/^[A-Za-zÆØÅæøå]{1,4}$/.test(s)) return s.toUpperCase();
+  const parts = s.split(/\s+/).filter(Boolean);
+  const letters = parts.map(p => p[0]).filter(Boolean);
+  return letters.join("").toUpperCase();
 }
 
 function uniqStrings(arr) {
@@ -1329,20 +1339,17 @@ function setSettingsSubtab(sub) {
 
     $('studentsStatus').textContent = studs.length ? `✅ Elevliste indlæst: ${studs.length} elever` : `Upload elevliste først.`;
     $('studentsStatus').style.color = studs.length ? 'var(--accent)' : 'var(--muted)';
-
-    // Advarsel hvis der mangler K-lærer-data i elevlisten
-    const warnEl = $("studentsWarn");
-    if (warnEl) {
-      const missing = studs.filter(s => !String(s.kontaktlaerer1||"").trim() && !String(s.kontaktlaerer2||"").trim()).length;
-      if (missing > 0) {
-        warnEl.style.display = "block";
-        warnEl.style.color = "var(--warn)";
-        warnEl.textContent = `⚠️ Tjek manglende data i elevlisten: ${missing} elev(er) uden K-lærer 1/2.`;
-      } else {
-        warnEl.style.display = "none";
-        warnEl.textContent = "";
-      }
-    }
+	    const warnEl = document.getElementById('studentsWarn');
+	    if (warnEl) {
+	      const missing = state.csvWarnings && state.csvWarnings.missingKontakt;
+	      if (missing && missing > 0) {
+	        warnEl.textContent = `⚠️ Tjek manglende data i CSV: ${missing} elev(er) uden K-lærer.`;
+	        warnEl.style.display = 'block';
+	      } else {
+	        warnEl.textContent = '';
+	        warnEl.style.display = 'none';
+	      }
+	    }
 
     // Hvis vi er på Data & eksport, så render/refresh også flueben-tabellen her,
     // så den ikke "hænger" på en gammel status efter import af students.csv.
@@ -1472,7 +1479,6 @@ function renderKList() {
     // Resolve teacher input via alias-map (MM -> Måns ...) for both filtering and UI.
     const meRaw = ((s.me || '') + '').trim();
     const meResolvedRaw = resolveTeacherName(meRaw) || meRaw;
-  const meInitials = initialsFromName(meResolvedRaw || meRaw) || "??";
     const minePreview = meResolvedRaw
       ? studs.filter(st => {
           const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
@@ -1601,26 +1607,27 @@ const prog = mineList.reduce((acc, st) => {
     if (kHeaderInfo) {
       const who = (meResolvedConfirmed || meRaw || "").trim();
       kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
+// Toggle + gruppe-nav
+const btnToggleAllK = $("btnToggleAllK");
+if (btnToggleAllK) btnToggleAllK.textContent = state.showAllInK ? "Vis kun mine K-elever" : "Vis alle elever";
+
+const btnPrintAllK = $("btnPrintAllK");
+if (btnPrintAllK) btnPrintAllK.innerHTML = `🖨️ ${state.showAllInK ? "Print alle elever" : "Print alle K-elever"}`;
+
+const keysAll = getGroupKeys(sortedStudents(studs));
+const kGroupNav = $("kGroupNav");
+if (kGroupNav) kGroupNav.style.display = state.showAllInK ? "flex" : "none";
+
+const kGroupLabel = $("kGroupLabel");
+if (kGroupLabel) kGroupLabel.textContent = state.showAllInK ? getCurrentGroupLabel() : "";
 
 const btnPrevGroup = $("btnPrevGroup");
 const btnNextGroup = $("btnNextGroup");
-const kGroupLabel = $("btnGroupLabel");
-const keysAll = getGroupKeys(getKStudents(true));
 if (btnPrevGroup) btnPrevGroup.disabled = !state.showAllInK || state.groupIndex <= 0;
 if (btnNextGroup) btnNextGroup.disabled = !state.showAllInK || state.groupIndex >= Math.max(0, keysAll.length - 1);
-if (kGroupLabel) {
-  kGroupLabel.disabled = !state.showAllInK || keysAll.length <= 1;
-  kGroupLabel.textContent = state.showAllInK ? getCurrentGroupLabel() : "";
-  kGroupLabel.onclick = () => {
-    if (!state.showAllInK || keysAll.length <= 1) return;
-    state.groupIndex = (state.groupIndex + 1) % keysAll.length;
-    renderAll();
-  };
-}
-if (btnPrevGroup) btnPrevGroup.onclick = () => { state.groupIndex = Math.max(0, state.groupIndex - 1); renderAll(); };
-if (btnNextGroup) btnNextGroup.onclick = () => { state.groupIndex = Math.min(Math.max(0, keysAll.length - 1), state.groupIndex + 1); renderAll(); };
+    }
 
-if (kList) {
+    if (kList) {
       kList.innerHTML = mineList.map(st => {
         const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
         const free = getTextFor(st.unilogin);
@@ -2408,6 +2415,10 @@ if (document.getElementById('btnDownloadElevraad')) {
       if (!ok) { alert('Kunne ikke finde de nødvendige kolonner (fornavn, efternavn, klasse).'); return; }
 
       const students = parsed.rows.map(r => normalizeStudentRow(r, map));
+	      // Warn if contact teacher data is missing for some students (often causes "Ingen K-gruppe" or wrong counts).
+	      const missingKontakt = students.filter(st => !normalizeName(st.kontaktlaerer1) && !normalizeName(st.kontaktlaerer2)).length;
+	      state.csvWarnings = state.csvWarnings || {};
+	      state.csvWarnings.missingKontakt = missingKontakt;
       setStudents(students);
 
       renderSettings(); renderStatus();
@@ -2787,24 +2798,4 @@ if (document.getElementById('btnDownloadElevraad')) {
 }
 
   init();
-})()
-function initialsFromName(name){
-  if(!name) return "";
-  const s = String(name).trim();
-  // If already looks like initials (e.g., MM, RD, ABP)
-  if(/^[A-ZÆØÅ]{1,5}$/.test(s)) return s;
-  // If contains parentheses with initials, use those
-  const m = s.match(/\(([A-ZÆØÅ]{1,5})\)/);
-  if(m) return m[1];
-  const parts = s.replace(/[^\p{L}\s-]/gu," ").split(/\s+/).filter(Boolean);
-  if(!parts.length) return "";
-  // Use first letter of each word, up to 3
-  return parts.map(p=>p[0].toUpperCase()).join("").slice(0,3);
-}
-function groupLabelFromKey(groupKey){
-  if(!groupKey || groupKey==="Ingen K-gruppe") return "Ingen K-gruppe";
-  const parts = String(groupKey).split("/").map(s=>s.trim()).filter(Boolean);
-  const inits = parts.map(initialsFromName).filter(Boolean);
-  return inits.length ? inits.join("/") : String(groupKey);
-}
-;
+})();
