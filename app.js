@@ -119,88 +119,339 @@
     elevraad: {
       YES: {
         title: "Elevrådsrepræsentant",
-        text_m: "{{ELEV_FORNAVN}} har været en del af elevrådet på Himmerlands Ungdomsskole, hvor elevrådet blandt andet har stået for ugentlige fællesmøder for elever og lærere. Derudover har elevrådsarbejdet omfattet en række forskellige opgaver i løbet af året med ansvar for at sætte aktiviteter i gang i fællesskabets ånd. I den forbindelse har {{ELEV_FORNAVN}} vist engagement og vilje til at påtage sig og gennemføre forskellige opgaver og aktiviteter.",
-        text_k: "{{ELEV_FORNAVN}} har været en del af elevrådet på Himmerlands Ungdomsskole, hvor elevrådet blandt andet har stået for ugentlige fællesmøder for elever og lærere. Derudover har elevrådsarbejdet omfattet en række forskellige opgaver i løbet af året med ansvar for at sætte aktiviteter i gang i fællesskabets ånd. I den forbindelse har {{ELEV_FORNAVN}} vist engagement og vilje til at påtage sig og gennemføre forskellige opgaver og aktiviteter."
+        text_m: "{{ELEV_FORNAVN}} har været en del af elevrådet på Himmerlands Ungdomsskole, hvor elevrådet blandt andet har stået for ugentlige fællesmøder for elever og lærere. Derudover har elevrådsarbejdet omfattet en række forskellige opgaver i løbet af året med ansvar for at sætte aktivifunction renderKList() {
+    const s = getSettings();
+    const studs = getStudents();
+    // Resolve teacher input via alias-map (MM -> Måns ...) for both filtering and UI.
+    const meRaw = ((s.me || '') + '').trim();
+    const showAllStudents = !!state.showAllStudents;
+    const meResolvedRaw = resolveTeacherName(meRaw) || meRaw;
+    // v20: toggle-visning
+    const minePreview = showAllStudents
+      ? sortedStudents(studs)
+      : (meResolvedRaw
+          ? studs.filter(st => {
+              const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
+              const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
+              return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
+            })
+          : []);
+    const kMsg = $('kMessage');
+    if (kMsg) kMsg.classList.remove('compact');
+    const kList = $('kList');
+
+    // If "Initialer" is not confirmed yet, show an inline input that commits on ENTER.
+    // User may type initials OR full name; we only update settings when ENTER is pressed.
+    if (!((s.meResolved || '') + '').trim()) {
+      syncKToggleAndPrintLabels();
+      state.visibleKElevIds = [];
+      if (kList) kList.innerHTML = '';
+
+      const draft = (state.kMeDraft || '').trim();
+
+      if (kMsg) {
+        kMsg.innerHTML = `<div class="row between alignCenter" style="gap:1rem; flex-wrap:wrap;">
+        <div class="row alignCenter" style="gap:.7rem; flex-wrap:wrap;">
+          <div><b>${minePreview.length} match:</b> <span class="pill">${escapeHtml(meResolvedRaw || s.me || '')}</span></div>
+          <div class="muted small">
+            Kontaktlærer1/2 matcher initialer.
+            <span id="kStatusLine" class="muted"></span>
+          </div>
+          <div id="kGroupNavLine" class="kGroupNavLine"></div>
+        </div>
+        <div class="muted small" id="kProgLine"></div>
+      </div>`;
       }
-    },
-    kontaktgruppeDefault: "I kontaktgruppen har vi arbejdet med trivsel, ansvar og fællesskab.",
-    afslutningDefault: "Vi ønsker eleven alt det bedste fremover."
-  };
 
-  // Backwards compatibility: some code paths still reference DEFAULT_ALIAS_MAP.
-  // Keep it as an alias of TEACHER_ALIAS_MAP.
-  const DEFAULT_ALIAS_MAP = TEACHER_ALIAS_MAP;
+      const inp = $('kMeInline');
+      const hint = $('kMeInlineHint');
 
-    const SNIPPETS_DEFAULT = JSON.parse(JSON.stringify(SNIPPETS));
+      if (hint) hint.textContent = 'Tryk Enter for at vise dine K-elever.';
 
-const DEFAULT_SCHOOL_TEXT =
-`På Himmerlands Ungdomsskole arbejder vi med både faglighed, fællesskab og personlig udvikling.
-Udtalelsen er skrevet med udgangspunkt i elevens hverdag og deltagelse gennem skoleåret.`;
+      if (inp) {
+        // Restore focus/caret nicely
+        try { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } catch {}
+        inp.addEventListener('input', (e) => {
+          state.kMeDraft = (e.target.value || '');
+        }, { passive: true });
 
-  const DEFAULT_TEMPLATE = "Udtalelse vedrørende {{ELEV_FULDE_NAVN}}\n\n{{ELEV_FORNAVN}} {{ELEV_EFTERNAVN}} har været elev på Himmerlands Ungdomsskole i perioden fra {{PERIODE_FRA}} til {{PERIODE_TIL}} i {{ELEV_KLASSE}}.\n\nHimmerlands Ungdomsskole er en traditionsrig efterskole, som prioriterer fællesskabet og faglig fordybelse højt. Elevernes hverdag er præget af frie rammer og mange muligheder. Vi møder eleverne med tillid, positive forventninger og faglige udfordringer. I løbet af et efterskoleår på Himmerlands Ungdomsskole er oplevelserne mange og udfordringerne ligeså. Det gælder i hverdagens almindelige undervisning, som fordeler sig over boglige fag, fællesfag og profilfag. Det gælder også alle de dage, hvor hverdagen ændres til fordel for temauger, studieture mm. \n\n{{ELEV_UDVIKLING_AFSNIT}}\n\nSom en del af et efterskoleår på Himmerlands Ungdomsskole deltager eleverne ugentligt i fællessang og fællesgymnastik. Begge fag udgør en del af efterskolelivet, hvor eleverne oplever nye sider af sig selv, flytter grænser og oplever, at deres bidrag til fællesskabet har betydning. I løbet af året optræder eleverne med fælleskor og gymnastikopvisninger.\n\n{{SANG_GYM_AFSNIT}}\n\nPå en efterskole er der mange praktiske opgaver.\n\n{{PRAKTISK_AFSNIT}}\n\n{{ELEV_FORNAVN}} har på Himmerlands Ungdomsskole været en del af en kontaktgruppe på {{KONTAKTGRUPPE_ANTAL}} elever. I kontaktgruppen kender vi {{HAM_HENDE}} som {{KONTAKTGRUPPE_BESKRIVELSE}}.\n\nVi har været rigtig glade for at have {{ELEV_FORNAVN}} som elev på skolen og ønsker held og lykke fremover.\n\n{{KONTAKTLÆRER_1_NAVN}} & {{KONTAKTLÆRER_2_NAVN}}\n\nKontaktlærere\n\n{{FORSTANDER_NAVN}}\n\nForstander";
+        inp.addEventListener('keydown', (e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
 
-  // ---------- storage ----------
-  function lsGet(key, fallback) {
-    try {
-      const v = localStorage.getItem(key);
-      if (v === null || v === undefined) return fallback;
-      return JSON.parse(v);
-    } catch {
-      return fallback;
+          const raw = ((inp.value || '') + '').trim();
+          if (!raw) {
+            if (hint) hint.textContent = 'Skriv noget først (initialer eller navn).';
+            return;
+          }
+
+          const match = resolveTeacherMatch(raw);
+          const resolved = match.resolved || raw;
+
+          const s2 = getSettings();
+          s2.me = raw;
+          s2.meResolved = resolved;
+          setSettings(s2);
+
+          state.kMeDraft = '';
+
+          renderStatus();
+          renderKList();
+        });
+
+        // Allow Esc to clear draft
+        inp.addEventListener('keydown', (e) => {
+          if (e.key !== 'Escape') return;
+          state.kMeDraft = '';
+          inp.value = '';
+          if (hint) hint.textContent = 'Tryk Enter for at vise dine K-elever.';
+        });
+      }
+      return;
     }
-  }
-  function lsSet(key, value) { localStorage.setItem(key, JSON.stringify(value)); } 
-// Index: which teacher namespaces have any saved text per unilogin.
-function buildTextOwnersIndex(){
-  const idx = {};
-  try{
-    for (let i=0; i<localStorage.length; i++){
-      const k = localStorage.key(i);
-      if (!k) continue;
-      if (!k.startsWith(KEYS.textPrefix)) continue;
-      const rest = k.slice(KEYS.textPrefix.length);
-      const u = rest.indexOf('_');
-      if (u <= 0) continue;
-      const owner = rest.slice(0, u);
-      const unilogin = rest.slice(u+1);
-      if (!unilogin) continue;
 
-      // Consider "has text" if any main fields contain non-whitespace.
-      const obj = lsGet(k, null);
-      if (!obj) continue;
-      const has = !!(((obj.elevudvikling||'')+'').trim() || ((obj.praktisk||'')+'').trim() || ((obj.kgruppe||'')+'').trim());
-      if (!has) continue;
+    // Confirmed teacher name present -> show list.
+    syncKToggleAndPrintLabels();
+    const meResolvedConfirmed = ((s.meResolvedConfirmed || '') + '').trim();
+    const kHeaderInfo = $("kHeaderInfo");
+    const meNorm = normalizeName(meResolvedConfirmed || meResolvedRaw);
 
-      if (!idx[unilogin]) idx[unilogin] = [];
-      if (!idx[unilogin].includes(owner)) idx[unilogin].push(owner);
+    // If we landed here directly (e.g. reload with confirmed name), the dashed box
+    // may still be empty because it's normally populated in the "not confirmed" branch.
+    // Ensure the status/progress lines exist so we don't show an empty placeholder.
+    if (kMsg && (!$("kStatusLine") || !$("kProgLine"))) {
+      kMsg.innerHTML = `
+	        <div class="k-row groupNavRow" style="align-items:center; justify-content:space-between; gap:10px;">
+	          <div id="kStatusLine" class="muted small"></div>
+	        </div>
+        <div id="kProgLine" class="muted small" style="margin-top:6px;"></div>
+      `;
     }
-  } catch {}
-  // Stable-ish ordering (alphabetical)
-  try{
-    Object.keys(idx).forEach(u => idx[u].sort());
-  } catch {}
-  return idx;
-}
 
-function getOwnersWithText(unilogin){
-  if (!state.textOwnersIndex) state.textOwnersIndex = buildTextOwnersIndex();
-  return state.textOwnersIndex[unilogin] || [];
-}
+    // Build list (and allow quick filtering by elevnavn)
+    const mineList = showAllStudents
+      ? sortedStudents(studs)
+      : sortedStudents(studs)
+          .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
 
-function renderAllModeBadges(unilogin){
-  // Shows which K-lærere have written, and which sections they filled (U/P/K)
-  const owners = getOwnersWithText(unilogin) || [];
-  if (!owners.length) return '';
-  const pills = owners.map(owner => {
-    const obj = getTextFor(unilogin, owner);
-    const parts = [];
-    if (((obj.elevudvikling||'')+'').trim()) parts.push('U');
-    if (((obj.praktisk||'')+'').trim()) parts.push('P');
-    if (((obj.kgruppe||'')+'').trim()) parts.push('K');
-    const what = parts.length ? ` ${parts.join('')}` : '';
-    return `<span class="pill tiny" title="${escapeAttr(owner)}">${escapeHtml(owner)}${escapeHtml(what)}</span>`;
-  }).join(' ');
-  return `<span class="pills">${pills}</span>`;
+
+    
+    // Alle-elever: grupper ud fra kontaktlærer1/kontaktlærer2 (ingen kontaktgruppe-kolonne)
+    const totalList = showAllStudents ? sortedStudents(studs) : mineList;
+
+    // Build groups: key = "AB/EB" (sorted teacher keys)
+    
+    // Find mest sandsynlige "makker" (co-teacher) pr. lærer ud fra de elever der HAR begge kontaktlærere udfyldt.
+    const coCount = new Map(); // teacher -> Map(coTeacher -> count)
+    totalList.forEach(st => {
+      const a = teacherKeyFromRaw(st.kontaktlaerer1);
+      const b = teacherKeyFromRaw(st.kontaktlaerer2);
+      if (a && b) {
+        if (!coCount.has(a)) coCount.set(a, new Map());
+        if (!coCount.has(b)) coCount.set(b, new Map());
+        coCount.get(a).set(b, (coCount.get(a).get(b)||0)+1);
+        coCount.get(b).set(a, (coCount.get(b).get(a)||0)+1);
+      }
+    });
+    const topCo = {};
+    coCount.forEach((m, t) => {
+      let best = '', bestN = 0;
+      m.forEach((n, co) => { if (n > bestN) { bestN = n; best = co; } });
+      if (best) topCo[t] = best;
+    });
+
+    const makeGroupKey = (st) => {
+      let t1 = teacherKeyFromRaw(st.kontaktlaerer1);
+      let t2 = teacherKeyFromRaw(st.kontaktlaerer2);
+
+      // Hvis en elev kun har én lærer udfyldt, så "udled" makkeren fra topCo
+      if (t1 && !t2 && topCo[t1]) t2 = topCo[t1];
+      if (t2 && !t1 && topCo[t2]) t1 = topCo[t2];
+
+      const arr = [t1, t2].filter(Boolean).sort((a,b)=>a.localeCompare(b,'da'));
+      if (!arr.length) return '—';
+      return arr.join('/');
+    };
+
+
+    let displayList = mineList;
+    let groupKeys = [];
+    let activeGroupKey = null;
+
+    if (showAllStudents) {
+      
+      // In "Alle elever" mode: we group by the two contact teachers (Kontaktlærer1/2),
+      // but many rows may have only ONE of them filled out. We therefore infer the missing
+      // partner from the most common observed pairing (topCo), based on teacherKeyFromRaw().
+      const inferPartner = (t) => topCo.get(t) || null;
+
+      const normalizeGroupKey = (aRaw, bRaw) => {
+        const a = teacherKeyFromRaw(aRaw);
+        const b = teacherKeyFromRaw(bRaw);
+        const aa = a || null;
+        const bb = b || null;
+
+        // If only one teacher present, infer the partner (if possible)
+        if (aa && !bb) {
+          const p = inferPartner(aa);
+          if (p) return [aa, p].sort().join("/");
+          return aa; // fallback: single key
+        }
+        if (!aa && bb) {
+          const p = inferPartner(bb);
+          if (p) return [bb, p].sort().join("/");
+          return bb;
+        }
+
+        // Both present
+        if (aa && bb) return [aa, bb].sort().join("/");
+
+        // No teachers: put in a catch-all group (sorted last)
+        return "—";
+      };
+
+      const groupsMap = new Map();
+
+      totalList.forEach(st => {
+        const k = normalizedGroupKey(st);
+        if (!groupsMap.has(k)) groupsMap.set(k, []);
+        groupsMap.get(k).push(st);
+      });
+
+      groupKeys = Array.from(groupsMap.keys()).sort((a,b)=>a.localeCompare(b,'da'));
+// init / clamp group index
+      if (typeof state.allGroupIndex !== 'number') state.allGroupIndex = 0;
+      if (state.allGroupIndex < 0) state.allGroupIndex = 0;
+      if (state.allGroupIndex >= groupKeys.length) state.allGroupIndex = Math.max(0, groupKeys.length-1);
+
+      activeGroupKey = groupKeys[state.allGroupIndex] || (groupKeys[0]||'—');
+      displayList = groupsMap.get(activeGroupKey) || [];
+    }
+
+const prog = totalList.reduce((acc, st) => {
+      const f = getTextFor(st.unilogin);
+      acc.u += (f.elevudvikling||'').trim()?1:0;
+      acc.p += (f.praktisk||'').trim()?1:0;
+      acc.k += (f.kgruppe||'').trim()?1:0;
+      return acc;
+    }, {u:0,p:0,k:0});
+
+    const progEl = $("kProgLine");
+    if (progEl) {
+      progEl.textContent = `${showAllStudents ? 'Udfyldt (alle elever)' : 'Udfyldt (K-elever)'}: `
+        + `Udvikling: ${prog.u} af ${totalList.length} · Praktisk: ${prog.p} af ${totalList.length} · K-gruppe: ${prog.k} af ${totalList.length}`;}
+
+    const statusEl = $("kStatusLine");
+    if (statusEl) statusEl.textContent = "";
+    if (kHeaderInfo) {
+      const who = (meResolvedConfirmed || meRaw || "").trim();
+      const allCount = sortedStudents(studs).length;
+      const myCount = sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm).length;
+
+      if (showAllStudents) {
+        // Group navigation lives inside the dashed info box (like edit navigation)
+        const cur = activeGroupKey || '—';
+        const idx = (typeof state.allGroupIndex === 'number') ? state.allGroupIndex : 0;
+        const prevKey = (groupKeys && groupKeys.length && idx > 0) ? groupKeys[idx-1] : '';
+        const nextKey = (groupKeys && groupKeys.length && idx < groupKeys.length-1) ? groupKeys[idx+1] : '';
+
+        const nav = $('kGroupNavLine');
+        if (nav) {
+          const leftBtn = prevKey ? `<button id="kPrevGroup" class="btn small" title="Forrige K-gruppe">◀ ${escapeHtml(prevKey)}</button>` : `<span></span>`;
+          const rightBtn = nextKey ? `<button id="kNextGroup" class="btn small" title="Næste K-gruppe">${escapeHtml(nextKey)} ▶</button>` : `<span></span>`;
+          nav.innerHTML = `
+            <div class="kNavRow">
+              ${leftBtn}
+              <div class="kNavCenter muted small">Gruppe: <b>${escapeHtml(cur)}</b> · ${idx+1}/${groupKeys.length} · ${displayList.length} elever</div>
+              ${rightBtn}
+            </div>
+          `;
+        }
+        // Keep the header info minimal in all-mode; print button stays to the right
+        kHeaderInfo.textContent = '';
+      } else {
+        const nav = $('kGroupNavLine'); if (nav) nav.textContent = '';
+        kHeaderInfo.textContent = `${who || 'K-lærer'} · ${myCount} elever`;
+      }
+    }
+
+    
+    if (kList) {
+      // We render our own two-column layout (piger/drengene), so kList must NOT also be a 2-col grid.
+      kList.classList.remove('list');
+      kList.classList.add('listBlock');
+
+      const isAllMode = !!state.showAllStudents;
+
+      // Split by gender inside current view
+      const girls = displayList.filter(st => genderGroup(st.koen) === 0).sort(sortByNameDA);
+      const boys  = displayList.filter(st => genderGroup(st.koen) === 1).sort(sortByNameDA);
+      const other = displayList.filter(st => genderGroup(st.koen) === 2).sort(sortByNameDA);
+
+      const renderCard = (st) => {
+        const login = st.unilogin;
+        // In all-mode we show owner pills (who wrote + U/P/K); in K-mode we show my U/P/K
+        const badgeHtml = isAllMode
+          ? ((typeof renderAllModeBadges === 'function') ? renderAllModeBadges(login) : '')
+          : (() => {
+              const f = getTextFor(login);
+              const parts = [];
+              if (((f.elevudvikling||'')+'').trim()) parts.push('U');
+              if (((f.praktisk||'')+'').trim()) parts.push('P');
+              if (((f.kgruppe||'')+'').trim()) parts.push('K');
+              return parts.length ? `<span class="pills"><span class="pill tiny">${parts.join('')}</span></span>` : '';
+            })();
+
+        const cls = formatClassLabel(st.klasse);
+        return `
+          <div class="card" data-unilogin="${escapeAttr(login)}">
+            <div class="cardTop">
+              <div class="cardTitle">${escapeHtml(st.fornavn || '')} ${escapeHtml(st.efternavn || '')}</div>
+              <div class="cardBadges">${badgeHtml}</div>
+            </div>
+            <div class="cardMeta">${escapeHtml(cls || '')}</div>
+          </div>
+        `;
+      };
+
+      const colHtml = (arr, title) => `
+        <div class="splitCol">
+          ${title ? `<div class="muted small colDivider">${escapeHtml(title)}</div>` : ``}
+          ${arr.map(renderCard).join('')}
+        </div>
+      `;
+
+      const left = girls.concat(other);
+      const right = boys;
+
+      kList.innerHTML = `
+        <div class="splitCols">
+          ${colHtml(left, 'Piger')}
+          ${colHtml(right, 'Drenge')}
+        </div>
+      `;
+
+      // Card click => open Redigér
+      
+      // Card click => open Redigér (event delegation)
+      kList.onclick = (ev) => {
+        const card = ev.target && ev.target.closest ? ev.target.closest('.card') : null;
+        if (!card) return;
+        const login = card.getAttribute('data-unilogin');
+        if (!login) return;
+        state.selectedUnilogin = login;
+        setTab('edit');
+      };
+
+// Group nav buttons (all-mode)
+      const prevBtn = $('kPrevGroup');
+      const nextBtn = $('kNextGroup');
+      if (isAllMode && prevBtn && nextBtn) {
+        prevBtn.onclick = () => { state.allGroupIndex = Math.max(0, (state.allGroupIndex||0) - 1); renderKList(); };
+        nextBtn.onclick = () => { state.allGroupIndex = Math.min(groupKeys.length-1, (state.allGroupIndex||0) + 1); renderKList(); };
+      }
+    }
+
 }
 
 
