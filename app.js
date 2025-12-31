@@ -837,14 +837,8 @@ function updateTeacherDatalist() {
   const nameItems = fullNames
     .filter(n => n && !aliasNames.has(normalizeName(n)))
     .map(n => ({ kind: 'name', code: '', name: n }));
-
-  // Special "Alle" item
-  const allModeItem = { kind:'all', code:'ALLE', name:'Alle (alle k-lærere)', value:'Alle' };
-
-  // Sorted: aliases first, then names
-  aliasItems.sort((a,b) => a.code.localeCompare(b.code));
-  nameItems.sort((a,b) => normalizeName(a.name).localeCompare(normalizeName(b.name)));
-  const allItems = [allModeItem, ...aliasItems, ...nameItems];
+  // (v20+) 'Alle' som bruger er fjernet.
+  const allItems = [...aliasItems, ...nameItems];
 
   function itemMatches(it, q){
     // Autocomplete behavior: match from the *start* of alias codes or name-words.
@@ -892,11 +886,7 @@ function updateTeacherDatalist() {
       const right = document.createElement('div');
       right.className = 'tpRight';
 
-      if (it.kind === 'all') {
-        left.textContent = 'Alle';
-        right.textContent = '(alle k-lærere)';
-        row.dataset.value = 'Alle';
-      } else if (it.kind === 'alias'){
+      if (it.kind === 'alias'){
         left.textContent = it.code;
         right.textContent = it.name ? `(${it.name})` : '';
         row.dataset.value = it.code;
@@ -1832,6 +1822,8 @@ const prog = totalList.reduce((acc, st) => {
         const boys  = displayList.filter(st => genderGroup(st.koen) === 1).sort((a,b)=> (a.efternavn||'').localeCompare(b.efternavn||'', 'da') || (a.fornavn||'').localeCompare(b.fornavn||'', 'da'));
         const other = displayList.filter(st => genderGroup(st.koen) === 2).sort((a,b)=> (a.efternavn||'').localeCompare(b.efternavn||'', 'da') || (a.fornavn||'').localeCompare(b.fornavn||'', 'da'));
 
+        const badgeFn = (typeof renderAllModeBadges === 'function') ? renderAllModeBadges : (() => '');
+
         const renderCard = (st) => {
           const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
           const free = getTextFor(st.unilogin);
@@ -1842,7 +1834,7 @@ const prog = totalList.reduce((acc, st) => {
             <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
               <div class="cardTopRow">
                 <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
-                <div class="cardFlags muted small">${renderAllModeBadges(st.unilogin)}</div>
+                <div class="cardFlags muted small">${badgeFn(st.unilogin)}</div>
               </div>
               <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
             </div>
