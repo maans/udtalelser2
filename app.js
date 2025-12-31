@@ -782,7 +782,8 @@ function resolveTeacherMatch(raw) {
   const input = (raw ?? "").toString().trim();
   if (!input) return { raw: "", resolved: "" };
 
-  const aliasMap = (s && s.aliasMap) ? s.aliasMap : DEFAULT_ALIAS_MAP;
+  // Merge alias maps, but let DEFAULT_ALIAS_MAP win to avoid stale/wrong mappings in localStorage.
+  const aliasMap = { ...(s && s.aliasMap ? s.aliasMap : {}), ...DEFAULT_ALIAS_MAP };
   const key = normalizeName(input).replace(/\s+/g, "");
   if (aliasMap && aliasMap[key]) {
     return { raw: input, resolved: aliasMap[key] };
@@ -807,6 +808,10 @@ function resolveTeacherName(raw) {
 function toInitials(raw) {
   const s = ((raw||'')+'').trim();
   if (!s) return '';
+
+  // Specific HU-names where middle name is the intended "initial letter".
+  // This avoids regressions like "AP" (Pedersen) instead of the agreed "AB" (Bech).
+  if (normalizeName(s).replace(/\s+/g,'') === 'andreasbechpedersen') return 'AB';
   // Already initials?
   if (/^[A-ZÆØÅ]{1,4}(\/[A-ZÆØÅ]{1,4})?$/.test(s)) return s;
   // If alias map can reverse-map, prefer that.
@@ -822,7 +827,8 @@ function toInitials(raw) {
 function reverseResolveTeacherInitials(nameOrInitials) {
   // Try to map full name -> initials based on known alias map (if present in settings).
   const s = getSettings();
-  const m = (s.aliasMap || {});
+  // Merge, but let defaults win to avoid stale/wrong mappings.
+  const m = { ...(s.aliasMap || {}), ...DEFAULT_ALIAS_MAP };
   const key = ((nameOrInitials||'')+'').trim().toLowerCase();
   for (const [ini, full] of Object.entries(m)) {
     if (((full||'')+'').trim().toLowerCase() === key) return (ini||'').toUpperCase();
@@ -882,7 +888,8 @@ function updateTeacherDatalist() {
   if (!input || !menu || !btn || !wrap) return;
 
   const s = getSettings();
-  const aliasMap = (s && s.aliasMap) ? s.aliasMap : DEFAULT_ALIAS_MAP;
+  // Merge alias maps, but let DEFAULT_ALIAS_MAP win to avoid stale/wrong mappings in localStorage.
+  const aliasMap = { ...(s && s.aliasMap ? s.aliasMap : {}), ...DEFAULT_ALIAS_MAP };
   // Teacher names should come from aliasMap (NOT from students), to avoid accidental matches on student names.
   const fullNames = Object.values(aliasMap || {}).map(v => (v||'').toString().trim()).filter(Boolean);
 
@@ -991,7 +998,7 @@ function setActive(idx){
         setSettings(s2);
         input.value = ini;
         renderStatus();
-        try { setTab('k'); } catch(_) {}
+        try { state.viewMode = 'K'; setTab('k'); } catch(_) {}
 
         closeMenu();
       });
@@ -1054,7 +1061,7 @@ function setActive(idx){
             setSettings(s2);
             input.value = ini;
             renderStatus();
-            try { setTab('k'); } catch(_) {}
+            try { state.viewMode = 'K'; setTab('k'); } catch(_) {}
             return;
           }
         }
@@ -1071,7 +1078,7 @@ function setActive(idx){
         setSettings(s2);
         input.value = ini;
         renderStatus();
-        try { setTab('k'); } catch(_) {}
+        try { state.viewMode = 'K'; setTab('k'); } catch(_) {}
       }
     });
 }
@@ -2356,15 +2363,14 @@ if (searchEl && !searchEl.dataset.bound){
     });
 
     const kgrpLabel = (st) => {
-      const a = (st.k1 || st.k_l1 || st.kontaktlaerer1 || st.kontaktlærer1 || st.k_lærer1 || '').toString().trim().toUpperCase();
-      const b = (st.k2 || st.k_l2 || st.kontaktlaerer2 || st.kontaktlærer2 || st.k_lærer2 || '').toString().trim().toUpperCase();
-      if (a && b) return `${a}/${b}`;
-      return a || b || '–';
+      // Always show initials-based group key (e.g. AB/EB), even if CSV stores full teacher names.
+      const a = (st.k1 || st.k_l1 || st.kontaktlaerer1 || st.kontaktlærer1 || st.k_lærer1 || '').toString().trim();
+      const b = (st.k2 || st.k_l2 || st.kontaktlaerer2 || st.kontaktlærer2 || st.k_lærer2 || '').toString().trim();
+      return groupKeyFromTeachers(a, b);
     };
 
     function renderRowCheckbox(unilogin, key, checked){
-      const id = `${escapeAttr(unilogin)}__${escapeAttr(key)}`;
-      return `<input type="checkbox" data-uni="${escapeAttr(unilogin)}" data-key="${escapeAttr(key)}" ${checked?'checked':''} aria-label="${escapeAttr(key)}" />`;
+      return `<td class="cb"><input type="checkbox" data-uni="${escapeAttr(unilogin)}" data-key="${escapeAttr(key)}" ${checked?'checked':''} aria-label="${escapeAttr(key)}" /></td>`;
     }
 
     function bindCheckboxes(storeKey){
@@ -2391,7 +2397,7 @@ if (searchEl && !searchEl.dataset.bound){
           <thead>
             <tr>
               <th>Navn</th><th>K-grp</th><th>Klasse</th>
-              ${cols.map(c => `<th title="${escapeAttr(SNIPPETS.sang[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.sang[c].title||'')}</span></th>`).join('')}
+              ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.sang[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.sang[c].title||'')}</span></th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -2422,7 +2428,7 @@ if (searchEl && !searchEl.dataset.bound){
           <thead>
             <tr>
               <th>Navn</th><th>K-grp</th><th>Klasse</th>
-              ${cols.map(c => `<th title="${escapeAttr(SNIPPETS.gym[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.gym[c].title||'')}</span></th>`).join('')}
+              ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.gym[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.gym[c].title||'')}</span></th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -2453,7 +2459,7 @@ if (searchEl && !searchEl.dataset.bound){
         <thead>
           <tr>
             <th>Navn</th><th>K-grp</th><th>Klasse</th>
-            ${cols.map(c => `<th title="${escapeAttr(SNIPPETS.elevraad[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.elevraad[c].title||'')}</span></th>`).join('')}
+            ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.elevraad[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.elevraad[c].title||'')}</span></th>`).join('')}
           </tr>
         </thead>
         <tbody>
