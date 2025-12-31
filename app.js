@@ -1621,6 +1621,71 @@ function renderKList() {
     const kHeaderInfo = $("kHeaderInfo");
     const meNorm = normalizeName(meResolvedConfirmed || meResolvedRaw);
 
+    // --- ALL-mode navigation (K-grupper) ---
+    // In ALL mode we show one K-gruppe at a time with ◀︎ / ▶︎ navigation.
+    // In K mode we hide the nav-row and keep the existing header/print placement.
+    (function syncAllNav(){
+      const navRow = $("kAllNavRow");
+      const navLabel = $("kAllNavLabel");
+      const navRight = $("kAllNavRight");
+      const titleActions = $("kTitleActions");
+      const btnPrint = $("btnPrintAllK");
+      const btnPrev = $("btnPrevGroup");
+      const btnNext = $("btnNextGroup");
+
+      if (!navRow || !navLabel || !navRight || !titleActions || !btnPrint || !btnPrev || !btnNext) return;
+
+      // Move print button to the correct place depending on mode.
+      try {
+        if (isAll) {
+          if (btnPrint.parentElement !== navRight) navRight.appendChild(btnPrint);
+        } else {
+          if (btnPrint.parentElement !== titleActions) titleActions.appendChild(btnPrint);
+        }
+      } catch(_) {}
+
+      // Default: hidden
+      navRow.style.display = isAll ? '' : 'none';
+
+      if (!isAll) return;
+
+      const totalGroups = kGroups.length || 0;
+      const gi = Math.max(0, Math.min(state.kGroupIndex || 0, Math.max(0, totalGroups - 1)));
+      state.kGroupIndex = gi;
+
+      // Progress = how many students have *any* text (U/P/K)
+      const totalStudents = studs.length || 0;
+      let edited = 0;
+      for (const st of studs) {
+        const t = getTextFor(st.unilogin);
+        const hasAny = !!((t.elevudvikling||'').trim() || (t.praktisk||'').trim() || (t.kgruppe||'').trim());
+        if (hasAny) edited++;
+      }
+
+      const g = kGroups[gi];
+      const key = g ? g.key : '—';
+      navLabel.textContent = `${key} · Gruppe ${gi+1}/${totalGroups} · U: ${edited}/${totalStudents}`;
+
+      // Hide arrows at edges
+      btnPrev.style.visibility = (gi > 0) ? 'visible' : 'hidden';
+      btnNext.style.visibility = (gi < totalGroups - 1) ? 'visible' : 'hidden';
+
+      if (!btnPrev.__wired) {
+        btnPrev.__wired = true;
+        btnPrev.addEventListener('click', () => {
+          if (state.kGroupIndex > 0) state.kGroupIndex -= 1;
+          renderKList();
+        });
+      }
+      if (!btnNext.__wired) {
+        btnNext.__wired = true;
+        btnNext.addEventListener('click', () => {
+          if (state.kGroupIndex < kGroups.length - 1) state.kGroupIndex += 1;
+          renderKList();
+        });
+      }
+    })();
+
     // If we landed here directly (e.g. reload with confirmed name), the dashed box
     // may still be empty because it's normally populated in the "not confirmed" branch.
     // Ensure the status/progress lines exist so we don't show an empty placeholder.
@@ -1633,9 +1698,12 @@ function renderKList() {
       `;
     }
 
-    // Build list (and allow quick filtering by elevnavn)
-    const mineList = sortedStudents(studs)
-      .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
+    // Build list
+    // - K mode: show only my K-elever
+    // - ALL mode: show current K-gruppe (state.kGroupIndex)
+    const mineList = isAll
+      ? ((kGroups[state.kGroupIndex] && kGroups[state.kGroupIndex].students) ? kGroups[state.kGroupIndex].students.slice() : [])
+      : sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
 
 const prog = mineList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
@@ -1653,8 +1721,12 @@ const prog = mineList.reduce((acc, st) => {
     const statusEl = $("kStatusLine");
     if (statusEl) statusEl.textContent = "";
     if (kHeaderInfo) {
-      const who = (meResolvedConfirmed || meRaw || "").trim();
-      kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
+      if (isAll) {
+        kHeaderInfo.textContent = `Viser alle elever (K-grupper).`;
+      } else {
+        const who = (meResolvedConfirmed || meRaw || "").trim();
+        kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
+      }
     }
 
     if (kList) {
@@ -1665,11 +1737,18 @@ const prog = mineList.reduce((acc, st) => {
         const hasP = !!(free.praktisk || '').trim();
         const hasK = !!(free.kgruppe || '').trim();
 
+        // ALL-mode status: U · P · K → initials (last editor)
+        const lastBy = ((free.lastEditedBy || '') + '').trim();
+        const letters = [hasU ? 'U' : '', hasP ? 'P' : '', hasK ? 'K' : ''].filter(Boolean).join(' · ');
+        const statusRight = isAll
+          ? (letters ? `${letters}${lastBy ? ` → ${escapeHtml(lastBy)}` : ''}` : '')
+          : `${hasU?'U':''}${hasP?' P':''}${hasK?' K':''}`;
+
         return `
           <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
-              <div class="cardFlags muted small">${hasU?'U':''}${hasP?' P':''}${hasK?' K':''}</div>
+              <div class="cardFlags muted small">${statusRight}</div>
             </div>
             <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
           </div>
@@ -2547,6 +2626,14 @@ if (document.getElementById('btnDownloadElevraad')) {
         obj.praktisk = $('txtPraktisk').value;
         obj.kgruppe = $('txtKgruppe').value;
         obj.lastSavedTs = Date.now();
+        // Track last editor (initials) for ALL-mode status badges.
+        // We store a single "lastEditedBy" for the whole student card (simple + robust).
+        try {
+          const sNow = getSettings();
+          const rawMe = ((sNow.me || sNow.meResolved || '') + '').trim();
+          const ini = toInitials(rawMe || (sNow.meResolved || ''));
+          if (ini) obj.lastEditedBy = ini;
+        } catch(_) {}
         setTextFor(state.selectedUnilogin, obj);
 
         const as = $('autosavePill');
