@@ -340,8 +340,15 @@ function exportLocalBackup() {
     alert('Der var ingen lokale data at tage backup af endnu.');
     return;
   }
-  const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  downloadJson(`elevudtalelser_backup_${stamp}.json`, {
+  // Filename: "<INITIALER>_UdtalelsesBackup.json" (so backups are easy to share across K-lærere)
+  let ini = '';
+  try {
+    const s = getSettings();
+    const raw = ((s.me || s.meResolved || '') + '').trim();
+    ini = toInitials(raw);
+  } catch(_) {}
+  const fn = `${(ini || 'XX')}_UdtalelsesBackup.json`;
+  downloadJson(fn, {
     schema: 'elevudtalelser_backup_v1',
     prefix: LS_PREFIX,
     createdAt: new Date().toISOString(),
@@ -556,19 +563,73 @@ function importLocalBackup(file) {
       if (!obj || typeof obj !== 'object' || !obj.data) throw new Error('Ugyldig backupfil.');
       const prefix = obj.prefix || LS_PREFIX;
 
-      // Slet nuværende app-keys (samme prefix) for at undgå gamle rester
-      const toRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith(prefix)) toRemove.push(k);
-      }
-      toRemove.forEach(k => localStorage.removeItem(k));
+      // SAFE IMPORT (merge) so you can import colleagues' backups without losing your own work.
+      // Policy:
+      // - We never delete existing data.
+      // - For text keys (udt_text_<unilogin>): merge per field (only fill blanks).
+      // - For non-text keys: import only if missing locally.
+      const textKeyPrefix = prefix + 'text_';
+      let mergedText = 0, addedText = 0, skippedText = 0;
+      let addedOther = 0, skippedOther = 0;
 
-      // Gendan keys
-      Object.entries(obj.data).forEach(([k,v]) => {
-        if (typeof k === 'string' && k.startsWith(prefix)) localStorage.setItem(k, String(v ?? ''));
+      Object.entries(obj.data).forEach(([k, v]) => {
+        if (typeof k !== 'string' || !k.startsWith(prefix)) return;
+        const incomingRaw = String(v ?? '');
+
+        // Never import colleague settings over your own.
+        if (k === KEYS.settings) { skippedOther++; return; }
+
+        if (k.startsWith(textKeyPrefix)) {
+          const existingRaw = localStorage.getItem(k);
+          if (!existingRaw) {
+            localStorage.setItem(k, incomingRaw);
+            addedText++;
+            return;
+          }
+          // Merge JSON fields if possible
+          try {
+            const ex = JSON.parse(existingRaw || '{}') || {};
+            const inc = JSON.parse(incomingRaw || '{}') || {};
+            const fields = ['elevudvikling','praktisk','kgruppe'];
+            let changed = false;
+            fields.forEach(f => {
+              const exVal = ((ex[f] ?? '') + '').trim();
+              const incVal = ((inc[f] ?? '') + '').trim();
+              if (!exVal && incVal) { ex[f] = inc[f]; changed = true; }
+            });
+            // If we had no local lastEditedBy, keep incoming for visibility.
+            if (!((ex.lastEditedBy || '') + '').trim() && ((inc.lastEditedBy || '') + '').trim()) {
+              ex.lastEditedBy = inc.lastEditedBy;
+              changed = true;
+            }
+            if (changed) {
+              localStorage.setItem(k, JSON.stringify(ex));
+              mergedText++;
+            } else {
+              skippedText++;
+            }
+          } catch (_) {
+            // Fallback: keep existing (safe)
+            skippedText++;
+          }
+          return;
+        }
+
+        // Non-text keys: import only if missing, to avoid clobbering your setup.
+        if (localStorage.getItem(k) == null) {
+          localStorage.setItem(k, incomingRaw);
+          addedOther++;
+        } else {
+          skippedOther++;
+        }
       });
 
+      alert(
+        `Backup importeret (sikkert)\n\n` +
+        `Tekster: +${addedText} nye, +${mergedText} udfyldt (tomt→fyldt), ${skippedText} uændret\n` +
+        `Andet: +${addedOther} nye nøgler, ${skippedOther} uændret\n\n` +
+        `Tip: Import af kollegers backup udfylder primært tomme felter – det overskriver ikke din tekst.`
+      );
       location.reload();
     } catch (err) {
       alert(err?.message || 'Kunne ikke indlæse backup.');
@@ -1827,14 +1888,15 @@ const prog = mineList.reduce((acc, st) => {
 
     const progEl = $("kProgLine");
     if (progEl) {
-      const txt = `Udfyldt indtil nu: Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;
-      // I ALL-visning flytter vi "Udfyldt"-linjen ind i navigationsfeltet.
+      const core = `Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;
+      const txt = `Udfyldt indtil nu: ${core}`;
+      // I ALL-visning viser vi KUN "core" i midten (uden "Udfyldt indtil nu"), så linjen ikke bliver for høj.
       progEl.textContent = txt;
       progEl.style.display = isAll ? 'none' : '';
       // I K-visning centrerer vi linjen i den stiplede boks.
       progEl.style.textAlign = isAll ? '' : 'center';
       const navLabel = $("kAllNavLabel");
-      if (isAll && navLabel) navLabel.textContent = txt;
+      if (isAll && navLabel) navLabel.textContent = core;
     }
 
     const statusEl = $("kStatusLine");
