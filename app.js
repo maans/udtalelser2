@@ -1715,7 +1715,7 @@ function renderKList() {
     // Ensure the status/progress lines exist so we don't show an empty placeholder.
     if (kMsg && (!$("kStatusLine") || !$("kProgLine"))) {
       kMsg.innerHTML = `
-	        <div class="k-row" style="align-items:center; gap:10px;">
+	        <div class="k-row groupNavRow" style="align-items:center; justify-content:space-between; gap:10px;">
 	          <div id="kStatusLine" class="muted small"></div>
 	        </div>
         <div id="kProgLine" class="muted small" style="margin-top:6px;"></div>
@@ -1734,13 +1734,39 @@ function renderKList() {
     const totalList = showAllStudents ? sortedStudents(studs) : mineList;
 
     // Build groups: key = "AB/EB" (sorted teacher keys)
+    
+    // Find mest sandsynlige "makker" (co-teacher) pr. lærer ud fra de elever der HAR begge kontaktlærere udfyldt.
+    const coCount = new Map(); // teacher -> Map(coTeacher -> count)
+    totalList.forEach(st => {
+      const a = teacherKeyFromRaw(st.kontaktlaerer1);
+      const b = teacherKeyFromRaw(st.kontaktlaerer2);
+      if (a && b) {
+        if (!coCount.has(a)) coCount.set(a, new Map());
+        if (!coCount.has(b)) coCount.set(b, new Map());
+        coCount.get(a).set(b, (coCount.get(a).get(b)||0)+1);
+        coCount.get(b).set(a, (coCount.get(b).get(a)||0)+1);
+      }
+    });
+    const topCo = {};
+    coCount.forEach((m, t) => {
+      let best = '', bestN = 0;
+      m.forEach((n, co) => { if (n > bestN) { bestN = n; best = co; } });
+      if (best) topCo[t] = best;
+    });
+
     const makeGroupKey = (st) => {
-      const t1 = teacherKeyFromRaw(st.kontaktlaerer1);
-      const t2 = teacherKeyFromRaw(st.kontaktlaerer2);
+      let t1 = teacherKeyFromRaw(st.kontaktlaerer1);
+      let t2 = teacherKeyFromRaw(st.kontaktlaerer2);
+
+      // Hvis en elev kun har én lærer udfyldt, så "udled" makkeren fra topCo
+      if (t1 && !t2 && topCo[t1]) t2 = topCo[t1];
+      if (t2 && !t1 && topCo[t2]) t1 = topCo[t2];
+
       const arr = [t1, t2].filter(Boolean).sort((a,b)=>a.localeCompare(b,'da'));
       if (!arr.length) return '—';
       return arr.join('/');
     };
+
 
     let displayList = mineList;
     let groupKeys = [];
@@ -1794,9 +1820,9 @@ const prog = totalList.reduce((acc, st) => {
         const labelNext = nextKey ? `${nextKey} ▶` : '▶';
 
         kHeaderInfo.innerHTML = `
-          <div class="k-row" style="align-items:center; gap:10px;">
+          <div class="k-row groupNavRow" style="align-items:center; justify-content:space-between; gap:10px;">
             <button id="kPrevGroup" class="btn small" ${prevKey?'':'disabled'} title="Forrige K-gruppe">${labelPrev}</button>
-            <div class="muted small" style="white-space:nowrap;">Gruppe: <b>${escapeHtml(cur)}</b> · ${idx+1}/${groupKeys.length} · ${displayList.length} elever</div>
+            <div class="muted small" style="white-space:nowrap; text-align:center; flex:1;">Gruppe: <b>${escapeHtml(cur)}</b> · ${idx+1}/${groupKeys.length} · ${displayList.length} elever</div>
             <button id="kNextGroup" class="btn small" ${nextKey?'':'disabled'} title="Næste K-gruppe">${labelNext}</button>
           </div>
         `;
@@ -1862,16 +1888,18 @@ const prog = totalList.reduce((acc, st) => {
       `;
 
       // Card click => open Redigér
-      Array.from(kList.querySelectorAll('.card')).forEach(el => {
-        el.addEventListener('click', () => {
-          const login = el.getAttribute('data-unilogin');
-          if (!login) return;
-          state.activeUnilogin = login;
-          setTab('edit');
-        });
-      });
+      
+      // Card click => open Redigér (event delegation)
+      kList.onclick = (ev) => {
+        const card = ev.target && ev.target.closest ? ev.target.closest('.card') : null;
+        if (!card) return;
+        const login = card.getAttribute('data-unilogin');
+        if (!login) return;
+        state.selectedUnilogin = login;
+        setTab('edit');
+      };
 
-      // Group nav buttons (all-mode)
+// Group nav buttons (all-mode)
       const prevBtn = $('kPrevGroup');
       const nextBtn = $('kNextGroup');
       if (isAllMode && prevBtn && nextBtn) {

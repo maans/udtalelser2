@@ -480,3 +480,5 @@ tr:hover td{background: rgba(255,255,255,.02)}
 
 
 .listBlock{display:block;}
+
+.groupNavRow .btn{min-width:92px;}
