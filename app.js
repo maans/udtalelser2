@@ -1601,19 +1601,6 @@ const prog = mineList.reduce((acc, st) => {
     if (kHeaderInfo) {
       const who = (meResolvedConfirmed || meRaw || "").trim();
       kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
-// Toggle + gruppe-nav
-const btnToggleAllK = $("btnToggleAllK");
-if (btnToggleAllK) btnToggleAllK.textContent = state.showAllInK ? `Vis kun ${meInitials} K-elever` : "Vis alle elever";
-
-const btnPrintAllK = $("btnPrintAllK");
-if (btnPrintAllK) btnPrintAllK.innerHTML = `🖨️ ${state.showAllInK ? "Print alle elever" : "Print alle"}`;
-
-const keysAll = getGroupKeys(sortedStudents(studs));
-const kGroupNav = $("kGroupNav");
-if (kGroupNav) kGroupNav.style.display = state.showAllInK ? "flex" : "none";
-
-const kGroupLabel = $("btnGroupLabel");
-if (kGroupLabel) kGroupLabel.textContent = state.showAllInK ? getCurrentGroupLabel() : "";
 
 const btnPrevGroup = $("btnPrevGroup");
 const btnNextGroup = $("btnNextGroup");
