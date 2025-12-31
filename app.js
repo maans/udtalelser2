@@ -4,6 +4,28 @@
 (() => {
   'use strict';
 
+  // localStorage helpers (safe JSON)
+  const lsGet = (key, fallback = null) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw === null || raw === undefined || raw === '') return fallback;
+      return JSON.parse(raw);
+    } catch (e) {
+      return fallback;
+    }
+  };
+  const lsSet = (key, value) => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  };
+  const lsDel = (key) => {
+    try { localStorage.removeItem(key); } catch (e) {}
+  };
+  // Backwards compatible aliases (older builds used isGet/isSet)
+  const isGet = lsGet;
+  const isSet = lsSet;
+  const isDel = lsDel;
+
+
   const LS_PREFIX = 'udt_';
   const KEYS = {
     settings: LS_PREFIX + 'settings',
