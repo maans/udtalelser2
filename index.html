@@ -31,9 +31,12 @@
           <h1 id="kViewTitle">K-elever</h1>
           <div class="row gap wrap" style="justify-content:flex-end">
             <div class="muted small" id="kHeaderInfo"></div>
-            <button class="btn small no-print" id="btnToggleShowAll" type="button" title="Skift mellem kun dine K-elever og alle elever">Viser alle elever</button>
-
-            <button class="btn small no-print" id="btnPrintAllK" type="button" title="Print alle dine K-elever som én samlet udskrift">🖨️ Print alle K-elever</button>
+            <div class="wrap no-print" id="kGroupNav" style="gap:8px; justify-content:flex-end; margin-top:6px; display:none;">
+              <button class="btn small" id="btnGroupPrev" type="button">◀︎</button>
+              <div class="muted small" id="kGroupTitle"></div>
+              <button class="btn small" id="btnGroupNext" type="button">▶︎</button>
+            </div>
+<button class="btn small no-print" id="btnPrintAllK" type="button" title="Print alle dine K-elever som én samlet udskrift">🖨️ Print alle K-elever</button>
           </div>
         </div>
       </div>

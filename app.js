@@ -967,24 +967,22 @@ function normalizePlaceholderKey(key) {
   function $(id){ return document.getElementById(id); }
 
 function syncKToggleAndPrintLabels(){
-  const btnToggleShowAll = $("btnToggleShowAll");
   const btnPrintAllK = $("btnPrintAllK");
   const titleEl = $("kViewTitle");
   const tabLbl = $("tabKLabel");
+  const tabBtn = $("tab-k");
   const kHeaderInfo = $("kHeaderInfo");
   const showAll = !!state.showAllStudents;
 
-  // Titles (current view)
   if (titleEl) titleEl.textContent = showAll ? "Alle elever" : "K-elever";
   if (tabLbl) tabLbl.textContent = showAll ? "Alle elever" : "K-elever";
 
-  // Toggle button (action)
-  if (btnToggleShowAll) btnToggleShowAll.textContent = showAll ? "Skift til K-elever" : "Skift til Alle elever";
+  if (tabBtn) {
+    tabBtn.title = showAll ? "Klik for at skifte til K-elever" : "Klik for at skifte til Alle elever";
+  }
 
-  // Print button (current view)
   if (btnPrintAllK) btnPrintAllK.textContent = showAll ? "🖨️ Print alle elever" : "🖨️ Print alle K-elever";
 
-  // Header info (subtitle) is set in renderKList once counts are known.
   if (kHeaderInfo && !kHeaderInfo.textContent) kHeaderInfo.textContent = "";
 }
 
@@ -1080,7 +1078,8 @@ const on = (id, ev, fn, opts) => { const el = document.getElementById(id); if (e
     // The current visible K-elev list (after any filters). Used for prev/next navigation in Redigér.
     visibleKElevIds: [],
     kMeDraft: '',
-    showAllStudents: false
+    showAllStudents: false,
+    allGroupIndex: 0
   };
 
   // Restore last UI selection (settings subtab etc.) from localStorage
@@ -1115,6 +1114,7 @@ function defaultSettings() {
     if (typeof ui.settingsSubtab === 'string' && ui.settingsSubtab) stateObj.settingsSubtab = ui.settingsSubtab;
     if (typeof ui.marksType === 'string' && ui.marksType) stateObj.marksType = ui.marksType;
     if (typeof ui.showAllStudents === 'boolean') stateObj.showAllStudents = ui.showAllStudents;
+    if (typeof ui.allGroupIndex === 'number') stateObj.allGroupIndex = ui.allGroupIndex;
   }
 
   function saveUIStateFrom(stateObj){
@@ -1123,6 +1123,7 @@ function defaultSettings() {
     s.ui.settingsSubtab = stateObj.settingsSubtab;
     s.ui.marksType = stateObj.marksType;
     s.ui.showAllStudents = !!stateObj.showAllStudents;
+    s.ui.allGroupIndex = Number.isFinite(stateObj.allGroupIndex) ? stateObj.allGroupIndex : 0;
     setSettings(s);
   }
 
@@ -1708,7 +1709,80 @@ function renderKList() {
       : sortedStudents(studs)
           .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
 
-const prog = mineList.reduce((acc, st) => {
+
+    // v22: Alle-elever visning pagineres pr. K-gruppe (som i Redigér)
+    const totalList = showAllStudents ? sortedStudents(studs) : mineList;
+    let displayList = mineList;
+
+    const navWrap = $('kGroupNav');
+    const btnPrev = $('btnGroupPrev');
+    const btnNext = $('btnGroupNext');
+    const navTitle = $('kGroupTitle');
+
+    function getKGroupKey(st){
+      return ((st.kontaktgruppe || st.kgruppe || st.kGroup || '') + '').trim() || '—';
+    }
+    function teacherInitials(raw){
+      const r = ((raw||'')+'').trim();
+      if (!r) return '';
+      // behold eksisterende initialer hvis de er skrevet som "MM" etc
+      if (r.length <= 4 && r.toUpperCase() === r) return r;
+      const key = teacherKeyFromRaw(r);
+      return key || r;
+    }
+    function groupLabel(studsInGroup){
+      const k1 = teacherInitials(studsInGroup[0]?.kontaktlaerer1);
+      const k2 = teacherInitials(studsInGroup[0]?.kontaktlaerer2);
+      const parts = [k1,k2].filter(Boolean);
+      return parts.length ? parts.join('/') : '';
+    }
+
+    let groups = null;
+    let groupInfo = null;
+
+    if (showAllStudents) {
+      // group by kontaktgruppe/kgruppe
+      const map = new Map();
+      for (const st of totalList) {
+        const key = getKGroupKey(st);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(st);
+      }
+      groups = Array.from(map.entries())
+        .map(([key, arr]) => ({ key, arr: sortedStudents(arr), label: groupLabel(arr) }))
+        .sort((a,b) => (a.key+'').localeCompare(b.key+'', 'da'));
+      if (!groups.length) groups = [{ key: '—', arr: totalList, label: '' }];
+
+      // clamp index
+      if (!Number.isFinite(state.allGroupIndex)) state.allGroupIndex = 0;
+      if (state.allGroupIndex < 0) state.allGroupIndex = 0;
+      if (state.allGroupIndex > groups.length-1) state.allGroupIndex = groups.length-1;
+
+      const g = groups[state.allGroupIndex];
+      displayList = g.arr;
+      groupInfo = g;
+
+      if (navWrap) navWrap.style.display = groups.length > 1 ? '' : 'none';
+      if (navTitle) {
+        const lbl = g.label ? ` ${g.label}` : '';
+        navTitle.textContent = `K-gruppe: ${g.key}${lbl} (${g.arr.length})`;
+      }
+      if (btnPrev) {
+        const prev = groups[state.allGroupIndex-1];
+        btnPrev.textContent = prev ? `◀︎ ${prev.key}${prev.label ? '/' + prev.label : ''}` : '◀︎';
+        btnPrev.disabled = !prev;
+        btnPrev.onclick = () => { if (state.allGroupIndex>0){ state.allGroupIndex--; saveUIStateFrom(state); renderKList(); } };
+      }
+      if (btnNext) {
+        const next = groups[state.allGroupIndex+1];
+        btnNext.textContent = next ? `${next.key}${next.label ? '/' + next.label : ''} ▶︎` : '▶︎';
+        btnNext.disabled = !next;
+        btnNext.onclick = () => { if (state.allGroupIndex<groups.length-1){ state.allGroupIndex++; saveUIStateFrom(state); renderKList(); } };
+      }
+    } else {
+      if (navWrap) navWrap.style.display = 'none';
+    }
+const prog = totalList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
       acc.u += (f.elevudvikling||'').trim()?1:0;
       acc.p += (f.praktisk||'').trim()?1:0;
@@ -1719,7 +1793,7 @@ const prog = mineList.reduce((acc, st) => {
     const progEl = $("kProgLine");
     if (progEl) {
       progEl.textContent = `${showAllStudents ? 'Udfyldt (alle elever)' : 'Udfyldt (K-elever)'}: `
-        + `Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;}
+        + `Udvikling: ${prog.u} af ${totalList.length} · Praktisk: ${prog.p} af ${totalList.length} · K-gruppe: ${prog.k} af ${totalList.length}`;}
 
     const statusEl = $("kStatusLine");
     if (statusEl) statusEl.textContent = "";
@@ -1733,7 +1807,7 @@ const prog = mineList.reduce((acc, st) => {
     }
 
     if (kList) {
-      kList.innerHTML = mineList.map(st => {
+      kList.innerHTML = displayList.map(st => {
         const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
         const isAllMode = !!state.showAllStudents;
         const free = getTextFor(st.unilogin);
@@ -2249,7 +2323,18 @@ $('preview').textContent = buildStatement(st, getSettings());
 
   // ---------- events ----------
   function wireEvents() {
-    on('tab-k','click', () => setTab('k'));
+    on('tab-k','click', () => {
+      // Topmenu-knappen fungerer som skift mellem K-elever og Alle elever.
+      if (state.tab === 'k') {
+        state.showAllStudents = !state.showAllStudents;
+        // når man går til Alle elever, start altid på første K-gruppe
+        if (state.showAllStudents) state.allGroupIndex = 0;
+        saveUIStateFrom(state);
+        renderAll();
+      } else {
+        setTab('k');
+      }
+    });
     // Redigér-tab er skjult når ingen elev er valgt, men vær robust hvis nogen alligevel klikker.
     on('tab-edit','click', () => setTab('edit'));
     on('tab-set','click', () => setTab('set'));
@@ -2843,14 +2928,6 @@ if (document.getElementById('btnDownloadElevraad')) {
     // K-elever: Print alle
     const btnPrintAllK = $("btnPrintAllK");
     if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
-
-    // K-elever: Toggle visning (kun mine K-elever <-> alle elever)
-    const btnToggleShowAll = $("btnToggleShowAll");
-    if (btnToggleShowAll) btnToggleShowAll.addEventListener("click", () => {
-      state.showAllStudents = !state.showAllStudents;
-      saveUIStateFrom(state);
-      renderAll();
-    });
 
     // Hjælp-links (hop til relevante faner)
     document.body.addEventListener("click", (ev) => {
