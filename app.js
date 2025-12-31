@@ -152,6 +152,10 @@
   }
 };
 
+
+// Snapshot of built-in snippets for 'Gendan standard'
+const SNIPPETS_DEFAULT = JSON.parse(JSON.stringify(SNIPPETS));
+
 function renderKList() {
     const s = getSettings();
     const studs = getStudents();
