@@ -162,6 +162,8 @@ const DEFAULT_ALIAS_MAP = {
   "Måns Mårtensson": "MM",
 };
 
+const DEFAULT_SCHOOL_TEXT = "Himmerlands Ungdomsskole";
+
 
 function renderKList() {
     const s = getSettings();
