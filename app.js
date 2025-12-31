@@ -149,7 +149,7 @@ Udtalelsen er skrevet med udgangspunkt i elevens hverdag og deltagelse gennem sk
       return fallback;
     }
   }
-  function lsSet(key, value) { localStorage.setItem(key, JSON.stringify(value)); 
+  function lsSet(key, value) { localStorage.setItem(key, JSON.stringify(value)); } 
 // Index: which teacher namespaces have any saved text per unilogin.
 function buildTextOwnersIndex(){
   const idx = {};
@@ -210,7 +210,6 @@ function renderOwnerBadges(unilogin){
   return `<div class="badgeRow">${owners.map(o=>`<span class="pill tiny">${escapeHtml(o)}</span>`).join('')}</div>`;
 }
 
-}
 
   // Compatibility alias used by some UI handlers
   function saveLS(key, value) { return lsSet(key, value); }
