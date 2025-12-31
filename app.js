@@ -395,7 +395,7 @@ function getCurrentGroupLabel() {
   const keys = getGroupKeys(all);
   if (!keys.length) return '';
   const key = keys[Math.max(0, Math.min(state.groupIndex, keys.length - 1))];
-  return `${key} (${state.groupIndex+1}/${keys.length})`;
+  return `${groupLabelFromKey(key)} (${state.groupIndex+1}/${keys.length})`;
 }
 
 
@@ -1330,6 +1330,20 @@ function setSettingsSubtab(sub) {
     $('studentsStatus').textContent = studs.length ? `✅ Elevliste indlæst: ${studs.length} elever` : `Upload elevliste først.`;
     $('studentsStatus').style.color = studs.length ? 'var(--accent)' : 'var(--muted)';
 
+    // Advarsel hvis der mangler K-lærer-data i elevlisten
+    const warnEl = $("studentsWarn");
+    if (warnEl) {
+      const missing = studs.filter(s => !String(s.kontaktlaerer1||"").trim() && !String(s.kontaktlaerer2||"").trim()).length;
+      if (missing > 0) {
+        warnEl.style.display = "block";
+        warnEl.style.color = "var(--warn)";
+        warnEl.textContent = `⚠️ Tjek manglende data i elevlisten: ${missing} elev(er) uden K-lærer 1/2.`;
+      } else {
+        warnEl.style.display = "none";
+        warnEl.textContent = "";
+      }
+    }
+
     // Hvis vi er på Data & eksport, så render/refresh også flueben-tabellen her,
     // så den ikke "hænger" på en gammel status efter import af students.csv.
     if (state.settingsSubtab === 'export') {
@@ -1458,6 +1472,7 @@ function renderKList() {
     // Resolve teacher input via alias-map (MM -> Måns ...) for both filtering and UI.
     const meRaw = ((s.me || '') + '').trim();
     const meResolvedRaw = resolveTeacherName(meRaw) || meRaw;
+  const meInitials = initialsFromName(meResolvedRaw || meRaw) || "??";
     const minePreview = meResolvedRaw
       ? studs.filter(st => {
           const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
@@ -1588,7 +1603,7 @@ const prog = mineList.reduce((acc, st) => {
       kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
 // Toggle + gruppe-nav
 const btnToggleAllK = $("btnToggleAllK");
-if (btnToggleAllK) btnToggleAllK.textContent = state.showAllInK ? "Vis kun mine K-elever" : "Vis alle elever";
+if (btnToggleAllK) btnToggleAllK.textContent = state.showAllInK ? `Vis kun ${meInitials} K-elever` : "Vis alle elever";
 
 const btnPrintAllK = $("btnPrintAllK");
 if (btnPrintAllK) btnPrintAllK.innerHTML = `🖨️ ${state.showAllInK ? "Print alle elever" : "Print alle"}`;
@@ -1597,16 +1612,28 @@ const keysAll = getGroupKeys(sortedStudents(studs));
 const kGroupNav = $("kGroupNav");
 if (kGroupNav) kGroupNav.style.display = state.showAllInK ? "flex" : "none";
 
-const kGroupLabel = $("kGroupLabel");
+const kGroupLabel = $("btnGroupLabel");
 if (kGroupLabel) kGroupLabel.textContent = state.showAllInK ? getCurrentGroupLabel() : "";
 
 const btnPrevGroup = $("btnPrevGroup");
 const btnNextGroup = $("btnNextGroup");
+const kGroupLabel = $("btnGroupLabel");
+const keysAll = getGroupKeys(getKStudents(true));
 if (btnPrevGroup) btnPrevGroup.disabled = !state.showAllInK || state.groupIndex <= 0;
 if (btnNextGroup) btnNextGroup.disabled = !state.showAllInK || state.groupIndex >= Math.max(0, keysAll.length - 1);
-    }
+if (kGroupLabel) {
+  kGroupLabel.disabled = !state.showAllInK || keysAll.length <= 1;
+  kGroupLabel.textContent = state.showAllInK ? getCurrentGroupLabel() : "";
+  kGroupLabel.onclick = () => {
+    if (!state.showAllInK || keysAll.length <= 1) return;
+    state.groupIndex = (state.groupIndex + 1) % keysAll.length;
+    renderAll();
+  };
+}
+if (btnPrevGroup) btnPrevGroup.onclick = () => { state.groupIndex = Math.max(0, state.groupIndex - 1); renderAll(); };
+if (btnNextGroup) btnNextGroup.onclick = () => { state.groupIndex = Math.min(Math.max(0, keysAll.length - 1), state.groupIndex + 1); renderAll(); };
 
-    if (kList) {
+if (kList) {
       kList.innerHTML = mineList.map(st => {
         const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
         const free = getTextFor(st.unilogin);
@@ -2773,4 +2800,24 @@ if (document.getElementById('btnDownloadElevraad')) {
 }
 
   init();
-})();
+})()
+function initialsFromName(name){
+  if(!name) return "";
+  const s = String(name).trim();
+  // If already looks like initials (e.g., MM, RD, ABP)
+  if(/^[A-ZÆØÅ]{1,5}$/.test(s)) return s;
+  // If contains parentheses with initials, use those
+  const m = s.match(/\(([A-ZÆØÅ]{1,5})\)/);
+  if(m) return m[1];
+  const parts = s.replace(/[^\p{L}\s-]/gu," ").split(/\s+/).filter(Boolean);
+  if(!parts.length) return "";
+  // Use first letter of each word, up to 3
+  return parts.map(p=>p[0].toUpperCase()).join("").slice(0,3);
+}
+function groupLabelFromKey(groupKey){
+  if(!groupKey || groupKey==="Ingen K-gruppe") return "Ingen K-gruppe";
+  const parts = String(groupKey).split("/").map(s=>s.trim()).filter(Boolean);
+  const inits = parts.map(initialsFromName).filter(Boolean);
+  return inits.length ? inits.join("/") : String(groupKey);
+}
+;

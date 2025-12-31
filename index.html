@@ -43,6 +43,17 @@
       </div>
 
 <div class="callout" id="kMessage"></div>
+<div class="row between gap wrap no-print" id="kControlBar" style="margin-top:.6rem">
+  <div class="row gap" id="kGroupNav">
+    <button class="pillBtn" id="btnPrevGroup" type="button">◀</button>
+    <button class="pillBtn" id="btnGroupLabel" type="button" title="Skift gruppe" style="min-width:96px"></button>
+    <button class="pillBtn" id="btnNextGroup" type="button">▶</button>
+  </div>
+  <div class="kActions" id="kActions">
+    <button class="btn" id="btnPrintAllK" type="button">🖨 Print</button>
+    <button class="btn" id="btnToggleAllK" type="button"></button>
+  </div>
+</div>
 <div class="list" id="kList"></div>
 </section>
 <!-- Redigér -->
@@ -176,8 +187,13 @@
       </div>
 
       <div class="cardSubTitle">Elevliste (CSV) – skal indlæses først</div>
-      <input accept=".csv,.txt" id="studentsFile" type="file"/>
-      <div class="muted small" id="studentsStatus" style="margin-top:.35rem"></div>
+      <div class="row" style="display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap">
+        <div style="flex:1; min-width:260px">
+          <input accept=".csv,.txt" id="studentsFile" type="file"/>
+          <div class="muted small" id="studentsStatus" style="margin-top:.35rem"></div>
+        </div>
+        <div id="studentsWarn" class="muted small" style="flex:0 0 360px; max-width:360px; padding:.5rem .65rem; border:1px dashed rgba(255,255,255,.18); border-radius:10px; display:none"></div>
+      </div>
 
       <details class="fold no-print" style="margin-top:.8rem">
         <summary>Accepterede kolonner (eksempler)</summary>
