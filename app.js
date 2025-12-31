@@ -187,6 +187,23 @@ function getOwnersWithText(unilogin){
   return state.textOwnersIndex[unilogin] || [];
 }
 
+function renderAllModeBadges(unilogin){
+  // Shows which K-lærere have written, and which sections they filled (U/P/K)
+  const owners = getOwnersWithText(unilogin) || [];
+  if (!owners.length) return '';
+  const pills = owners.map(owner => {
+    const obj = getTextFor(unilogin, owner);
+    const parts = [];
+    if (((obj.elevudvikling||'')+'').trim()) parts.push('U');
+    if (((obj.praktisk||'')+'').trim()) parts.push('P');
+    if (((obj.kgruppe||'')+'').trim()) parts.push('K');
+    const what = parts.length ? ` ${parts.join('')}` : '';
+    return `<span class="pill tiny" title="${escapeAttr(owner)}">${escapeHtml(owner)}${escapeHtml(what)}</span>`;
+  }).join(' ');
+  return `<span class="pills">${pills}</span>`;
+}
+
+
 function renderOwnerBadges(unilogin){
   const owners = getOwnersWithText(unilogin);
   if (!owners.length) return '';
