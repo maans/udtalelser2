@@ -257,7 +257,8 @@
         </div>
         <div class="field" style="flex:1; min-width: 260px">
           <label>Find elev</label>
-          <input id="marksSearch" type="text" placeholder="Søg i navn eller Uni-login"/>
+          <input id="marksSearch" list="marksSearchList" type="text" placeholder="Søg på fornavn eller fulde navn…"/>
+        <datalist id="marksSearchList"></datalist>
         </div>
         <div class="field" style="min-width: 200px">
           <label>&nbsp;</label>
@@ -267,9 +268,9 @@
 
       
       <div class="divider"></div>
-      <div class="cardSubTitle">Backup (valgfrit – til sikkerhed)</div>
+      <div class="cardSubTitle"></div>
       <div class="row gap wrap" style="align-items:center">
-        <div class="muted small" style="flex:1; min-width:260px">Downloader en kopi af alt lokalt gemt i denne browser (udtalelser, flueben, skabeloner m.m.).</div>
+        <div class="muted small" style="flex:1; min-width:260px"></div>
         </div>
 
       <div class="muted small" id="marksLegend" style="margin:.35rem 0 .6rem 0"></div>

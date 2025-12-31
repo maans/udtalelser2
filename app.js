@@ -22,7 +22,7 @@
 	const KEY_MARKS_TYPE = KEYS.marksType;
 
   const TEACHER_ALIAS_MAP = {
-  "ab": "Andreas Bech Pedersen",
+  "ab": "Alberte Hammer Sørensen",
   "avp": "Ane Vestergaard Pedersen",
   "av": "Anne Valsted",
   "ao": "Astrid Sun Otte",
@@ -965,7 +965,19 @@ function updateTeacherDatalist() {
         // mousedown so selection happens before blur
         e.preventDefault();
         input.value = row.dataset.value || '';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+        // Commit selection immediately
+        const rawSel = (input.value || '').toString().trim();
+        const match = resolveTeacherMatch(rawSel);
+        const ini = toInitials(match.resolved || rawSel);
+        const s2 = getSettings();
+        s2.me = ini;
+        s2.meResolved = match.resolved;
+        s2.meResolvedConfirmed = match.resolved;
+        setSettings(s2);
+        input.value = ini;
+        renderStatus();
+        try { setTab('k'); } catch(_) {}
+
         closeMenu();
       });
 
@@ -995,11 +1007,27 @@ function updateTeacherDatalist() {
     document.addEventListener('click', (e) => {
       if (!wrap.contains(e.target)) closeMenu();
     });
-    // ESC closes
+    // ESC/ENTER
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeMenu();
+      if (e.key === 'Escape') { closeMenu(); return; }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        closeMenu();
+        const raw = (input.value || '').toString().trim();
+        if (!raw) return;
+        const match = resolveTeacherMatch(raw);
+        const ini = toInitials(match.resolved || raw);
+        const s2 = getSettings();
+        s2.me = ini;                    // always store initials as the primary identity
+        s2.meResolved = match.resolved; // keep resolved full name for reference
+        s2.meResolvedConfirmed = match.resolved;
+        setSettings(s2);
+        input.value = ini;
+        renderStatus();
+        try { setTab('k'); } catch(_) {}
+      }
     });
-  }
+}
 
   // If settings/students changed, refresh suggestions when open
   if (!menu.hidden) renderMenu();
@@ -1215,10 +1243,10 @@ function defaultSettings() {
 
 
   function sortedStudents(all) {
+    // Sortér alfabetisk efter fornavn (primært), derefter efternavn.
     return all.slice().sort((a,b) =>
-      (genderGroup(a.koen) - genderGroup(b.koen)) ||
-      (a.efternavn||'').localeCompare(b.efternavn||'', 'da') ||
-      (a.fornavn||'').localeCompare(b.fornavn||'', 'da')
+      (a.fornavn||'').localeCompare(b.fornavn||'', 'da') ||
+      (a.efternavn||'').localeCompare(b.efternavn||'', 'da')
     );
   }
 
@@ -1877,6 +1905,9 @@ if (gi < totalGroups - 1) {
     const mineList = isAll
       ? ((kGroups[state.kGroupIndex] && kGroups[state.kGroupIndex].students) ? kGroups[state.kGroupIndex].students.slice() : [])
       : sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
+    // Sortér altid alfabetisk efter fornavn i den viste liste
+    mineList.sort((a,b)=>(a.fornavn||'').localeCompare(b.fornavn||'', 'da') || (a.efternavn||'').localeCompare(b.efternavn||'', 'da'));
+
 
 const prog = mineList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
@@ -1889,7 +1920,7 @@ const prog = mineList.reduce((acc, st) => {
     const progEl = $("kProgLine");
     if (progEl) {
       const core = `Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;
-      const txt = `Udfyldt indtil nu: ${core}`;
+      const txt = `${core}`;
       // I ALL-visning viser vi KUN "core" i midten (uden "Udfyldt indtil nu"), så linjen ikke bliver for høj.
       progEl.textContent = txt;
       progEl.style.display = isAll ? 'none' : '';
@@ -2238,11 +2269,19 @@ $('preview').textContent = buildStatement(st, getSettings());
       if (!q) return true;
       const full = normalizeName(`${st.fornavn} ${st.efternavn}`);
       return full.includes(q);
-    });
+    
+
+    // Autocomplete suggestions (datalist) for search: fornavn + fulde navn
+    const dl = $('marksSearchList');
+    if (dl) {
+      const opts = sortedStudents(studs).map(st => `${st.fornavn||''} ${st.efternavn||''}`.trim()).filter(Boolean);
+      dl.innerHTML = opts.map(n => `<option value="${escapeAttr(n)}"></option>`).join('');
+    }
+});
 
     if (type === 'sang') {
       const marks = getMarks(KEYS.marksSang);
-      $('marksLegend').innerHTML = `<b>Sang</b>: vælg det udsagn der passer bedst. (Klik på “x” for at rydde.)`;
+      $('marksLegend').textContent = '';
       const cols = Object.keys(SNIPPETS.sang);
 
       wrap.innerHTML = `
@@ -2265,7 +2304,7 @@ $('preview').textContent = buildStatement(st, getSettings());
                   const active = (m.sang_variant === c);
                   return `<td><button type="button" class="markbtn ${active?'on':''}" data-set="${c}" title="${escapeAttr(SNIPPETS.sang[c].title||c)}"><span class="check">✓</span></button></td>`;
                 }).join('')}
-                <td><button type="button" class="markbtn clear" data-clear="1" title="Ryd valg"><span class="check">×</span></button></td>
+                
               </tr>`;
             }).join('')}
           </tbody>
@@ -2277,18 +2316,12 @@ $('preview').textContent = buildStatement(st, getSettings());
           btn.addEventListener('click', () => {
             const code = btn.getAttribute('data-set');
             marks[u] = marks[u] || {};
-            marks[u].sang_variant = code;
+            marks[u].sang_variant = (marks[u].sang_variant === code ? '' : code);
             setMarks(KEYS.marksSang, marks);
             renderMarksTable();
           });
         });
-        tr.querySelector('[data-clear]').addEventListener('click', () => {
-          marks[u] = marks[u] || {};
-          marks[u].sang_variant = "";
-          setMarks(KEYS.marksSang, marks);
-          renderMarksTable();
-        });
-      });
+});
       return;
     }
 
@@ -2324,7 +2357,7 @@ $('preview').textContent = buildStatement(st, getSettings());
                   const checked = !!m[r];
                   return `<td><input type="checkbox" data-role="${r}" ${checked?'checked':''} /></td>`;
                 }).join('')}
-                <td><button type="button" class="markbtn clear" data-clear="1" title="Ryd valg"><span class="check">×</span></button></td>
+                
               </tr>`;
             }).join('')}
           </tbody>
@@ -2336,7 +2369,7 @@ $('preview').textContent = buildStatement(st, getSettings());
           btn.addEventListener('click', () => {
             const code = btn.getAttribute('data-gym');
             marks[u] = marks[u] || {};
-            marks[u].gym_variant = code;
+            marks[u].gym_variant = (marks[u].gym_variant === code ? '' : code);
             setMarks(KEYS.marksGym, marks);
             renderMarksTable();
           });
@@ -2349,19 +2382,13 @@ $('preview').textContent = buildStatement(st, getSettings());
             setMarks(KEYS.marksGym, marks);
           });
         });
-        tr.querySelector('[data-clear]').addEventListener('click', () => {
-          marks[u] = {};
-          setMarks(KEYS.marksGym, marks);
-          renderMarksTable();
-        });
-      });
+});
       return;
     }
 
     if (type === 'elevraad') {
       const marks = getMarks(KEYS.marksElev);
-      $('marksLegend').innerHTML = `<b>Elevråd</b>: markér elever der er repræsentanter.`;
-
+      $('marksLegend').textContent = '';
       wrap.innerHTML = `
         <table>
           <thead>
@@ -2376,7 +2403,7 @@ $('preview').textContent = buildStatement(st, getSettings());
                 <td>${escapeHtml(full)}</td>
                 <td>${escapeHtml(st.klasse||'')}</td>
                 <td><input type="checkbox" data-er="1" ${checked?'checked':''} /></td>
-                <td><button type="button" class="markbtn clear" data-clear="1" title="Ryd valg"><span class="check">×</span></button></td>
+                
               </tr>`;
             }).join('')}
           </tbody>
@@ -2389,12 +2416,7 @@ $('preview').textContent = buildStatement(st, getSettings());
           marks[u].elevraad = e.target.checked;
           setMarks(KEYS.marksElev, marks);
         });
-        tr.querySelector('[data-clear]').addEventListener('click', () => {
-          marks[u] = {};
-          setMarks(KEYS.marksElev, marks);
-          renderMarksTable();
-        });
-      });
+});
       return;
     }
   }
@@ -2509,16 +2531,14 @@ $('preview').textContent = buildStatement(st, getSettings());
     });
 
     on('meInput','input', () => {
+      // Do not commit identity on every keystroke; commit happens on ENTER (see teacher picker).
       const raw = $('meInput').value;
       const s = getSettings();
-      s.me = raw;
-      s.meResolved = resolveTeacherName(raw);
+      s.meDraft = raw;
       setSettings(s);
       renderStatus();
-      if (state.tab === 'k') renderKList();
-      renderSettings();
     });
-    on('schoolYearEnd','input', () => {
+on('schoolYearEnd','input', () => {
       const s = getSettings();
       s.schoolYearEnd = Number($('schoolYearEnd').value || s.schoolYearEnd);
       setSettings(s);
@@ -2738,8 +2758,21 @@ if (document.getElementById('btnDownloadElevraad')) {
 
     on('marksType','change', () => renderMarksTable());
     on('marksSearch','input', () => renderMarksTable());
-
-    // Tabs (Sang/Gymnastik/Elevråd) should behave like changing the select.
+    on('marksSearch','keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const qRaw = ($('marksSearch').value || '').toString().trim();
+      const q = normalizeName(qRaw);
+      if (!q) return;
+      const studs = getStudents();
+      const matches = sortedStudents(studs).filter(st => normalizeName(`${st.fornavn} ${st.efternavn}`).includes(q));
+      if (matches.length) {
+        const top = `${matches[0].fornavn||''} ${matches[0].efternavn||''}`.trim();
+        $('marksSearch').value = top;
+        renderMarksTable();
+      }
+    });
+// Tabs (Sang/Gymnastik/Elevråd) should behave like changing the select.
     on('marksTypeTabs','click', (e) => {
       const btn = e.target && e.target.closest && e.target.closest('button[data-type]');
       if(!btn) return;

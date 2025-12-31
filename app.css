@@ -492,3 +492,6 @@ tr:hover td{background: rgba(255,255,255,.02)}
   .titleCenter{justify-self:start;}
   .titleRight{justify-self:start;}
 }
+
+
+.between{justify-content:space-between; width:100%;}
