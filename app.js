@@ -1636,16 +1636,20 @@ function renderKList() {
 
       if (!navRow || !navLabel || !navRight || !titleActions || !btnPrint || !btnPrev || !btnNext) return;
 
-      // Move print button to the correct place depending on mode.
-      try {
-        if (isAll) {
-          if (btnPrint.parentElement !== navRight) navRight.appendChild(btnPrint);
-        } else {
-          if (btnPrint.parentElement !== titleActions) titleActions.appendChild(btnPrint);
-        }
-      } catch(_) {}
+      // Print button lives in the title row in both modes.
+// Label differs so users can tell what will be printed.
+try {
+  if (isAll) {
+    btnPrint.textContent = '🖨️ Print alle elever';
+    btnPrint.title = 'Udskriv alle elever (ALLE K-grupper) som én samlet udskrift';
+  } else {
+    btnPrint.textContent = '🖨️ Print dine K-elever';
+    btnPrint.title = 'Udskriv dine K-elever som én samlet udskrift';
+  }
+  if (btnPrint.parentElement !== titleActions) titleActions.appendChild(btnPrint);
+} catch(_) {}
 
-      // Default: hidden
+// Default: hidden
       navRow.style.display = isAll ? '' : 'none';
 
       if (!isAll) return;
@@ -1667,9 +1671,25 @@ function renderKList() {
       const key = g ? g.key : '—';
       navLabel.textContent = `${key} · Gruppe ${gi+1}/${totalGroups} · U: ${edited}/${totalStudents}`;
 
-      // Hide arrows at edges
-      btnPrev.style.visibility = (gi > 0) ? 'visible' : 'hidden';
-      btnNext.style.visibility = (gi < totalGroups - 1) ? 'visible' : 'hidden';
+      // Arrow labels show the *target* group (like student prev/next in Redigér)
+const prevKey = (gi > 0 && kGroups[gi-1]) ? (kGroups[gi-1].key || '—') : '';
+const nextKey = (gi < totalGroups - 1 && kGroups[gi+1]) ? (kGroups[gi+1].key || '—') : '';
+
+if (gi > 0) {
+  btnPrev.style.visibility = 'visible';
+  btnPrev.textContent = `◀ ${prevKey}`;
+} else {
+  btnPrev.style.visibility = 'hidden';
+  btnPrev.textContent = '◀';
+}
+
+if (gi < totalGroups - 1) {
+  btnNext.style.visibility = 'visible';
+  btnNext.textContent = `${nextKey} ▶`;
+} else {
+  btnNext.style.visibility = 'hidden';
+  btnNext.textContent = '▶';
+}
 
       if (!btnPrev.__wired) {
         btnPrev.__wired = true;
