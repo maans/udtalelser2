@@ -477,3 +477,6 @@ tr:hover td{background: rgba(255,255,255,.02)}
 .splitCols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
 .splitCol{display:flex;flex-direction:column;gap:14px;}
 .colDivider{margin:6px 0 2px 0;opacity:0.8;}
+
+
+.listBlock{display:block;}

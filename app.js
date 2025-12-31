@@ -1189,6 +1189,17 @@ function defaultSettings() {
     );
   }
 
+function sortByNameDA(a,b){
+  const ea = (a.efternavn||'')+'';
+  const eb = (b.efternavn||'')+'';
+  const fa = (a.fornavn||'')+'';
+  const fb = (b.fornavn||'')+'';
+  const c1 = ea.localeCompare(eb,'da');
+  if (c1) return c1;
+  return fa.localeCompare(fb,'da');
+}
+
+
   // ---------- templating ----------
   function snippetTextByGender(snObj, genderRaw) {
     const g = normalizeName(genderRaw);
@@ -1718,78 +1729,42 @@ function renderKList() {
           .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
 
 
-    // v22: Alle-elever visning pagineres pr. K-gruppe (som i Redigér)
+    
+    // Alle-elever: grupper ud fra kontaktlærer1/kontaktlærer2 (ingen kontaktgruppe-kolonne)
     const totalList = showAllStudents ? sortedStudents(studs) : mineList;
+
+    // Build groups: key = "AB/EB" (sorted teacher keys)
+    const makeGroupKey = (st) => {
+      const t1 = teacherKeyFromRaw(st.kontaktlaerer1);
+      const t2 = teacherKeyFromRaw(st.kontaktlaerer2);
+      const arr = [t1, t2].filter(Boolean).sort((a,b)=>a.localeCompare(b,'da'));
+      if (!arr.length) return '—';
+      return arr.join('/');
+    };
+
     let displayList = mineList;
-
-    const navWrap = $('kGroupNav');
-    const btnPrev = $('btnGroupPrev');
-    const btnNext = $('btnGroupNext');
-    const navTitle = $('kGroupTitle');
-
-    function getKGroupKey(st){
-      return ((st.kontaktgruppe || st.kgruppe || st.kGroup || '') + '').trim() || '—';
-    }
-    function teacherInitials(raw){
-      const r = ((raw||'')+'').trim();
-      if (!r) return '';
-      // behold eksisterende initialer hvis de er skrevet som "MM" etc
-      if (r.length <= 4 && r.toUpperCase() === r) return r;
-      const key = teacherKeyFromRaw(r);
-      return key || r;
-    }
-    function groupLabel(studsInGroup){
-      const k1 = teacherInitials(studsInGroup[0]?.kontaktlaerer1);
-      const k2 = teacherInitials(studsInGroup[0]?.kontaktlaerer2);
-      const parts = [k1,k2].filter(Boolean);
-      return parts.length ? parts.join('/') : '';
-    }
-
-    let groups = null;
-    let groupInfo = null;
+    let groupKeys = [];
+    let activeGroupKey = null;
 
     if (showAllStudents) {
-      // group by kontaktgruppe/kgruppe
-      const map = new Map();
-      for (const st of totalList) {
-        const key = getKGroupKey(st);
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(st);
-      }
-      groups = Array.from(map.entries())
-        .map(([key, arr]) => ({ key, arr: sortedStudents(arr), label: groupLabel(arr) }))
-        .sort((a,b) => (a.key+'').localeCompare(b.key+'', 'da'));
-      if (!groups.length) groups = [{ key: '—', arr: totalList, label: '' }];
+      const groupsMap = new Map();
+      totalList.forEach(st => {
+        const k = makeGroupKey(st);
+        if (!groupsMap.has(k)) groupsMap.set(k, []);
+        groupsMap.get(k).push(st);
+      });
 
-      // clamp index
-      if (!Number.isFinite(state.allGroupIndex)) state.allGroupIndex = 0;
+      groupKeys = Array.from(groupsMap.keys()).sort((a,b)=>a.localeCompare(b,'da'));
+
+      // init / clamp group index
+      if (typeof state.allGroupIndex !== 'number') state.allGroupIndex = 0;
       if (state.allGroupIndex < 0) state.allGroupIndex = 0;
-      if (state.allGroupIndex > groups.length-1) state.allGroupIndex = groups.length-1;
+      if (state.allGroupIndex >= groupKeys.length) state.allGroupIndex = Math.max(0, groupKeys.length-1);
 
-      const g = groups[state.allGroupIndex];
-      displayList = g.arr;
-      groupInfo = g;
-
-      if (navWrap) navWrap.style.display = groups.length > 1 ? '' : 'none';
-      if (navTitle) {
-        const lbl = g.label ? ` ${g.label}` : '';
-        navTitle.textContent = `K-gruppe: ${g.key}${lbl} (${g.arr.length})`;
-      }
-      if (btnPrev) {
-        const prev = groups[state.allGroupIndex-1];
-        btnPrev.textContent = prev ? `◀︎ ${prev.key}${prev.label ? '/' + prev.label : ''}` : '◀︎';
-        btnPrev.disabled = !prev;
-        btnPrev.onclick = () => { if (state.allGroupIndex>0){ state.allGroupIndex--; saveUIStateFrom(state); renderKList(); } };
-      }
-      if (btnNext) {
-        const next = groups[state.allGroupIndex+1];
-        btnNext.textContent = next ? `${next.key}${next.label ? '/' + next.label : ''} ▶︎` : '▶︎';
-        btnNext.disabled = !next;
-        btnNext.onclick = () => { if (state.allGroupIndex<groups.length-1){ state.allGroupIndex++; saveUIStateFrom(state); renderKList(); } };
-      }
-    } else {
-      if (navWrap) navWrap.style.display = 'none';
+      activeGroupKey = groupKeys[state.allGroupIndex] || (groupKeys[0]||'—');
+      displayList = groupsMap.get(activeGroupKey) || [];
     }
+
 const prog = totalList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
       acc.u += (f.elevudvikling||'').trim()?1:0;
@@ -1809,76 +1784,102 @@ const prog = totalList.reduce((acc, st) => {
       const who = (meResolvedConfirmed || meRaw || "").trim();
       const allCount = sortedStudents(studs).length;
       const myCount = sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm).length;
-      kHeaderInfo.textContent = showAllStudents
-        ? `Overblik · ${allCount} elever`
-        : `${who || 'K-lærer'} · ${myCount} elever`;
-    }
 
-    if (kList) {
-      const isAllMode = !!state.showAllStudents;
-      if (isAllMode) {
-        // Piger i venstre kolonne, drenge i højre (begge alfabetisk)
-        const girls = displayList.filter(st => genderGroup(st.koen) === 0).sort((a,b)=> (a.efternavn||'').localeCompare(b.efternavn||'', 'da') || (a.fornavn||'').localeCompare(b.fornavn||'', 'da'));
-        const boys  = displayList.filter(st => genderGroup(st.koen) === 1).sort((a,b)=> (a.efternavn||'').localeCompare(b.efternavn||'', 'da') || (a.fornavn||'').localeCompare(b.fornavn||'', 'da'));
-        const other = displayList.filter(st => genderGroup(st.koen) === 2).sort((a,b)=> (a.efternavn||'').localeCompare(b.efternavn||'', 'da') || (a.fornavn||'').localeCompare(b.fornavn||'', 'da'));
+      if (showAllStudents) {
+        const cur = activeGroupKey || '—';
+        const idx = (typeof state.allGroupIndex === 'number') ? state.allGroupIndex : 0;
+        const prevKey = (groupKeys && groupKeys.length && idx > 0) ? groupKeys[idx-1] : '';
+        const nextKey = (groupKeys && groupKeys.length && idx < groupKeys.length-1) ? groupKeys[idx+1] : '';
+        const labelPrev = prevKey ? `◀ ${prevKey}` : '◀';
+        const labelNext = nextKey ? `${nextKey} ▶` : '▶';
 
-        const badgeFn = (typeof renderAllModeBadges === 'function') ? renderAllModeBadges : (() => '');
-
-        const renderCard = (st) => {
-          const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
-          const free = getTextFor(st.unilogin);
-          const hasU = !!(free.elevudvikling || '').trim();
-          const hasP = !!(free.praktisk || '').trim();
-          const hasK = !!(free.kgruppe || '').trim();
-          return `
-            <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
-              <div class="cardTopRow">
-                <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
-                <div class="cardFlags muted small">${badgeFn(st.unilogin)}</div>
-              </div>
-              <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
-            </div>
-          `;
-        };
-
-        const colLeft  = girls.map(renderCard).join('') + (other.length ? `<div class="colDivider muted small">Øvrige</div>` + other.map(renderCard).join('') : '');
-        const colRight = boys.map(renderCard).join('');
-
-        kList.innerHTML = `
-          <div class="splitCols">
-            <div class="splitCol" data-col="girls">${colLeft}</div>
-            <div class="splitCol" data-col="boys">${colRight}</div>
+        kHeaderInfo.innerHTML = `
+          <div class="k-row" style="align-items:center; gap:10px;">
+            <button id="kPrevGroup" class="btn small" ${prevKey?'':'disabled'} title="Forrige K-gruppe">${labelPrev}</button>
+            <div class="muted small" style="white-space:nowrap;">Gruppe: <b>${escapeHtml(cur)}</b> · ${idx+1}/${groupKeys.length} · ${displayList.length} elever</div>
+            <button id="kNextGroup" class="btn small" ${nextKey?'':'disabled'} title="Næste K-gruppe">${labelNext}</button>
           </div>
         `;
       } else {
-        kList.innerHTML = displayList.map(st => {
-          const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
-          const free = getTextFor(st.unilogin);
-          const hasU = !!(free.elevudvikling || '').trim();
-          const hasP = !!(free.praktisk || '').trim();
-          const hasK = !!(free.kgruppe || '').trim();
-
-          return `
-            <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
-              <div class="cardTopRow">
-                <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
-                <div class="cardFlags muted small">${(hasU?'U':'') + (hasP?' P':'') + (hasK?' K':'')}</div>
-              </div>
-              <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
-            </div>
-          `;
-        }).join('');
+        kHeaderInfo.textContent = `${who || 'K-lærer'} · ${myCount} elever`;
       }
+    }
 
-      kList.querySelectorAll('.card.clickable').forEach(card => {
-        card.addEventListener('click', () => {
-          state.selectedUnilogin = card.getAttribute('data-unilogin');
-          state.tab = 'edit';
+    
+    if (kList) {
+      // We render our own two-column layout (piger/drengene), so kList must NOT also be a 2-col grid.
+      kList.classList.remove('list');
+      kList.classList.add('listBlock');
+
+      const isAllMode = !!state.showAllStudents;
+
+      // Split by gender inside current view
+      const girls = displayList.filter(st => genderGroup(st.koen) === 0).sort(sortByNameDA);
+      const boys  = displayList.filter(st => genderGroup(st.koen) === 1).sort(sortByNameDA);
+      const other = displayList.filter(st => genderGroup(st.koen) === 2).sort(sortByNameDA);
+
+      const renderCard = (st) => {
+        const login = st.unilogin;
+        // In all-mode we show owner pills (who wrote + U/P/K); in K-mode we show my U/P/K
+        const badgeHtml = isAllMode
+          ? ((typeof renderAllModeBadges === 'function') ? renderAllModeBadges(login) : '')
+          : (() => {
+              const f = getTextFor(login);
+              const parts = [];
+              if (((f.elevudvikling||'')+'').trim()) parts.push('U');
+              if (((f.praktisk||'')+'').trim()) parts.push('P');
+              if (((f.kgruppe||'')+'').trim()) parts.push('K');
+              return parts.length ? `<span class="pills"><span class="pill tiny">${parts.join('')}</span></span>` : '';
+            })();
+
+        const cls = formatClassLabel(st.klasse);
+        return `
+          <div class="card" data-unilogin="${escapeAttr(login)}">
+            <div class="cardTop">
+              <div class="cardTitle">${escapeHtml(st.fornavn || '')} ${escapeHtml(st.efternavn || '')}</div>
+              <div class="cardBadges">${badgeHtml}</div>
+            </div>
+            <div class="cardMeta">${escapeHtml(cls || '')}</div>
+          </div>
+        `;
+      };
+
+      const colHtml = (arr, title) => `
+        <div class="splitCol">
+          ${title ? `<div class="muted small colDivider">${escapeHtml(title)}</div>` : ``}
+          ${arr.map(renderCard).join('')}
+        </div>
+      `;
+
+      const left = girls.concat(other);
+      const right = boys;
+
+      kList.innerHTML = `
+        <div class="splitCols">
+          ${colHtml(left, 'Piger')}
+          ${colHtml(right, 'Drenge')}
+        </div>
+      `;
+
+      // Card click => open Redigér
+      Array.from(kList.querySelectorAll('.card')).forEach(el => {
+        el.addEventListener('click', () => {
+          const login = el.getAttribute('data-unilogin');
+          if (!login) return;
+          state.activeUnilogin = login;
           setTab('edit');
-          renderAll();
         });
       });
+
+      // Group nav buttons (all-mode)
+      const prevBtn = $('kPrevGroup');
+      const nextBtn = $('kNextGroup');
+      if (isAllMode && prevBtn && nextBtn) {
+        prevBtn.onclick = () => { state.allGroupIndex = Math.max(0, (state.allGroupIndex||0) - 1); renderKList(); };
+        nextBtn.onclick = () => { state.allGroupIndex = Math.min(groupKeys.length-1, (state.allGroupIndex||0) + 1); renderKList(); };
+      }
     }
+
 }
 
 function setEditEnabled(enabled) {
