@@ -691,7 +691,7 @@ function groupKeyFromTeachers(k1Raw, k2Raw) {
 function buildKGroups(students) {
   const groups = new Map();
   for (const st of students) {
-    const key = groupKeyFromTeachers(st.Kontaktlaerer1||'', st.Kontaktlaerer2||'');
+    const key = groupKeyFromTeachers(st.kontaktlaerer1||'', st.kontaktlaerer2||'');
     if (!groups.has(key)) groups.set(key, {key, students: []});
     groups.get(key).students.push(st);
   }
@@ -717,8 +717,8 @@ function buildKGroups(students) {
 function computeMissingKTeacher(students) {
   const miss = [];
   for (const st of students) {
-    const k1 = ((st.Kontaktlaerer1||'')+'').trim();
-    const k2 = ((st.Kontaktlaerer2||'')+'').trim();
+    const k1 = ((st.kontaktlaerer1||'')+'').trim();
+    const k2 = ((st.kontaktlaerer2||'')+'').trim();
     if (!k1 && !k2) miss.push(st);
   }
   return miss;
@@ -1539,8 +1539,8 @@ function renderKList() {
       ? studs.slice()
       : (meResolvedRaw
         ? studs.filter(st => {
-            const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
-            const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
+            const k1 = resolveTeacherName((st.kontaktlaerer1 || '') + '');
+            const k2 = resolveTeacherName((st.kontaktlaerer2 || '') + '');
             return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
           })
         : []);
