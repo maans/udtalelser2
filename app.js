@@ -969,9 +969,23 @@ function normalizePlaceholderKey(key) {
 function syncKToggleAndPrintLabels(){
   const btnToggleShowAll = $("btnToggleShowAll");
   const btnPrintAllK = $("btnPrintAllK");
+  const titleEl = $("kViewTitle");
+  const tabLbl = $("tabKLabel");
+  const kHeaderInfo = $("kHeaderInfo");
   const showAll = !!state.showAllStudents;
-  if (btnToggleShowAll) btnToggleShowAll.textContent = showAll ? "Viser kun mine K-elever" : "Viser alle elever";
+
+  // Titles (current view)
+  if (titleEl) titleEl.textContent = showAll ? "Alle elever" : "K-elever";
+  if (tabLbl) tabLbl.textContent = showAll ? "Alle elever" : "K-elever";
+
+  // Toggle button (action)
+  if (btnToggleShowAll) btnToggleShowAll.textContent = showAll ? "Skift til K-elever" : "Skift til Alle elever";
+
+  // Print button (current view)
   if (btnPrintAllK) btnPrintAllK.textContent = showAll ? "🖨️ Print alle elever" : "🖨️ Print alle K-elever";
+
+  // Header info (subtitle) is set in renderKList once counts are known.
+  if (kHeaderInfo && !kHeaderInfo.textContent) kHeaderInfo.textContent = "";
 }
 
   // Hold "Faglærer-arbejde" type tabs in sync with the underlying select.
@@ -1704,19 +1718,18 @@ const prog = mineList.reduce((acc, st) => {
 
     const progEl = $("kProgLine");
     if (progEl) {
-      progEl.textContent = `Udfyldt indtil nu: Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;
-    }
+      progEl.textContent = `${showAllStudents ? 'Udfyldt (alle elever)' : 'Udfyldt (K-elever)'}: `
+        + `Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;}
 
     const statusEl = $("kStatusLine");
     if (statusEl) statusEl.textContent = "";
     if (kHeaderInfo) {
       const who = (meResolvedConfirmed || meRaw || "").trim();
-      const myCount = sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm).length;
       const allCount = sortedStudents(studs).length;
-      const nextLabel = showAllStudents
-        ? (who ? `Viser kun ${who}'s ${myCount} k-elever.` : `Viser kun ${myCount} k-elever.`)
-        : `Viser alle elever (${allCount}).`;
-      kHeaderInfo.textContent = `Klik på knappen for at vise: ${nextLabel}`;
+      const myCount = sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm).length;
+      kHeaderInfo.textContent = showAllStudents
+        ? `Overblik · ${allCount} elever`
+        : `${who || 'K-lærer'} · ${myCount} elever`;
     }
 
     if (kList) {

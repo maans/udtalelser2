@@ -14,7 +14,7 @@
 <span>Elevudtalelser</span>
 </div>
 <nav aria-label="Navigation" class="tabs">
-<button class="tab" data-tab="k" id="tab-k" title="K-elever">👤 <span>K-elever</span></button>
+<button class="tab" data-tab="k" id="tab-k" title="K-elever">👤 <span id="tabKLabel">K-elever</span></button>
 <button class="tab" data-tab="edit" id="tab-edit" title="Redigér">✍️ <span>Redigér</span></button>
 <button class="tab" data-tab="set" id="tab-set" title="Indstillinger">⚙️ <span>Indstillinger</span></button>
         <button class="tab tab-help" id="tab-help-top" title="Hjælp">? <span>Hjælp</span></button>
@@ -28,7 +28,7 @@
 <section class="view" id="view-k">
 <div class="viewHeader">
         <div class="viewTitleRow">
-          <h1>K-elever</h1>
+          <h1 id="kViewTitle">K-elever</h1>
           <div class="row gap wrap" style="justify-content:flex-end">
             <div class="muted small" id="kHeaderInfo"></div>
             <button class="btn small no-print" id="btnToggleShowAll" type="button" title="Skift mellem kun dine K-elever og alle elever">Viser alle elever</button>
@@ -128,7 +128,6 @@
           </div>
           <div class="muted small">Fortolkes via alias-map og bruges til filter af K-elever.</div>
         </div>
-</div>
       </div>
 
       <div class="card">
