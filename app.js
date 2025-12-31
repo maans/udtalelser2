@@ -1,4 +1,4 @@
-/* Elevudtalelser – statisk GitHub Pages app (ingen libs)
+/* Udtalelser v1.0 – statisk GitHub Pages app (ingen libs)
    localStorage prefix: udt_
 */
 (() => {
@@ -416,7 +416,7 @@ function printAllKStudents() {
     return;
   }
   // Build a dedicated print window with page breaks between students
-  const title = isAll ? 'Elevudtalelser – print K-gruppe' : 'Elevudtalelser – print K-elever';
+  const title = isAll ? 'Udtalelser v1.0 – print K-gruppe' : 'Udtalelser v1.0 – print K-elever';
   // One-page-per-student, always fit by scaling down if needed.
   // Printable area: A4 minus @page margins = 178mm x 261mm.
   const styles = `
@@ -497,7 +497,7 @@ function printAllKGroups() {
     return;
   }
 
-  const title = 'Elevudtalelser – print alle K-grupper';
+  const title = 'Udtalelser v1.0 – print alle K-grupper';
   const styles = `
     <style>
       @page { size: A4; margin: 18mm 16mm; }
@@ -809,14 +809,20 @@ function toInitials(raw) {
   const s = ((raw||'')+'').trim();
   if (!s) return '';
 
-  // Specific HU-names where middle name is the intended "initial letter".
-  // This avoids regressions like "AP" (Pedersen) instead of the agreed "AB" (Bech).
-  if (normalizeName(s).replace(/\s+/g,'') === 'andreasbechpedersen') return 'AB';
+  // Specific HU-names where middle name or surname choice defines the intended initials.
+  const key = normalizeName(s).replace(/\s+/g,'');
+  if (key === 'andreasbechpedersen') return 'AB';
+  if (key === 'jenshnoe') return 'JH';
+  if (key === 'markvestergaardpedersen') return 'MV';
+  if (key === 'mikkeltejlgaardpedersen') return 'MTP';
+
   // Already initials?
   if (/^[A-ZÆØÅ]{1,4}(\/[A-ZÆØÅ]{1,4})?$/.test(s)) return s;
+
   // If alias map can reverse-map, prefer that.
   const rev = reverseResolveTeacherInitials(s);
   if (rev) return rev;
+
   const parts = s.replace(/[^\p{L}\s-]/gu,'').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '';
   const first = parts[0][0] || '';
@@ -1412,7 +1418,32 @@ function defaultSettings() {
   function getTemplates(){ return Object.assign(defaultTemplates(), (REMOTE_OVERRIDES.templates && (REMOTE_OVERRIDES.templates.templates || REMOTE_OVERRIDES.templates)) || {}, lsGet(KEYS.templatesImported, {}), lsGet(KEYS.templates, {})); }
   function setTemplates(t){ lsSet(KEYS.templates, t); }
   function getStudents(){ const s = lsGet(KEYS.students, []); window.__ALL_STUDENTS__ = s || []; return s; }
-  function setStudents(studs){ lsSet(KEYS.students, studs); window.__ALL_STUDENTS__ = studs || []; }
+  
+function rebuildAliasMapFromStudents(studs){
+  const s = getSettings();
+  const alias = { ...(s.aliasMap || {}) };
+  const add = (ini, full) => {
+    if (!ini || !full) return;
+    const k = (ini||'').toString().trim().toLowerCase();
+    if (k) alias[k] = full;
+    const nk = normalizeName(full).replace(/\s+/g,'');
+    if (nk) alias[nk] = full;
+  };
+  (studs || []).forEach(st => {
+    const t1 = (st && st.kontaktlaerer1) ? (st.kontaktlaerer1+'').trim() : '';
+    const t2 = (st && st.kontaktlaerer2) ? (st.kontaktlaerer2+'').trim() : '';
+    [t1,t2].filter(Boolean).forEach(t => {
+      if (/^[A-ZÆØÅ]{1,4}(\/[A-ZÆØÅ]{1,4})?$/.test(t)) {
+        add(t, t); // initials-only (fallback)
+      } else {
+        add(toInitials(t), t);
+      }
+    });
+  });
+  setSettings({ ...s, aliasMap: alias });
+}
+
+function setStudents(studs){ lsSet(KEYS.students, studs); rebuildAliasMapFromStudents(studs); window.__ALL_STUDENTS__ = studs || []; rebuildAliasMapFromStudents(studs); }
   function getMarks(kindKey){ return lsGet(kindKey, {}); }
   function setMarks(kindKey, m){ lsSet(kindKey, m); }
   function getTextFor(unilogin){
@@ -1614,6 +1645,8 @@ function defaultSettings() {
     klasse: new Set(["klasse","class","hold"]),
     kontakt1: new Set(["kontaktlærer1","kontaktlaerer1","relationerkontaktlaerernavn","relationerkontaktlærernavn","kontaktlærer","kontaktlaerer"]),
     kontakt2: new Set(["kontaktlærer2","kontaktlaerer2","relationerandenkontaktlaerernavn","relationerandenkontaktlærernavn","andenkontaktlærer","andenkontaktlaerer"])
+    ,ini1: new Set(["initialerforklaerer1","initialerforklærer1","kontaktlaerer1initialer","kontaktlærer1initialer"])
+    ,ini2: new Set(["initialerforklaerer2","initialerforklærer2","kontaktlaerer2initialer","kontaktlærer2initialer"])
   };
   function mapStudentHeaders(headers) {
     const mapped = {};
@@ -1648,8 +1681,10 @@ function defaultSettings() {
     const unilogin = get('unilogin') || (normalizeName((fornavn + ' ' + efternavn)).replace(/\s/g, '') + '_missing');
     const koen = get('koen');
     const klasse = get('klasse');
-    const k1 = resolveTeacherName(get('kontakt1'));
-    const k2 = resolveTeacherName(get('kontakt2'));
+    const ini1 = (get('ini1') || '').trim();
+    const ini2 = (get('ini2') || '').trim();
+    const k1 = ini1 ? ini1.toUpperCase() : resolveTeacherName(get('kontakt1'));
+    const k2 = ini2 ? ini2.toUpperCase() : resolveTeacherName(get('kontakt2'));
     return { fornavn, efternavn, unilogin, koen, klasse, kontaktlaerer1: k1, kontaktlaerer2: k2 };
   }
 
