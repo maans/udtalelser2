@@ -157,12 +157,12 @@
 const SNIPPETS_DEFAULT = JSON.parse(JSON.stringify(SNIPPETS));
 
 // Default alias map (fullname -> initials). Users can override via localStorage.
-const DEFAULT_ALIAS_MAP = {
+var DEFAULT_ALIAS_MAP = {
   "Måns Patrik Mårtensson": "MM",
   "Måns Mårtensson": "MM",
 };
 
-const DEFAULT_SCHOOL_TEXT = "Himmerlands Ungdomsskole";
+var DEFAULT_SCHOOL_TEXT = "Himmerlands Ungdomsskole";
 
 
 function renderKList() {
