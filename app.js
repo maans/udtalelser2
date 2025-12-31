@@ -1689,8 +1689,10 @@ function renderKList() {
     }
 
     // Build list (and allow quick filtering by elevnavn)
-    const mineList = sortedStudents(studs)
-      .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
+    const mineList = showAllStudents
+      ? sortedStudents(studs)
+      : sortedStudents(studs)
+          .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
 
 const prog = mineList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
@@ -1709,7 +1711,12 @@ const prog = mineList.reduce((acc, st) => {
     if (statusEl) statusEl.textContent = "";
     if (kHeaderInfo) {
       const who = (meResolvedConfirmed || meRaw || "").trim();
-      kHeaderInfo.textContent = showAllStudents ? `Viser alle elever (${mineList.length}).` : (who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`);
+      const myCount = sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm).length;
+      const allCount = sortedStudents(studs).length;
+      const nextLabel = showAllStudents
+        ? (who ? `Viser kun ${who}'s ${myCount} k-elever.` : `Viser kun ${myCount} k-elever.`)
+        : `Viser alle elever (${allCount}).`;
+      kHeaderInfo.textContent = `Klik på knappen for at vise: ${nextLabel}`;
     }
 
     if (kList) {
