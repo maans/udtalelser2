@@ -116,10 +116,21 @@
     "text_k": "{{FORNAVN}} har deltaget aktivt i skolens frivillige samarbejde med foreningslivet og har vist engagement og ansvar."
   }
 },
-    elevraad: {
-      YES: {
-        title: "Elevrådsrepræsentant",
-        text_m: "{{ELEV_FORNAVN}} har været en del af elevrådet på Himmerlands Ungdomsskole, hvor elevrådet blandt andet har stået for ugentlige fællesmøder for elever og lærere. Derudover har elevrådsarbejdet omfattet en række forskellige opgaver i løbet af året med ansvar for at sætte aktivifunction renderKList() {
+  elevraad: {
+    YES: {
+      title: "Elevrådsrepræsentant",
+      text_m: "{{FORNAVN}} har været en del af elevrådet og har taget ansvar i samarbejdet.",
+      text_k: "{{FORNAVN}} har været en del af elevrådet og har taget ansvar i samarbejdet."
+    },
+    NO: {
+      title: "Ikke elevråd",
+      text_m: "",
+      text_k: ""
+    }
+  }
+};
+
+function renderKList() {
     const s = getSettings();
     const studs = getStudents();
     // Resolve teacher input via alias-map (MM -> Måns ...) for both filtering and UI.
