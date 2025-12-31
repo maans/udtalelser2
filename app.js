@@ -1831,6 +1831,8 @@ const prog = mineList.reduce((acc, st) => {
       // I ALL-visning flytter vi "Udfyldt"-linjen ind i navigationsfeltet.
       progEl.textContent = txt;
       progEl.style.display = isAll ? 'none' : '';
+      // I K-visning centrerer vi linjen i den stiplede boks.
+      progEl.style.textAlign = isAll ? '' : 'center';
       const navLabel = $("kAllNavLabel");
       if (isAll && navLabel) navLabel.textContent = txt;
     }
@@ -1853,9 +1855,11 @@ const prog = mineList.reduce((acc, st) => {
         // ALL-mode status: U · P · K → initials (last editor)
         const lastBy = ((free.lastEditedBy || '') + '').trim();
         const letters = [hasU ? 'U' : '', hasP ? 'P' : '', hasK ? 'K' : ''].filter(Boolean).join(' · ');
-        const statusRight = isAll
-          ? (letters ? `${letters}${lastBy ? ` → ${escapeHtml(lastBy)}` : ''}` : '')
-          : `${hasU?'U':''}${hasP?' P':''}${hasK?' K':''}`;
+        // Status on cards: show only filled letters, and (when available) last editor initials.
+        // We show this in BOTH views so imported colleague-edits remain visible in K-visning.
+        const statusRight = letters
+          ? `${letters}${lastBy ? ` → ${escapeHtml(lastBy)}` : ''}`
+          : '';
 
         return `
           <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
