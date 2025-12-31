@@ -4,28 +4,6 @@
 (() => {
   'use strict';
 
-  // localStorage helpers (safe JSON)
-  const lsGet = (key, fallback = null) => {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw === null || raw === undefined || raw === '') return fallback;
-      return JSON.parse(raw);
-    } catch (e) {
-      return fallback;
-    }
-  };
-  const lsSet = (key, value) => {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
-  };
-  const lsDel = (key) => {
-    try { localStorage.removeItem(key); } catch (e) {}
-  };
-  // Backwards compatible aliases (older builds used isGet/isSet)
-  const isGet = lsGet;
-  const isSet = lsSet;
-  const isDel = lsDel;
-
-
   const LS_PREFIX = 'udt_';
   const KEYS = {
     settings: LS_PREFIX + 'settings',
@@ -138,398 +116,40 @@
     "text_k": "{{FORNAVN}} har deltaget aktivt i skolens frivillige samarbejde med foreningslivet og har vist engagement og ansvar."
   }
 },
-  elevraad: {
-    YES: {
-      title: "Elevrådsrepræsentant",
-      text_m: "{{FORNAVN}} har været en del af elevrådet og har taget ansvar i samarbejdet.",
-      text_k: "{{FORNAVN}} har været en del af elevrådet og har taget ansvar i samarbejdet."
+    elevraad: {
+      YES: {
+        title: "Elevrådsrepræsentant",
+        text_m: "{{ELEV_FORNAVN}} har været en del af elevrådet på Himmerlands Ungdomsskole, hvor elevrådet blandt andet har stået for ugentlige fællesmøder for elever og lærere. Derudover har elevrådsarbejdet omfattet en række forskellige opgaver i løbet af året med ansvar for at sætte aktiviteter i gang i fællesskabets ånd. I den forbindelse har {{ELEV_FORNAVN}} vist engagement og vilje til at påtage sig og gennemføre forskellige opgaver og aktiviteter.",
+        text_k: "{{ELEV_FORNAVN}} har været en del af elevrådet på Himmerlands Ungdomsskole, hvor elevrådet blandt andet har stået for ugentlige fællesmøder for elever og lærere. Derudover har elevrådsarbejdet omfattet en række forskellige opgaver i løbet af året med ansvar for at sætte aktiviteter i gang i fællesskabets ånd. I den forbindelse har {{ELEV_FORNAVN}} vist engagement og vilje til at påtage sig og gennemføre forskellige opgaver og aktiviteter."
+      }
     },
-    NO: {
-      title: "Ikke elevråd",
-      text_m: "",
-      text_k: ""
+    kontaktgruppeDefault: "I kontaktgruppen har vi arbejdet med trivsel, ansvar og fællesskab.",
+    afslutningDefault: "Vi ønsker eleven alt det bedste fremover."
+  };
+
+  // Backwards compatibility: some code paths still reference DEFAULT_ALIAS_MAP.
+  // Keep it as an alias of TEACHER_ALIAS_MAP.
+  const DEFAULT_ALIAS_MAP = TEACHER_ALIAS_MAP;
+
+    const SNIPPETS_DEFAULT = JSON.parse(JSON.stringify(SNIPPETS));
+
+const DEFAULT_SCHOOL_TEXT =
+`På Himmerlands Ungdomsskole arbejder vi med både faglighed, fællesskab og personlig udvikling.
+Udtalelsen er skrevet med udgangspunkt i elevens hverdag og deltagelse gennem skoleåret.`;
+
+  const DEFAULT_TEMPLATE = "Udtalelse vedrørende {{ELEV_FULDE_NAVN}}\n\n{{ELEV_FORNAVN}} {{ELEV_EFTERNAVN}} har været elev på Himmerlands Ungdomsskole i perioden fra {{PERIODE_FRA}} til {{PERIODE_TIL}} i {{ELEV_KLASSE}}.\n\nHimmerlands Ungdomsskole er en traditionsrig efterskole, som prioriterer fællesskabet og faglig fordybelse højt. Elevernes hverdag er præget af frie rammer og mange muligheder. Vi møder eleverne med tillid, positive forventninger og faglige udfordringer. I løbet af et efterskoleår på Himmerlands Ungdomsskole er oplevelserne mange og udfordringerne ligeså. Det gælder i hverdagens almindelige undervisning, som fordeler sig over boglige fag, fællesfag og profilfag. Det gælder også alle de dage, hvor hverdagen ændres til fordel for temauger, studieture mm. \n\n{{ELEV_UDVIKLING_AFSNIT}}\n\nSom en del af et efterskoleår på Himmerlands Ungdomsskole deltager eleverne ugentligt i fællessang og fællesgymnastik. Begge fag udgør en del af efterskolelivet, hvor eleverne oplever nye sider af sig selv, flytter grænser og oplever, at deres bidrag til fællesskabet har betydning. I løbet af året optræder eleverne med fælleskor og gymnastikopvisninger.\n\n{{SANG_GYM_AFSNIT}}\n\nPå en efterskole er der mange praktiske opgaver.\n\n{{PRAKTISK_AFSNIT}}\n\n{{ELEV_FORNAVN}} har på Himmerlands Ungdomsskole været en del af en kontaktgruppe på {{KONTAKTGRUPPE_ANTAL}} elever. I kontaktgruppen kender vi {{HAM_HENDE}} som {{KONTAKTGRUPPE_BESKRIVELSE}}.\n\nVi har været rigtig glade for at have {{ELEV_FORNAVN}} som elev på skolen og ønsker held og lykke fremover.\n\n{{KONTAKTLÆRER_1_NAVN}} & {{KONTAKTLÆRER_2_NAVN}}\n\nKontaktlærere\n\n{{FORSTANDER_NAVN}}\n\nForstander";
+
+  // ---------- storage ----------
+  function lsGet(key, fallback) {
+    try {
+      const v = localStorage.getItem(key);
+      if (v === null || v === undefined) return fallback;
+      return JSON.parse(v);
+    } catch {
+      return fallback;
     }
   }
-};
-
-
-// Snapshot of built-in snippets for 'Gendan standard'
-const SNIPPETS_DEFAULT = JSON.parse(JSON.stringify(SNIPPETS));
-
-// Default alias map (fullname -> initials). Users can override via localStorage.
-var DEFAULT_ALIAS_MAP = {
-  "Måns Patrik Mårtensson": "MM",
-  "Måns Mårtensson": "MM",
-};
-
-var DEFAULT_SCHOOL_TEXT = "Himmerlands Ungdomsskole";
-
-// Default udtalelses-skabelon (fallback hvis der ikke ligger en i localStorage)
-var DEFAULT_TEMPLATE = `{{ELEV_FORNAVN}} har haft et godt efterskoleår.
-
-{{SKOLE_TEXT}}
-
-Udvikling:
-{{UDVIKLING_AFSNIT}}
-
-Praktisk:
-{{PRAKTISK_AFSNIT}}
-
-Funktion i kontaktgruppen:
-{{KONTAKTGRUPPE_AFSNIT}}
-
-{{SANG_AFSNIT}}
-{{GYM_AFSNIT}}
-{{ELEVRAAD_AFSNIT}}`;
-
-
-// Default udtalelses-skabelon (fallback hvis der ikke ligger en i localStorage)
-
-
-
-
-function renderKList() {
-    const s = getSettings();
-    const studs = getStudents();
-    // Resolve teacher input via alias-map (MM -> Måns ...) for both filtering and UI.
-    const meRaw = ((s.me || '') + '').trim();
-    const showAllStudents = !!state.showAllStudents;
-    const meResolvedRaw = resolveTeacherName(meRaw) || meRaw;
-    // v20: toggle-visning
-    const minePreview = showAllStudents
-      ? sortedStudents(studs)
-      : (meResolvedRaw
-          ? studs.filter(st => {
-              const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
-              const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
-              return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
-            })
-          : []);
-    const kMsg = $('kMessage');
-    if (kMsg) kMsg.classList.remove('compact');
-    const kList = $('kList');
-
-    // If "Initialer" is not confirmed yet, show an inline input that commits on ENTER.
-    // User may type initials OR full name; we only update settings when ENTER is pressed.
-    if (!((s.meResolved || '') + '').trim()) {
-      syncKToggleAndPrintLabels();
-      state.visibleKElevIds = [];
-      if (kList) kList.innerHTML = '';
-
-      const draft = (state.kMeDraft || '').trim();
-
-      if (kMsg) {
-        kMsg.innerHTML = `<div class="row between alignCenter" style="gap:1rem; flex-wrap:wrap;">
-        <div class="row alignCenter" style="gap:.7rem; flex-wrap:wrap;">
-          <div><b>${minePreview.length} match:</b> <span class="pill">${escapeHtml(meResolvedRaw || s.me || '')}</span></div>
-          <div class="muted small">
-            Kontaktlærer1/2 matcher initialer.
-            <span id="kStatusLine" class="muted"></span>
-          </div>
-          <div id="kGroupNavLine" class="kGroupNavLine"></div>
-        </div>
-        <div class="muted small" id="kProgLine"></div>
-      </div>`;
-      }
-
-      const inp = $('kMeInline');
-      const hint = $('kMeInlineHint');
-
-      if (hint) hint.textContent = 'Tryk Enter for at vise dine K-elever.';
-
-      if (inp) {
-        // Restore focus/caret nicely
-        try { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } catch {}
-        inp.addEventListener('input', (e) => {
-          state.kMeDraft = (e.target.value || '');
-        }, { passive: true });
-
-        inp.addEventListener('keydown', (e) => {
-          if (e.key !== 'Enter') return;
-          e.preventDefault();
-
-          const raw = ((inp.value || '') + '').trim();
-          if (!raw) {
-            if (hint) hint.textContent = 'Skriv noget først (initialer eller navn).';
-            return;
-          }
-
-          const match = resolveTeacherMatch(raw);
-          const resolved = match.resolved || raw;
-
-          const s2 = getSettings();
-          s2.me = raw;
-          s2.meResolved = resolved;
-          setSettings(s2);
-
-          state.kMeDraft = '';
-
-          renderStatus();
-          renderKList();
-        });
-
-        // Allow Esc to clear draft
-        inp.addEventListener('keydown', (e) => {
-          if (e.key !== 'Escape') return;
-          state.kMeDraft = '';
-          inp.value = '';
-          if (hint) hint.textContent = 'Tryk Enter for at vise dine K-elever.';
-        });
-      }
-      return;
-    }
-
-    // Confirmed teacher name present -> show list.
-    syncKToggleAndPrintLabels();
-    const meResolvedConfirmed = ((s.meResolvedConfirmed || '') + '').trim();
-    const kHeaderInfo = $("kHeaderInfo");
-    const meNorm = normalizeName(meResolvedConfirmed || meResolvedRaw);
-
-    // If we landed here directly (e.g. reload with confirmed name), the dashed box
-    // may still be empty because it's normally populated in the "not confirmed" branch.
-    // Ensure the status/progress lines exist so we don't show an empty placeholder.
-    if (kMsg && (!$("kStatusLine") || !$("kProgLine"))) {
-      kMsg.innerHTML = `
-	        <div class="k-row groupNavRow" style="align-items:center; justify-content:space-between; gap:10px;">
-	          <div id="kStatusLine" class="muted small"></div>
-	        </div>
-        <div id="kProgLine" class="muted small" style="margin-top:6px;"></div>
-      `;
-    }
-
-    // Build list (and allow quick filtering by elevnavn)
-    const mineList = showAllStudents
-      ? sortedStudents(studs)
-      : sortedStudents(studs)
-          .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
-
-
-    
-    // Alle-elever: grupper ud fra kontaktlærer1/kontaktlærer2 (ingen kontaktgruppe-kolonne)
-    const totalList = showAllStudents ? sortedStudents(studs) : mineList;
-
-    // Build groups: key = "AB/EB" (sorted teacher keys)
-    
-    // Find mest sandsynlige "makker" (co-teacher) pr. lærer ud fra de elever der HAR begge kontaktlærere udfyldt.
-    const coCount = new Map(); // teacher -> Map(coTeacher -> count)
-    totalList.forEach(st => {
-      const a = teacherKeyFromRaw(st.kontaktlaerer1);
-      const b = teacherKeyFromRaw(st.kontaktlaerer2);
-      if (a && b) {
-        if (!coCount.has(a)) coCount.set(a, new Map());
-        if (!coCount.has(b)) coCount.set(b, new Map());
-        coCount.get(a).set(b, (coCount.get(a).get(b)||0)+1);
-        coCount.get(b).set(a, (coCount.get(b).get(a)||0)+1);
-      }
-    });
-    const topCo = {};
-    coCount.forEach((m, t) => {
-      let best = '', bestN = 0;
-      m.forEach((n, co) => { if (n > bestN) { bestN = n; best = co; } });
-      if (best) topCo[t] = best;
-    });
-
-    const makeGroupKey = (st) => {
-      let t1 = teacherKeyFromRaw(st.kontaktlaerer1);
-      let t2 = teacherKeyFromRaw(st.kontaktlaerer2);
-
-      // Hvis en elev kun har én lærer udfyldt, så "udled" makkeren fra topCo
-      if (t1 && !t2 && topCo[t1]) t2 = topCo[t1];
-      if (t2 && !t1 && topCo[t2]) t1 = topCo[t2];
-
-      const arr = [t1, t2].filter(Boolean).sort((a,b)=>a.localeCompare(b,'da'));
-      if (!arr.length) return '—';
-      return arr.join('/');
-    };
-
-
-    let displayList = mineList;
-    let groupKeys = [];
-    let activeGroupKey = null;
-
-    if (showAllStudents) {
-      
-      // In "Alle elever" mode: we group by the two contact teachers (Kontaktlærer1/2),
-      // but many rows may have only ONE of them filled out. We therefore infer the missing
-      // partner from the most common observed pairing (topCo), based on teacherKeyFromRaw().
-      const inferPartner = (t) => topCo.get(t) || null;
-
-      const normalizeGroupKey = (aRaw, bRaw) => {
-        const a = teacherKeyFromRaw(aRaw);
-        const b = teacherKeyFromRaw(bRaw);
-        const aa = a || null;
-        const bb = b || null;
-
-        // If only one teacher present, infer the partner (if possible)
-        if (aa && !bb) {
-          const p = inferPartner(aa);
-          if (p) return [aa, p].sort().join("/");
-          return aa; // fallback: single key
-        }
-        if (!aa && bb) {
-          const p = inferPartner(bb);
-          if (p) return [bb, p].sort().join("/");
-          return bb;
-        }
-
-        // Both present
-        if (aa && bb) return [aa, bb].sort().join("/");
-
-        // No teachers: put in a catch-all group (sorted last)
-        return "—";
-      };
-
-      const groupsMap = new Map();
-
-      totalList.forEach(st => {
-        const k = normalizedGroupKey(st);
-        if (!groupsMap.has(k)) groupsMap.set(k, []);
-        groupsMap.get(k).push(st);
-      });
-
-      groupKeys = Array.from(groupsMap.keys()).sort((a,b)=>a.localeCompare(b,'da'));
-// init / clamp group index
-      if (typeof state.allGroupIndex !== 'number') state.allGroupIndex = 0;
-      if (state.allGroupIndex < 0) state.allGroupIndex = 0;
-      if (state.allGroupIndex >= groupKeys.length) state.allGroupIndex = Math.max(0, groupKeys.length-1);
-
-      activeGroupKey = groupKeys[state.allGroupIndex] || (groupKeys[0]||'—');
-      displayList = groupsMap.get(activeGroupKey) || [];
-    }
-
-const prog = totalList.reduce((acc, st) => {
-      const f = getTextFor(st.unilogin);
-      acc.u += (f.elevudvikling||'').trim()?1:0;
-      acc.p += (f.praktisk||'').trim()?1:0;
-      acc.k += (f.kgruppe||'').trim()?1:0;
-      return acc;
-    }, {u:0,p:0,k:0});
-
-    const progEl = $("kProgLine");
-    if (progEl) {
-      progEl.textContent = `${showAllStudents ? 'Udfyldt (alle elever)' : 'Udfyldt (K-elever)'}: `
-        + `Udvikling: ${prog.u} af ${totalList.length} · Praktisk: ${prog.p} af ${totalList.length} · K-gruppe: ${prog.k} af ${totalList.length}`;}
-
-    const statusEl = $("kStatusLine");
-    if (statusEl) statusEl.textContent = "";
-    if (kHeaderInfo) {
-      const who = (meResolvedConfirmed || meRaw || "").trim();
-      const allCount = sortedStudents(studs).length;
-      const myCount = sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm).length;
-
-      if (showAllStudents) {
-        // Group navigation lives inside the dashed info box (like edit navigation)
-        const cur = activeGroupKey || '—';
-        const idx = (typeof state.allGroupIndex === 'number') ? state.allGroupIndex : 0;
-        const prevKey = (groupKeys && groupKeys.length && idx > 0) ? groupKeys[idx-1] : '';
-        const nextKey = (groupKeys && groupKeys.length && idx < groupKeys.length-1) ? groupKeys[idx+1] : '';
-
-        const nav = $('kGroupNavLine');
-        if (nav) {
-          const leftBtn = prevKey ? `<button id="kPrevGroup" class="btn small" title="Forrige K-gruppe">◀ ${escapeHtml(prevKey)}</button>` : `<span></span>`;
-          const rightBtn = nextKey ? `<button id="kNextGroup" class="btn small" title="Næste K-gruppe">${escapeHtml(nextKey)} ▶</button>` : `<span></span>`;
-          nav.innerHTML = `
-            <div class="kNavRow">
-              ${leftBtn}
-              <div class="kNavCenter muted small">Gruppe: <b>${escapeHtml(cur)}</b> · ${idx+1}/${groupKeys.length} · ${displayList.length} elever</div>
-              ${rightBtn}
-            </div>
-          `;
-        }
-        // Keep the header info minimal in all-mode; print button stays to the right
-        kHeaderInfo.textContent = '';
-      } else {
-        const nav = $('kGroupNavLine'); if (nav) nav.textContent = '';
-        kHeaderInfo.textContent = `${who || 'K-lærer'} · ${myCount} elever`;
-      }
-    }
-
-    
-    if (kList) {
-      // We render our own two-column layout (piger/drengene), so kList must NOT also be a 2-col grid.
-      kList.classList.remove('list');
-      kList.classList.add('listBlock');
-
-      const isAllMode = !!state.showAllStudents;
-
-      // Split by gender inside current view
-      const girls = displayList.filter(st => genderGroup(st.koen) === 0).sort(sortByNameDA);
-      const boys  = displayList.filter(st => genderGroup(st.koen) === 1).sort(sortByNameDA);
-      const other = displayList.filter(st => genderGroup(st.koen) === 2).sort(sortByNameDA);
-
-      const renderCard = (st) => {
-        const login = st.unilogin;
-        // In all-mode we show owner pills (who wrote + U/P/K); in K-mode we show my U/P/K
-        const badgeHtml = isAllMode
-          ? ((typeof renderAllModeBadges === 'function') ? renderAllModeBadges(login) : '')
-          : (() => {
-              const f = getTextFor(login);
-              const parts = [];
-              if (((f.elevudvikling||'')+'').trim()) parts.push('U');
-              if (((f.praktisk||'')+'').trim()) parts.push('P');
-              if (((f.kgruppe||'')+'').trim()) parts.push('K');
-              return parts.length ? `<span class="pills"><span class="pill tiny">${parts.join('')}</span></span>` : '';
-            })();
-
-        const cls = formatClassLabel(st.klasse);
-        return `
-          <div class="card" data-unilogin="${escapeAttr(login)}">
-            <div class="cardTop">
-              <div class="cardTitle">${escapeHtml(st.fornavn || '')} ${escapeHtml(st.efternavn || '')}</div>
-              <div class="cardBadges">${badgeHtml}</div>
-            </div>
-            <div class="cardMeta">${escapeHtml(cls || '')}</div>
-          </div>
-        `;
-      };
-
-      const colHtml = (arr, title) => `
-        <div class="splitCol">
-          ${title ? `<div class="muted small colDivider">${escapeHtml(title)}</div>` : ``}
-          ${arr.map(renderCard).join('')}
-        </div>
-      `;
-
-      const left = girls.concat(other);
-      const right = boys;
-
-      kList.innerHTML = `
-        <div class="splitCols">
-          ${colHtml(left, 'Piger')}
-          ${colHtml(right, 'Drenge')}
-        </div>
-      `;
-
-      // Card click => open Redigér
-      
-      // Card click => open Redigér (event delegation)
-      kList.onclick = (ev) => {
-        const card = ev.target && ev.target.closest ? ev.target.closest('.card') : null;
-        if (!card) return;
-        const login = card.getAttribute('data-unilogin');
-        if (!login) return;
-        state.selectedUnilogin = login;
-        setTab('edit');
-      };
-
-// Group nav buttons (all-mode)
-      const prevBtn = $('kPrevGroup');
-      const nextBtn = $('kNextGroup');
-      if (isAllMode && prevBtn && nextBtn) {
-        prevBtn.onclick = () => { state.allGroupIndex = Math.max(0, (state.allGroupIndex||0) - 1); renderKList(); };
-        nextBtn.onclick = () => { state.allGroupIndex = Math.min(groupKeys.length-1, (state.allGroupIndex||0) + 1); renderKList(); };
-      }
-    }
-
-}
-
-
-function renderOwnerBadges(unilogin){
-  const owners = getOwnersWithText(unilogin);
-  if (!owners.length) return '';
-  return `<div class="badgeRow">${owners.map(o=>`<span class="pill tiny">${escapeHtml(o)}</span>`).join('')}</div>`;
-}
-
+  function lsSet(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
 
   // Compatibility alias used by some UI handlers
   function saveLS(key, value) { return lsSet(key, value); }
@@ -710,35 +330,21 @@ function downloadJson(filename, obj) {
 }
 
 function exportLocalBackup() {
-  const owner = getOwnerKeyForStorage();
-  if (!owner || owner === 'ALL') {
-    alert('Vælg en konkret K-lærer (ikke "Alle") før du tager backup.');
-    return;
-  }
-
-  const prefix = KEYS.textPrefix + owner + '_';
   const data = {};
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (!k || !k.startsWith(prefix)) continue;
+    if (!k || !k.startsWith(LS_PREFIX)) continue;
     data[k] = localStorage.getItem(k);
   }
-
   if (!Object.keys(data).length) {
-    alert('Der var ingen udtalelser at tage backup af for denne K-lærer endnu.');
+    alert('Der var ingen lokale data at tage backup af endnu.');
     return;
   }
-
-  const s = getSettings();
-  const year = Number(s.schoolYearEnd) || '';
   const stamp = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  const file = `elevudtalelser_backup_${owner}${year ? '_' + year : ''}_${stamp}.json`;
-
-  downloadJson(file, {
-    schema: 'elevudtalelser_backup_v2',
+  downloadJson(`elevudtalelser_backup_${stamp}.json`, {
+    schema: 'elevudtalelser_backup_v1',
+    prefix: LS_PREFIX,
     createdAt: new Date().toISOString(),
-    owner,
-    prefix,
     data
   });
 }
@@ -746,16 +352,52 @@ function exportLocalBackup() {
 function getMyKStudents() {
   const s = getSettings();
   const studs = getStudents();
-  if (!studs.length) return [];
-
-  const raw = ((s.me || '') + '').trim();
   const meResolvedConfirmed = ((s.meResolvedConfirmed || '') + '').trim();
-  const meResolvedRaw = resolveTeacherName(raw) || raw;
+  const meResolvedRaw = resolveTeacherName(((s.me || '') + '').trim()) || (((s.me || '') + '').trim());
   const meNorm = normalizeName(meResolvedConfirmed || meResolvedRaw);
-  if (!meNorm) return [];
+  if (!studs.length || !meNorm) return [];
   return sortedStudents(studs)
     .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
 }
+
+
+function getAllStudentsForListing() {
+  return (state.students || []).slice();
+}
+
+function groupKeyForStudent(st) {
+  const a = normalizeName(st.kontaktlaerer1 || '');
+  const b = normalizeName(st.kontaktlaerer2 || '');
+  const parts = [a, b].filter(Boolean);
+  if (!parts.length) return 'Ingen K-gruppe';
+  return parts.join(' / ');
+}
+
+function getGroupKeys(studs) {
+  const set = new Set();
+  studs.forEach(st => set.add(groupKeyForStudent(st)));
+  return Array.from(set).sort((x,y)=> x.localeCompare(y,'da'));
+}
+
+function getVisibleStudentsInKView() {
+  const all = getAllStudentsForListing();
+  if (!state.showAllInK) return getMyKStudents();
+  const keys = getGroupKeys(all);
+  if (!keys.length) return [];
+  state.groupIndex = Math.max(0, Math.min(state.groupIndex, keys.length - 1));
+  const key = keys[state.groupIndex];
+  return all.filter(st => groupKeyForStudent(st) === key);
+}
+
+function getCurrentGroupLabel() {
+  if (!state.showAllInK) return '';
+  const all = getAllStudentsForListing();
+  const keys = getGroupKeys(all);
+  if (!keys.length) return '';
+  const key = keys[Math.max(0, Math.min(state.groupIndex, keys.length - 1))];
+  return `${key} (${state.groupIndex+1}/${keys.length})`;
+}
+
 
 // --- Print: force single-student print to always fit on ONE A4 page by scaling down.
 // Strategy: compute available content height (A4 minus margins = 261mm) in px,
@@ -763,55 +405,38 @@ function getMyKStudents() {
 function applyOnePagePrintScale() {
   const preview = document.getElementById('preview');
   if (!preview) return;
-
   // Reset
   document.documentElement.style.setProperty('--printScale', '1');
-
+  // Only relevant when preview has content
   const txt = (preview.textContent || '').trim();
   if (!txt) return;
 
-  // Measure available height in px (A4 height minus @page top/bottom margin)
+  // Create a mm-to-px probe (hidden)
   const probe = document.createElement('div');
   probe.style.cssText = 'position:fixed; left:-9999px; top:-9999px; width:1mm; height:261mm; visibility:hidden; pointer-events:none;';
   document.body.appendChild(probe);
   const availPx = probe.getBoundingClientRect().height;
   probe.remove();
-  if (!availPx) return;
 
-  // Iterative fit: use getBoundingClientRect() which reflects transform scaling.
-  let scale = 1;
-  for (let i=0; i<4; i++){
-    // Apply
-    document.documentElement.style.setProperty('--printScale', String(scale));
-    const used = preview.getBoundingClientRect().height;
-    if (!used) break;
+  // Measure needed height at scale=1
+  // Use scrollHeight so we capture full content.
+  const neededPx = preview.scrollHeight;
+  if (!availPx || !neededPx) return;
 
-    // Target close to full height, but keep a tiny safety margin
-    const target = availPx * 0.995;
-
-    if (used > target) {
-      scale = scale * (target / used);
-    } else {
-      // If there's noticeable slack, scale up a bit (but never above 1)
-      const slack = target - used;
-      if (slack > (availPx * 0.02)) {
-        scale = Math.min(1, scale * (target / used));
-      } else {
-        break;
-      }
-    }
-    scale = Math.max(0.10, Math.min(1, scale));
+  if (neededPx > availPx) {
+    const s = Math.max(0.10, Math.min(1, availPx / neededPx));
+    document.documentElement.style.setProperty('--printScale', String(s));
   }
 }
 
 function printAllKStudents() {
-  const list = state.showAllStudents ? sortedStudents(getStudents()) : getMyKStudents();
+  const list = getVisibleStudentsInKView();
   if (!list.length) {
-    alert('Der er ingen elever at printe (tjek elevliste og initialer).');
+    alert('Der er ingen K-elever at printe (tjek elevliste og initialer).');
     return;
   }
   // Build a dedicated print window with page breaks between students
-  const title = state.showAllStudents ? 'Elevudtalelser – print alle elever' : 'Elevudtalelser – print alle K-elever';
+  const title = 'Elevudtalelser – print alle';
   // One-page-per-student, always fit by scaling down if needed.
   // Printable area: A4 minus @page margins = 178mm x 261mm.
   const styles = `
@@ -853,28 +478,13 @@ function printAllKStudents() {
           pages.forEach(p=>{
             const c = p.querySelector('.content');
             if(!c) return;
+            // Reset
+            p.style.setProperty('--s','1');
+            // Measure at scale=1
             const avail = p.clientHeight;
-            if (!avail) return;
-
+            const needed = c.scrollHeight;
             let s = 1;
-            for (let i=0; i<4; i++){
-              p.style.setProperty('--s', String(s));
-              const used = c.getBoundingClientRect().height;
-              if (!used) break;
-              const target = avail * 0.995;
-
-              if (used > target) {
-                s = s * (target / used);
-              } else {
-                const slack = target - used;
-                if (slack > (avail * 0.02)) {
-                  s = Math.min(1, s * (target / used));
-                } else {
-                  break;
-                }
-              }
-              s = Math.max(0.10, Math.min(1, s));
-            }
+            if (needed > avail && avail > 0) s = Math.max(0.10, Math.min(1, avail / needed));
             p.style.setProperty('--s', String(s));
           });
         }
@@ -895,28 +505,24 @@ function importLocalBackup(file) {
     try {
       const obj = JSON.parse(String(reader.result || '{}'));
       if (!obj || typeof obj !== 'object' || !obj.data) throw new Error('Ugyldig backupfil.');
+      const prefix = obj.prefix || LS_PREFIX;
 
-      if (obj.schema !== 'elevudtalelser_backup_v2') {
-        throw new Error('Backupfilen har et gammelt format. Brug en nyere backup (v2).');
+      // Slet nuværende app-keys (samme prefix) for at undgå gamle rester
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) toRemove.push(k);
       }
+      toRemove.forEach(k => localStorage.removeItem(k));
 
-      const owner = (obj.owner || '').toString().trim().toUpperCase();
-      const prefix = (obj.prefix || '').toString();
-      if (!owner || !prefix || !prefix.startsWith(KEYS.textPrefix + owner + '_')) {
-        throw new Error('Backupfilen mangler owner/prefix i korrekt format.');
-      }
+      // Gendan keys
+      Object.entries(obj.data).forEach(([k,v]) => {
+        if (typeof k === 'string' && k.startsWith(prefix)) localStorage.setItem(k, String(v ?? ''));
+      });
 
-      let imported = 0, skipped = 0;
-      for (const [k, v] of Object.entries(obj.data || {})) {
-        if (typeof k !== 'string' || !k.startsWith(prefix)) { skipped++; continue; }
-        localStorage.setItem(k, String(v ?? ''));
-        imported++;
-      }
-
-      alert(`Backup importeret\nOwner: ${owner}\nImporteret: ${imported}\nSkippet: ${skipped}`);
-      renderAll();
+      location.reload();
     } catch (err) {
-      alert(err?.message || String(err));
+      alert(err?.message || 'Kunne ikke indlæse backup.');
     }
   };
   reader.readAsText(file);
@@ -1088,52 +694,6 @@ function resolveTeacherName(raw) {
   return resolveTeacherMatch(raw).resolved;
 }
 
-
-// --- K-lærer namespaces ----------------------------------------------------
-// Special value for "show all"
-function isAllTeacherRaw(raw){
-  // v20: 'Alle' som bruger er fjernet.
-  return false;
-}
-
-function teacherKeyFromRaw(raw){
-  const s = getSettings();
-  const aliasMap = (s && s.aliasMap) ? s.aliasMap : DEFAULT_ALIAS_MAP;
-
-  const r = ((raw||'')+'').trim();
-  if (!r) return '';
-
-  // If raw matches an alias code, use it
-  const rawNorm = normalizeName(r).replace(/\s+/g,'');
-  const aliasCodes = Object.keys(aliasMap || {});
-  const hitCode = aliasCodes.find(k => normalizeName(k).replace(/\s+/g,'') === rawNorm);
-  if (hitCode) return (hitCode||'').toString().toUpperCase();
-
-  // If raw is a full name that matches an alias target, return the alias code
-  const resolved = resolveTeacherName(r) || r;
-  const resNorm = normalizeName(resolved);
-  const hitByName = aliasCodes.find(k => normalizeName(aliasMap[k]) === resNorm);
-  if (hitByName) return (hitByName||'').toString().toUpperCase();
-
-  // Fallback: stable-ish slug from resolved name
-  const slug = resNorm.replace(/[^a-z0-9]+/g,'').toUpperCase();
-  return (slug || 'UNK').slice(0, 16);
-}
-
-// Which teacher namespace should we read/write texts under?
-// - Normal mode: uses K-lærer input
-function getOwnerKeyForStorage(){
-  const s = getSettings();
-  const raw = ((s.me||'')+'').trim();
-  return teacherKeyFromRaw(raw);
-}
-
-function getTextKey(unilogin, ownerKey){
-  const ok = (ownerKey || getOwnerKeyForStorage() || '').trim();
-  if (!ok) return null; // e.g. ALL-mode without valgt aktiv lærer
-  return KEYS.textPrefix + ok + '_' + unilogin;
-}
-
 function updateTeacherDatalist() {
   // Replaces the old <datalist> UX with a custom, searchable dropdown.
   const input = document.getElementById('meInput');
@@ -1157,7 +717,10 @@ function updateTeacherDatalist() {
   const nameItems = fullNames
     .filter(n => n && !aliasNames.has(normalizeName(n)))
     .map(n => ({ kind: 'name', code: '', name: n }));
-  // (v20+) 'Alle' som bruger er fjernet.
+
+  // Sorted: aliases first, then names
+  aliasItems.sort((a,b) => a.code.localeCompare(b.code));
+  nameItems.sort((a,b) => normalizeName(a.name).localeCompare(normalizeName(b.name)));
   const allItems = [...aliasItems, ...nameItems];
 
   function itemMatches(it, q){
@@ -1292,26 +855,6 @@ function normalizePlaceholderKey(key) {
   function escapeAttr(s) { return (s ?? '').toString().replace(/"/g,'&quot;'); }
   function $(id){ return document.getElementById(id); }
 
-function syncKToggleAndPrintLabels(){
-  const btnPrintAllK = $("btnPrintAllK");
-  const titleEl = $("kViewTitle");
-  const tabLbl = $("tabKLabel");
-  const tabBtn = $("tab-k");
-  const kHeaderInfo = $("kHeaderInfo");
-  const showAll = !!state.showAllStudents;
-
-  if (titleEl) titleEl.textContent = showAll ? "Alle elever" : "K-elever";
-  if (tabLbl) tabLbl.textContent = showAll ? "Alle elever" : "K-elever";
-
-  if (tabBtn) {
-    tabBtn.title = showAll ? "Klik for at skifte til K-elever" : "Klik for at skifte til Alle elever";
-  }
-
-  if (btnPrintAllK) btnPrintAllK.textContent = showAll ? "🖨️ Print alle elever" : "🖨️ Print alle K-elever";
-
-  if (kHeaderInfo && !kHeaderInfo.textContent) kHeaderInfo.textContent = "";
-}
-
   // Hold "Faglærer-arbejde" type tabs in sync with the underlying select.
   // This must live in the same scope as renderMarksTable().
   function syncMarksTypeTabs(){
@@ -1404,8 +947,8 @@ const on = (id, ev, fn, opts) => { const el = document.getElementById(id); if (e
     // The current visible K-elev list (after any filters). Used for prev/next navigation in Redigér.
     visibleKElevIds: [],
     kMeDraft: '',
-    showAllStudents: false,
-    allGroupIndex: 0
+    showAllInK: false,
+    groupIndex: 0
   };
 
   // Restore last UI selection (settings subtab etc.) from localStorage
@@ -1439,8 +982,6 @@ function defaultSettings() {
     const ui = (s && s.ui) ? s.ui : {};
     if (typeof ui.settingsSubtab === 'string' && ui.settingsSubtab) stateObj.settingsSubtab = ui.settingsSubtab;
     if (typeof ui.marksType === 'string' && ui.marksType) stateObj.marksType = ui.marksType;
-    if (typeof ui.showAllStudents === 'boolean') stateObj.showAllStudents = ui.showAllStudents;
-    if (typeof ui.allGroupIndex === 'number') stateObj.allGroupIndex = ui.allGroupIndex;
   }
 
   function saveUIStateFrom(stateObj){
@@ -1448,8 +989,6 @@ function defaultSettings() {
     s.ui = s.ui || {};
     s.ui.settingsSubtab = stateObj.settingsSubtab;
     s.ui.marksType = stateObj.marksType;
-    s.ui.showAllStudents = !!stateObj.showAllStudents;
-    s.ui.allGroupIndex = Number.isFinite(stateObj.allGroupIndex) ? stateObj.allGroupIndex : 0;
     setSettings(s);
   }
 
@@ -1461,16 +1000,10 @@ function defaultSettings() {
   function setStudents(studs){ lsSet(KEYS.students, studs); window.__ALL_STUDENTS__ = studs || []; }
   function getMarks(kindKey){ return lsGet(kindKey, {}); }
   function setMarks(kindKey, m){ lsSet(kindKey, m); }
-  function getTextFor(unilogin, ownerKey){
-    const key = getTextKey(unilogin, ownerKey);
-    if (!key) return { elevudvikling:'', praktisk:'', kgruppe:'', lastSavedTs:null, studentInputMeta:null };
-    return lsGet(key, { elevudvikling:'', praktisk:'', kgruppe:'', lastSavedTs:null, studentInputMeta:null });
+  function getTextFor(unilogin){
+    return lsGet(KEYS.textPrefix + unilogin, { elevudvikling:'', praktisk:'', kgruppe:'', lastSavedTs:null, studentInputMeta:null });
   }
-  function setTextFor(unilogin, obj, ownerKey){
-    const key = getTextKey(unilogin, ownerKey);
-    if (!key) { alert('Vælg en aktiv lærer (til redigér/print), før du redigerer udtalelser i "Alle"-tilstand.'); return; }
-    lsSet(key, obj);
-  }
+  function setTextFor(unilogin, obj){ lsSet(KEYS.textPrefix + unilogin, obj); }
 
   function computePeriod(schoolYearEnd) {
     const endYear = Number(schoolYearEnd) || (new Date().getFullYear() + 1);
@@ -1509,17 +1042,6 @@ function defaultSettings() {
     );
   }
 
-function sortByNameDA(a,b){
-  const ea = (a.efternavn||'')+'';
-  const eb = (b.efternavn||'')+'';
-  const fa = (a.fornavn||'')+'';
-  const fb = (b.fornavn||'')+'';
-  const c1 = ea.localeCompare(eb,'da');
-  if (c1) return c1;
-  return fa.localeCompare(fb,'da');
-}
-
-
   // ---------- templating ----------
   function snippetTextByGender(snObj, genderRaw) {
     const g = normalizeName(genderRaw);
@@ -1556,13 +1078,6 @@ function sortByNameDA(a,b){
   }
 
   function buildStatement(student, settings) {
-
-  const EMPTY = '__EMPTY__';
-  const _safe = (v) => (v == null ? '' : String(v));
-  const _sectionOrEmpty = (v) => {
-    const t = _safe(v).trim();
-    return t ? _safe(v) : EMPTY;
-  };
     const tpls = getTemplates();
     const period = computePeriod(settings.schoolYearEnd);
 
@@ -1622,14 +1137,14 @@ function sortByNameDA(a,b){
       "DATO_MAANED_AAR": period.dateMonthYear,
 
       "SKOLENS_STANDARDTEKST": tpls.schoolText || '',
-      "SANG_AFSNIT": _sectionOrEmpty(sangAfsnit),
-      "GYM_AFSNIT": _sectionOrEmpty(gymAfsnit),
-      "ELEVRAAD_AFSNIT": _sectionOrEmpty(elevraadAfsnit),
-      "ROLLE_AFSNIT": _sectionOrEmpty(rolleAfsnit),
+      "SANG_AFSNIT": sangAfsnit,
+      "GYM_AFSNIT": gymAfsnit,
+      "ELEVRAAD_AFSNIT": elevraadAfsnit,
+      "ROLLE_AFSNIT": rolleAfsnit,
 
-      "ELEVUDVIKLING_AFSNIT": _sectionOrEmpty(free.elevudvikling),
-      "PRAKTISK_AFSNIT": _sectionOrEmpty(free.praktisk),
-      "KONTAKTGRUPPE_AFSNIT": _sectionOrEmpty((free.kgruppe || SNIPPETS.kontaktgruppeDefault)),
+      "ELEVUDVIKLING_AFSNIT": (free.elevudvikling || ''),
+      "PRAKTISK_AFSNIT": (free.praktisk || ''),
+      "KONTAKTGRUPPE_AFSNIT": (free.kgruppe || SNIPPETS.kontaktgruppeDefault),
 
       "AFSLUTNING_AFSNIT": SNIPPETS.afslutningDefault,
 
@@ -1638,10 +1153,10 @@ function sortByNameDA(a,b){
 // Synonymer til skabeloner/snippets (forskellige placeholder-navne)
 "ELEV_FULDE_NAVN": fullName,
 "ELEV_FULD_E_NAVN": fullName,
-"ELEV_UDVIKLING_AFSNIT": _sectionOrEmpty(free.elevudvikling),
-"ELEV_UDVIKLING_FRI": _sectionOrEmpty(free.elevudvikling),
-"PRAKTISK_FRI": _sectionOrEmpty(free.praktisk),
-"KGRUPPE_FRI": _sectionOrEmpty(free.kgruppe),
+"ELEV_UDVIKLING_AFSNIT": (free.elevudvikling || ''),
+"ELEV_UDVIKLING_FRI": (free.elevudvikling || ''),
+"PRAKTISK_FRI": (free.praktisk || ''),
+"KGRUPPE_FRI": (free.kgruppe || ''),
 "KONTAKTGRUPPE_ANTAL": String(settings.contactGroupCount || (window.__ALL_STUDENTS__ ? window.__ALL_STUDENTS__.length : "") || ''),
 "KONTAKTGRUPPE_BESKRIVELSE": (free.kgruppe || SNIPPETS.kontaktgruppeDefault || ''),
 "KONTAKTLAERER_1_NAVN": (student.kontaktlaerer1 || '').trim(),
@@ -1658,9 +1173,9 @@ function sortByNameDA(a,b){
       "NAVN": fullName,
       "FORNAVN": firstName,
       "KLASSE": (student.klasse || '').trim(),
-      "ELEVUDVIKLING_FRI": _sectionOrEmpty(free.elevudvikling),
-      "PRAKTISK_FRI": _sectionOrEmpty(free.praktisk),
-      "KGRUPPE_FRI": _sectionOrEmpty((free.kgruppe || SNIPPETS.kontaktgruppeDefault)),
+      "ELEVUDVIKLING_FRI": (free.elevudvikling || ''),
+      "PRAKTISK_FRI": (free.praktisk || ''),
+      "KGRUPPE_FRI": (free.kgruppe || SNIPPETS.kontaktgruppeDefault),
       "SANG_SNIPPET": sangAfsnit,
       "GYM_SNIPPET": gymAfsnit,
       "ELEVRAAD_SNIPPET": elevraadAfsnit,
@@ -1670,17 +1185,6 @@ function sortByNameDA(a,b){
 
     let out = tpls.template || DEFAULT_TEMPLATE;
     out = applyPlaceholders(out, placeholderMap);
-
-    const stripEmptyHeading = (txt, heading) => {
-      const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp('(?:^|\\n)\\s*' + esc + '\\s*:\\s*\\n\\s*' + EMPTY + '\\s*(?=\\n|$)', 'g');
-      return txt.replace(re, '\n');
-    };
-
-    out = stripEmptyHeading(out, 'Udvikling');
-    out = stripEmptyHeading(out, 'Praktisk');
-    out = stripEmptyHeading(out, 'Funktion i kontaktgruppen');
-    out = out.replaceAll(EMPTY, '');
     return cleanSpacing(out);
   }
 
@@ -1694,8 +1198,7 @@ function sortByNameDA(a,b){
     koen: new Set(["køn","koen","gender", "kon"]),
     klasse: new Set(["klasse","class","hold"]),
     kontakt1: new Set(["kontaktlærer1","kontaktlaerer1","relationerkontaktlaerernavn","relationerkontaktlærernavn","kontaktlærer","kontaktlaerer"]),
-    kontakt2: new Set(["kontaktlærer2","kontaktlaerer2","relationerandenkontaktlaerernavn","relationerandenkontaktlærernavn","andenkontaktlærer","andenkontaktlaerer"]),
-    kontaktgruppe: new Set(["kontaktgruppe","k-gruppe","kgruppe","k gruppen","k-gruppen","kgrp","team","kontaktgrp","kontakt-gruppe","kontakt gruppe"])
+    kontakt2: new Set(["kontaktlærer2","kontaktlaerer2","relationerandenkontaktlaerernavn","relationerandenkontaktlærernavn","andenkontaktlærer","andenkontaktlaerer"])
   };
   function mapStudentHeaders(headers) {
     const mapped = {};
@@ -1732,8 +1235,7 @@ function sortByNameDA(a,b){
     const klasse = get('klasse');
     const k1 = resolveTeacherName(get('kontakt1'));
     const k2 = resolveTeacherName(get('kontakt2'));
-    const kontaktgruppe = get('kontaktgruppe');
-    return { fornavn, efternavn, unilogin, koen, klasse, kontaktgruppe, kontaktlaerer1: k1, kontaktlaerer2: k2 };
+    return { fornavn, efternavn, unilogin, koen, klasse, kontaktlaerer1: k1, kontaktlaerer2: k2 };
   }
 
   // ---------- UI rendering ----------
@@ -1792,12 +1294,11 @@ function setSettingsSubtab(sub) {
   }
 
   function renderStatus() {
-  const s = getSettings();
-  const studs = getStudents();
-  let me = '';
-  if (s.meResolved) me = `· K-lærer: ${s.meResolved}`;
-  $('statusText').textContent = studs.length ? `Elever: ${studs.length} ${me}` : `Ingen elevliste indlæst`;
-}
+    const s = getSettings();
+    const studs = getStudents();
+    const me = s.meResolved ? `· K-lærer: ${s.meResolved}` : '';
+    $('statusText').textContent = studs.length ? `Elever: ${studs.length} ${me}` : `Ingen elevliste indlæst`;
+  }
 
   function renderSettings() {
     const s = getSettings();
@@ -1812,7 +1313,6 @@ function setSettingsSubtab(sub) {
     $('btnToggleForstander').textContent = s.forstanderLocked ? '✏️' : '🔒';
 
     $('meInput').value = s.me || '';
-
     $('schoolYearEnd').value = s.schoolYearEnd || '';
 
     const p = computePeriod(s.schoolYearEnd);
@@ -1881,12 +1381,8 @@ function renderSnippetsEditor() {
   const list = document.getElementById('gymRolesList');
   if (!list) return;
   list.innerHTML = '';
-  const DEFAULT_ROLE_KEYS = new Set(Object.keys((SNIPPETS_DEFAULT && SNIPPETS_DEFAULT.roller) ? SNIPPETS_DEFAULT.roller : {}));
   Object.keys(SNIPPETS.roller || {}).forEach(key => {
     const it = SNIPPETS.roller[key];
-    const isDefaultRole = DEFAULT_ROLE_KEYS.has(key);
-    const delBtn = isDefaultRole ? '' : `${delBtn}`;
-
     const row = document.createElement('div');
     row.className = 'roleRow';
     row.setAttribute('data-role-key', key);
@@ -1900,7 +1396,7 @@ function renderSnippetsEditor() {
           <label>Tekst</label>
           <textarea class="roleText" rows="3">${escapeHtml((it.text_m || it.text_k || ''))}</textarea>
         </div>
-        ${delBtn}
+        <button class="btn danger" type="button" data-remove-role="${escapeHtml(key)}">Slet</button>
       </div>
     `;
     list.appendChild(row);
@@ -1961,18 +1457,14 @@ function renderKList() {
     const studs = getStudents();
     // Resolve teacher input via alias-map (MM -> Måns ...) for both filtering and UI.
     const meRaw = ((s.me || '') + '').trim();
-    const showAllStudents = !!state.showAllStudents;
     const meResolvedRaw = resolveTeacherName(meRaw) || meRaw;
-    // v20: toggle-visning
-    const minePreview = showAllStudents
-      ? sortedStudents(studs)
-      : (meResolvedRaw
-          ? studs.filter(st => {
-              const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
-              const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
-              return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
-            })
-          : []);
+    const minePreview = meResolvedRaw
+      ? studs.filter(st => {
+          const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
+          const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
+          return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
+        })
+      : [];
     const kMsg = $('kMessage');
     if (kMsg) kMsg.classList.remove('compact');
     const kList = $('kList');
@@ -1980,7 +1472,6 @@ function renderKList() {
     // If "Initialer" is not confirmed yet, show an inline input that commits on ENTER.
     // User may type initials OR full name; we only update settings when ENTER is pressed.
     if (!((s.meResolved || '') + '').trim()) {
-      syncKToggleAndPrintLabels();
       state.visibleKElevIds = [];
       if (kList) kList.innerHTML = '';
 
@@ -1994,7 +1485,6 @@ function renderKList() {
             Kontaktlærer1/2 matcher initialer.
             <span id="kStatusLine" class="muted"></span>
           </div>
-          <div id="kGroupNavLine" class="kGroupNavLine"></div>
         </div>
         <div class="muted small" id="kProgLine"></div>
       </div>`;
@@ -2048,7 +1538,6 @@ function renderKList() {
     }
 
     // Confirmed teacher name present -> show list.
-    syncKToggleAndPrintLabels();
     const meResolvedConfirmed = ((s.meResolvedConfirmed || '') + '').trim();
     const kHeaderInfo = $("kHeaderInfo");
     const meNorm = normalizeName(meResolvedConfirmed || meResolvedRaw);
@@ -2058,7 +1547,7 @@ function renderKList() {
     // Ensure the status/progress lines exist so we don't show an empty placeholder.
     if (kMsg && (!$("kStatusLine") || !$("kProgLine"))) {
       kMsg.innerHTML = `
-	        <div class="k-row groupNavRow" style="align-items:center; justify-content:space-between; gap:10px;">
+	        <div class="k-row" style="align-items:center; gap:10px;">
 	          <div id="kStatusLine" class="muted small"></div>
 	        </div>
         <div id="kProgLine" class="muted small" style="margin-top:6px;"></div>
@@ -2066,99 +1555,20 @@ function renderKList() {
     }
 
     // Build list (and allow quick filtering by elevnavn)
-    const mineList = showAllStudents
-      ? sortedStudents(studs)
-      : sortedStudents(studs)
-          .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
+    const baseList = sortedStudents(studs);
+
+let mineList = [];
+if (state.showAllInK) {
+  const keys = getGroupKeys(baseList);
+  state.groupIndex = Math.max(0, Math.min(state.groupIndex, Math.max(0, keys.length - 1)));
+  const key = keys[state.groupIndex] || '';
+  mineList = baseList.filter(st => groupKeyForStudent(st) === key);
+} else {
+  mineList = baseList.filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
+}
 
 
-    
-    // Alle-elever: grupper ud fra kontaktlærer1/kontaktlærer2 (ingen kontaktgruppe-kolonne)
-    const totalList = showAllStudents ? sortedStudents(studs) : mineList;
-
-    // Build groups: key = "AB/EB" (sorted teacher keys)
-    
-    // Find mest sandsynlige "makker" (co-teacher) pr. lærer ud fra de elever der HAR begge kontaktlærere udfyldt.
-    const coCount = new Map(); // teacher -> Map(coTeacher -> count)
-    totalList.forEach(st => {
-      const a = teacherKeyFromRaw(st.kontaktlaerer1);
-      const b = teacherKeyFromRaw(st.kontaktlaerer2);
-      if (a && b) {
-        if (!coCount.has(a)) coCount.set(a, new Map());
-        if (!coCount.has(b)) coCount.set(b, new Map());
-        coCount.get(a).set(b, (coCount.get(a).get(b)||0)+1);
-        coCount.get(b).set(a, (coCount.get(b).get(a)||0)+1);
-      }
-    });
-    const topCo = {};
-    coCount.forEach((m, t) => {
-      let best = '', bestN = 0;
-      m.forEach((n, co) => { if (n > bestN) { bestN = n; best = co; } });
-      if (best) topCo[t] = best;
-    });
-
-    const makeGroupKey = (st) => {
-      let t1 = teacherKeyFromRaw(st.kontaktlaerer1);
-      let t2 = teacherKeyFromRaw(st.kontaktlaerer2);
-
-      // Hvis en elev kun har én lærer udfyldt, så "udled" makkeren fra topCo
-      if (t1 && !t2 && topCo[t1]) t2 = topCo[t1];
-      if (t2 && !t1 && topCo[t2]) t1 = topCo[t2];
-
-      const arr = [t1, t2].filter(Boolean).sort((a,b)=>a.localeCompare(b,'da'));
-      if (!arr.length) return '—';
-      return arr.join('/');
-    };
-
-
-    let displayList = mineList;
-    let groupKeys = [];
-    let activeGroupKey = null;
-
-    if (showAllStudents) {
-      // Build partner map from full dataset (if some rows have only 1 of the two kontaktlærere)
-      const partnerOf = {};
-      totalList.forEach(st => {
-        const a = ((st.kontaktlaerer1||'')+'').trim();
-        const b = ((st.kontaktlaerer2||'')+'').trim();
-        if (a && b) {
-          if (!partnerOf[a]) partnerOf[a] = b;
-          if (!partnerOf[b]) partnerOf[b] = a;
-        }
-      });
-
-      const normalizedGroupKey = (st) => {
-        let a = ((st.kontaktlaerer1||'')+'').trim();
-        let b = ((st.kontaktlaerer2||'')+'').trim();
-        // Infer missing partner if possible
-        if (a && !b && partnerOf[a]) b = partnerOf[a];
-        if (b && !a && partnerOf[b]) a = partnerOf[b];
-
-        if (a && b) {
-          const arr = [a,b].sort((x,y)=>x.localeCompare(y,'da'));
-          return arr.join('/');
-        }
-        return (a || b || '—');
-      };
-
-      const groupsMap = new Map();
-      totalList.forEach(st => {
-        const k = normalizedGroupKey(st);
-        if (!groupsMap.has(k)) groupsMap.set(k, []);
-        groupsMap.get(k).push(st);
-      });
-
-      groupKeys = Array.from(groupsMap.keys()).sort((a,b)=>a.localeCompare(b,'da'));
-// init / clamp group index
-      if (typeof state.allGroupIndex !== 'number') state.allGroupIndex = 0;
-      if (state.allGroupIndex < 0) state.allGroupIndex = 0;
-      if (state.allGroupIndex >= groupKeys.length) state.allGroupIndex = Math.max(0, groupKeys.length-1);
-
-      activeGroupKey = groupKeys[state.allGroupIndex] || (groupKeys[0]||'—');
-      displayList = groupsMap.get(activeGroupKey) || [];
-    }
-
-const prog = totalList.reduce((acc, st) => {
+const prog = mineList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
       acc.u += (f.elevudvikling||'').trim()?1:0;
       acc.p += (f.praktisk||'').trim()?1:0;
@@ -2168,120 +1578,63 @@ const prog = totalList.reduce((acc, st) => {
 
     const progEl = $("kProgLine");
     if (progEl) {
-      progEl.textContent = `${showAllStudents ? 'Udfyldt (alle elever)' : 'Udfyldt (K-elever)'}: `
-        + `Udvikling: ${prog.u} af ${totalList.length} · Praktisk: ${prog.p} af ${totalList.length} · K-gruppe: ${prog.k} af ${totalList.length}`;}
+      progEl.textContent = `Udfyldt indtil nu: Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;
+    }
 
     const statusEl = $("kStatusLine");
     if (statusEl) statusEl.textContent = "";
     if (kHeaderInfo) {
       const who = (meResolvedConfirmed || meRaw || "").trim();
-      const allCount = sortedStudents(studs).length;
-      const myCount = sortedStudents(studs).filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm).length;
+      kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
+// Toggle + gruppe-nav
+const btnToggleAllK = $("btnToggleAllK");
+if (btnToggleAllK) btnToggleAllK.textContent = state.showAllInK ? "Vis kun mine K-elever" : "Vis alle elever";
 
-      if (showAllStudents) {
-        // Group navigation lives inside the dashed info box (like edit navigation)
-        const cur = activeGroupKey || '—';
-        const idx = (typeof state.allGroupIndex === 'number') ? state.allGroupIndex : 0;
-        const prevKey = (groupKeys && groupKeys.length && idx > 0) ? groupKeys[idx-1] : '';
-        const nextKey = (groupKeys && groupKeys.length && idx < groupKeys.length-1) ? groupKeys[idx+1] : '';
+const btnPrintAllK = $("btnPrintAllK");
+if (btnPrintAllK) btnPrintAllK.innerHTML = `🖨️ ${state.showAllInK ? "Print alle elever" : "Print alle"}`;
 
-        const nav = $('kGroupNavLine');
-        if (nav) {
-          const leftBtn = prevKey ? `<button id="kPrevGroup" class="btn small" title="Forrige K-gruppe">◀ ${escapeHtml(prevKey)}</button>` : `<span></span>`;
-          const rightBtn = nextKey ? `<button id="kNextGroup" class="btn small" title="Næste K-gruppe">${escapeHtml(nextKey)} ▶</button>` : `<span></span>`;
-          nav.innerHTML = `
-            <div class="kNavRow">
-              ${leftBtn}
-              <div class="kNavCenter muted small">Gruppe: <b>${escapeHtml(cur)}</b> · ${idx+1}/${groupKeys.length} · ${displayList.length} elever</div>
-              ${rightBtn}
-            </div>
-          `;
-        }
-        // Keep the header info minimal in all-mode; print button stays to the right
-        kHeaderInfo.textContent = '';
-      } else {
-        const nav = $('kGroupNavLine'); if (nav) nav.textContent = '';
-        kHeaderInfo.textContent = `${who || 'K-lærer'} · ${myCount} elever`;
-      }
+const keysAll = getGroupKeys(sortedStudents(studs));
+const kGroupNav = $("kGroupNav");
+if (kGroupNav) kGroupNav.style.display = state.showAllInK ? "flex" : "none";
+
+const kGroupLabel = $("kGroupLabel");
+if (kGroupLabel) kGroupLabel.textContent = state.showAllInK ? getCurrentGroupLabel() : "";
+
+const btnPrevGroup = $("btnPrevGroup");
+const btnNextGroup = $("btnNextGroup");
+if (btnPrevGroup) btnPrevGroup.disabled = !state.showAllInK || state.groupIndex <= 0;
+if (btnNextGroup) btnNextGroup.disabled = !state.showAllInK || state.groupIndex >= Math.max(0, keysAll.length - 1);
     }
 
-    
     if (kList) {
-      // We render our own two-column layout (piger/drengene), so kList must NOT also be a 2-col grid.
-      kList.classList.remove('list');
-      kList.classList.add('listBlock');
+      kList.innerHTML = mineList.map(st => {
+        const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
+        const free = getTextFor(st.unilogin);
+        const hasU = !!(free.elevudvikling || '').trim();
+        const hasP = !!(free.praktisk || '').trim();
+        const hasK = !!(free.kgruppe || '').trim();
+        const editor = ((free._editedBy || '') + '').trim();
+        const group = state.showAllInK ? groupKeyForStudent(st) : '';
 
-      const isAllMode = !!state.showAllStudents;
-
-      // Split by gender inside current view
-      const girls = displayList.filter(st => genderGroup(st.koen) === 0).sort(sortByNameDA);
-      const boys  = displayList.filter(st => genderGroup(st.koen) === 1).sort(sortByNameDA);
-      const other = displayList.filter(st => genderGroup(st.koen) === 2).sort(sortByNameDA);
-
-      const renderCard = (st) => {
-        const login = st.unilogin;
-        // In all-mode we show owner pills (who wrote + U/P/K); in K-mode we show my U/P/K
-        const badgeHtml = isAllMode
-          ? ((typeof renderAllModeBadges === 'function') ? renderAllModeBadges(login) : '')
-          : (() => {
-              const f = getTextFor(login);
-              const parts = [];
-              if (((f.elevudvikling||'')+'').trim()) parts.push('U');
-              if (((f.praktisk||'')+'').trim()) parts.push('P');
-              if (((f.kgruppe||'')+'').trim()) parts.push('K');
-              return parts.length ? `<span class="pills"><span class="pill tiny">${parts.join('')}</span></span>` : '';
-            })();
-
-        const cls = formatClassLabel(st.klasse);
         return `
-          <div class="card" data-unilogin="${escapeAttr(login)}">
-            <div class="cardTop">
-              <div class="cardTitle">${escapeHtml(st.fornavn || '')} ${escapeHtml(st.efternavn || '')}</div>
-              <div class="cardBadges">${badgeHtml}</div>
+          <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
+            <div class="cardTopRow">
+              <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
+              <div class="cardFlags muted small">${hasU?'U':''}${hasP?' P':''}${hasK?' K':''}${editor?` · ${escapeHtml(editor)}`:''}<\/div>
             </div>
-            <div class="cardMeta">${escapeHtml(cls || '')}</div>
+            <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}${group?` · ${escapeHtml(group)}`:''}<\/div>
           </div>
         `;
-      };
+      }).join('');
 
-      const colHtml = (arr, title) => `
-        <div class="splitCol">
-          ${title ? `<div class="muted small colDivider">${escapeHtml(title)}</div>` : ``}
-          ${arr.map(renderCard).join('')}
-        </div>
-      `;
-
-      const left = girls.concat(other);
-      const right = boys;
-
-      kList.innerHTML = `
-        <div class="splitCols">
-          ${colHtml(left, 'Piger')}
-          ${colHtml(right, 'Drenge')}
-        </div>
-      `;
-
-      // Card click => open Redigér
-      
-      // Card click => open Redigér (event delegation)
-      kList.onclick = (ev) => {
-        const card = ev.target && ev.target.closest ? ev.target.closest('.card') : null;
-        if (!card) return;
-        const login = card.getAttribute('data-unilogin');
-        if (!login) return;
-        state.selectedUnilogin = login;
-        setTab('edit');
-      };
-
-// Group nav buttons (all-mode)
-      const prevBtn = $('kPrevGroup');
-      const nextBtn = $('kNextGroup');
-      if (isAllMode && prevBtn && nextBtn) {
-        prevBtn.onclick = () => { state.allGroupIndex = Math.max(0, (state.allGroupIndex||0) - 1); renderKList(); };
-        nextBtn.onclick = () => { state.allGroupIndex = Math.min(groupKeys.length-1, (state.allGroupIndex||0) + 1); renderKList(); };
-      }
+      kList.querySelectorAll('[data-unilogin]').forEach(el => {
+        el.addEventListener('click', () => {
+          state.selectedUnilogin = el.getAttribute('data-unilogin');
+          setTab('edit');
+          renderAll();
+          });
+      });
     }
-
 }
 
 function setEditEnabled(enabled) {
@@ -2771,18 +2124,7 @@ $('preview').textContent = buildStatement(st, getSettings());
 
   // ---------- events ----------
   function wireEvents() {
-    on('tab-k','click', () => {
-      // Topmenu-knappen fungerer som skift mellem K-elever og Alle elever.
-      if (state.tab === 'k') {
-        state.showAllStudents = !state.showAllStudents;
-        // når man går til Alle elever, start altid på første K-gruppe
-        if (state.showAllStudents) state.allGroupIndex = 0;
-        saveUIStateFrom(state);
-        renderAll();
-      } else {
-        setTab('k');
-      }
-    });
+    on('tab-k','click', () => setTab('k'));
     // Redigér-tab er skjult når ingen elev er valgt, men vær robust hvis nogen alligevel klikker.
     on('tab-edit','click', () => setTab('edit'));
     on('tab-set','click', () => setTab('set'));
@@ -2834,19 +2176,13 @@ $('preview').textContent = buildStatement(st, getSettings());
     on('meInput','input', () => {
       const raw = $('meInput').value;
       const s = getSettings();
-      const prevRaw = ((s.me||'')+'').trim();
-
       s.me = raw;
       s.meResolved = resolveTeacherName(raw);
-
       setSettings(s);
-      state.selectedUnilogin = null;
       renderStatus();
-      if (state.tab === 'edit') setTab('k');
       if (state.tab === 'k') renderKList();
       renderSettings();
     });
-
     on('schoolYearEnd','input', () => {
       const s = getSettings();
       s.schoolYearEnd = Number($('schoolYearEnd').value || s.schoolYearEnd);
@@ -3376,6 +2712,25 @@ if (document.getElementById('btnDownloadElevraad')) {
     // K-elever: Print alle
     const btnPrintAllK = $("btnPrintAllK");
     if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
+
+    const btnToggleAllK = $("btnToggleAllK");
+    if (btnToggleAllK) btnToggleAllK.addEventListener("click", () => {
+      state.showAllInK = !state.showAllInK;
+      state.groupIndex = 0;
+      renderAll();
+    });
+
+    const btnPrevGroup = $("btnPrevGroup");
+    if (btnPrevGroup) btnPrevGroup.addEventListener("click", () => {
+      state.groupIndex = Math.max(0, state.groupIndex - 1);
+      renderAll();
+    });
+
+    const btnNextGroup = $("btnNextGroup");
+    if (btnNextGroup) btnNextGroup.addEventListener("click", () => {
+      state.groupIndex = state.groupIndex + 1;
+      renderAll();
+    });
 
     // Hjælp-links (hop til relevante faner)
     document.body.addEventListener("click", (ev) => {

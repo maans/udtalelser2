@@ -14,7 +14,7 @@
 <span>Elevudtalelser</span>
 </div>
 <nav aria-label="Navigation" class="tabs">
-<button class="tab" data-tab="k" id="tab-k" title="K-elever">👤 <span id="tabKLabel">K-elever</span></button>
+<button class="tab" data-tab="k" id="tab-k" title="K-elever">👤 <span>K-elever</span></button>
 <button class="tab" data-tab="edit" id="tab-edit" title="Redigér">✍️ <span>Redigér</span></button>
 <button class="tab" data-tab="set" id="tab-set" title="Indstillinger">⚙️ <span>Indstillinger</span></button>
         <button class="tab tab-help" id="tab-help-top" title="Hjælp">? <span>Hjælp</span></button>
@@ -28,18 +28,20 @@
 <section class="view" id="view-k">
 <div class="viewHeader">
         <div class="viewTitleRow">
-          <h1 id="kViewTitle">K-elever</h1>
+          <h1>K-elever</h1>
           <div class="row gap wrap" style="justify-content:flex-end">
             <div class="muted small" id="kHeaderInfo"></div>
-            <div class="wrap no-print" id="kGroupNav" style="gap:8px; justify-content:flex-end; margin-top:6px; display:none;">
-              <button class="btn small" id="btnGroupPrev" type="button">◀︎</button>
-              <div class="muted small" id="kGroupTitle"></div>
-              <button class="btn small" id="btnGroupNext" type="button">▶︎</button>
-            </div>
-<button class="btn small no-print" id="btnPrintAllK" type="button" title="Print alle dine K-elever som én samlet udskrift">🖨️ Print alle K-elever</button>
+            <button class="btn small no-print" id="btnPrintAllK" type="button" title="Print alle (den aktuelle visning) som én samlet udskrift">🖨️ Print alle</button>
+            <button class="btn small no-print" id="btnToggleAllK" type="button" title="Skift mellem kun dine K-elever og alle elever">Vis alle elever</button>
           </div>
         </div>
       </div>
+      <div class="row gap wrap no-print" id="kGroupNav" style="display:none; justify-content:center; margin-top:8px;">
+        <button class="btn small no-print" id="btnPrevGroup" type="button">◀ Gruppe</button>
+        <div class="pill" id="kGroupLabel"></div>
+        <button class="btn small no-print" id="btnNextGroup" type="button">Gruppe ▶</button>
+      </div>
+
 <div class="callout" id="kMessage"></div>
 <div class="list" id="kList"></div>
 </section>
