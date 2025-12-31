@@ -1556,6 +1556,13 @@ function sortByNameDA(a,b){
   }
 
   function buildStatement(student, settings) {
+
+  const EMPTY = '__EMPTY__';
+  const _safe = (v) => (v == null ? '' : String(v));
+  const _sectionOrEmpty = (v) => {
+    const t = _safe(v).trim();
+    return t ? _safe(v) : EMPTY;
+  };
     const tpls = getTemplates();
     const period = computePeriod(settings.schoolYearEnd);
 
@@ -1615,14 +1622,14 @@ function sortByNameDA(a,b){
       "DATO_MAANED_AAR": period.dateMonthYear,
 
       "SKOLENS_STANDARDTEKST": tpls.schoolText || '',
-      "SANG_AFSNIT": sangAfsnit,
-      "GYM_AFSNIT": gymAfsnit,
-      "ELEVRAAD_AFSNIT": elevraadAfsnit,
-      "ROLLE_AFSNIT": rolleAfsnit,
+      "SANG_AFSNIT": _sectionOrEmpty(sangAfsnit),
+      "GYM_AFSNIT": _sectionOrEmpty(gymAfsnit),
+      "ELEVRAAD_AFSNIT": _sectionOrEmpty(elevraadAfsnit),
+      "ROLLE_AFSNIT": _sectionOrEmpty(rolleAfsnit),
 
-      "ELEVUDVIKLING_AFSNIT": (free.elevudvikling || ''),
-      "PRAKTISK_AFSNIT": (free.praktisk || ''),
-      "KONTAKTGRUPPE_AFSNIT": (free.kgruppe || SNIPPETS.kontaktgruppeDefault),
+      "ELEVUDVIKLING_AFSNIT": _sectionOrEmpty(free.elevudvikling),
+      "PRAKTISK_AFSNIT": _sectionOrEmpty(free.praktisk),
+      "KONTAKTGRUPPE_AFSNIT": _sectionOrEmpty((free.kgruppe || SNIPPETS.kontaktgruppeDefault)),
 
       "AFSLUTNING_AFSNIT": SNIPPETS.afslutningDefault,
 
@@ -1631,10 +1638,10 @@ function sortByNameDA(a,b){
 // Synonymer til skabeloner/snippets (forskellige placeholder-navne)
 "ELEV_FULDE_NAVN": fullName,
 "ELEV_FULD_E_NAVN": fullName,
-"ELEV_UDVIKLING_AFSNIT": (free.elevudvikling || ''),
-"ELEV_UDVIKLING_FRI": (free.elevudvikling || ''),
-"PRAKTISK_FRI": (free.praktisk || ''),
-"KGRUPPE_FRI": (free.kgruppe || ''),
+"ELEV_UDVIKLING_AFSNIT": _sectionOrEmpty(free.elevudvikling),
+"ELEV_UDVIKLING_FRI": _sectionOrEmpty(free.elevudvikling),
+"PRAKTISK_FRI": _sectionOrEmpty(free.praktisk),
+"KGRUPPE_FRI": _sectionOrEmpty(free.kgruppe),
 "KONTAKTGRUPPE_ANTAL": String(settings.contactGroupCount || (window.__ALL_STUDENTS__ ? window.__ALL_STUDENTS__.length : "") || ''),
 "KONTAKTGRUPPE_BESKRIVELSE": (free.kgruppe || SNIPPETS.kontaktgruppeDefault || ''),
 "KONTAKTLAERER_1_NAVN": (student.kontaktlaerer1 || '').trim(),
@@ -1651,9 +1658,9 @@ function sortByNameDA(a,b){
       "NAVN": fullName,
       "FORNAVN": firstName,
       "KLASSE": (student.klasse || '').trim(),
-      "ELEVUDVIKLING_FRI": (free.elevudvikling || ''),
-      "PRAKTISK_FRI": (free.praktisk || ''),
-      "KGRUPPE_FRI": (free.kgruppe || SNIPPETS.kontaktgruppeDefault),
+      "ELEVUDVIKLING_FRI": _sectionOrEmpty(free.elevudvikling),
+      "PRAKTISK_FRI": _sectionOrEmpty(free.praktisk),
+      "KGRUPPE_FRI": _sectionOrEmpty((free.kgruppe || SNIPPETS.kontaktgruppeDefault)),
       "SANG_SNIPPET": sangAfsnit,
       "GYM_SNIPPET": gymAfsnit,
       "ELEVRAAD_SNIPPET": elevraadAfsnit,
@@ -1663,6 +1670,17 @@ function sortByNameDA(a,b){
 
     let out = tpls.template || DEFAULT_TEMPLATE;
     out = applyPlaceholders(out, placeholderMap);
+
+    const stripEmptyHeading = (txt, heading) => {
+      const esc = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp('(?:^|\\n)\\s*' + esc + '\\s*:\\s*\\n\\s*' + EMPTY + '\\s*(?=\\n|$)', 'g');
+      return txt.replace(re, '\n');
+    };
+
+    out = stripEmptyHeading(out, 'Udvikling');
+    out = stripEmptyHeading(out, 'Praktisk');
+    out = stripEmptyHeading(out, 'Funktion i kontaktgruppen');
+    out = out.replaceAll(EMPTY, '');
     return cleanSpacing(out);
   }
 
@@ -1863,8 +1881,12 @@ function renderSnippetsEditor() {
   const list = document.getElementById('gymRolesList');
   if (!list) return;
   list.innerHTML = '';
+  const DEFAULT_ROLE_KEYS = new Set(Object.keys((SNIPPETS_DEFAULT && SNIPPETS_DEFAULT.roller) ? SNIPPETS_DEFAULT.roller : {}));
   Object.keys(SNIPPETS.roller || {}).forEach(key => {
     const it = SNIPPETS.roller[key];
+    const isDefaultRole = DEFAULT_ROLE_KEYS.has(key);
+    const delBtn = isDefaultRole ? '' : `${delBtn}`;
+
     const row = document.createElement('div');
     row.className = 'roleRow';
     row.setAttribute('data-role-key', key);
@@ -1878,7 +1900,7 @@ function renderSnippetsEditor() {
           <label>Tekst</label>
           <textarea class="roleText" rows="3">${escapeHtml((it.text_m || it.text_k || ''))}</textarea>
         </div>
-        <button class="btn danger" type="button" data-remove-role="${escapeHtml(key)}">Slet</button>
+        ${delBtn}
       </div>
     `;
     list.appendChild(row);
