@@ -1544,8 +1544,9 @@ function renderKList() {
             return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
           })
         : []);
-    const kMsg = $('kMessage');
-    if (kMsg) kMsg.classList.remove('compact');
+    const kBox = $('kMessage');
+    const kMsg = $('kMsgHost');
+    if (kBox) kBox.classList.remove('compact');
     const kList = $('kList');
 
     // If "Initialer" is not confirmed yet, show an inline input that commits on ENTER.
@@ -1838,6 +1839,13 @@ function formatTime(ts) {
     state.__kGroups = kGroups;
     if (state.kGroupIndex < 0) state.kGroupIndex = 0;
     if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
+
+    // In ALL-mode we navigate within the currently selected K-gruppe.
+    if (isAll) {
+      const g = kGroups[state.kGroupIndex];
+      if (!g || !g.students) return [];
+      return g.students.map(st => st.unilogin);
+    }
 
     const meNorm = normalizeName(s.meResolved);
     if (!studs.length || !meNorm) return [];

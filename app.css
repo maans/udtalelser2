@@ -193,6 +193,10 @@ select option{
   background: rgba(139,211,255,.06);
   margin-bottom: 1rem;
 }
+
+/* K-gruppe navigation placeret i callout-boksen over elevkortene */
+#kNavHost{ margin-bottom:.4rem; }
+#kNavHost .editNavRow{ margin:0; }
 .list{display:grid; grid-template-columns: 1fr 1fr; gap:.65rem}
 @media (max-width: 980px){ .list{grid-template-columns:1fr} }
 

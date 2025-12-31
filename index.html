@@ -34,17 +34,22 @@
             <button class="btn small no-print" id="btnPrintAllK" type="button" title="Print alle dine K-elever som én samlet udskrift">🖨️ Print alle</button>
           </div>
         </div>
-        <div class="editNavRow no-print" id="kAllNavRow" style="display:none; margin-top:.4rem;">
-          <div class="navSlot left">
-            <button class="btn small no-print" id="btnPrevGroup" type="button" title="Forrige K-gruppe">◀︎</button>
-          </div>
-          <div class="navSlot center" id="kAllNavLabel"></div>
-          <div class="navSlot right" id="kAllNavRight">
-            <button class="btn small no-print" id="btnNextGroup" type="button" title="Næste K-gruppe">▶︎</button>
-          </div>
-        </div>
       </div>
-<div class="callout" id="kMessage"></div>
+<div class="callout" id="kMessage">
+  <div class="kNavHost no-print" id="kNavHost">
+    <!-- K-gruppe-navigation (vises kun i ALL) -->
+    <div class="editNavRow" id="kAllNavRow" style="display:none;">
+      <div class="navSlot left">
+        <button class="btn small" id="btnPrevGroup" type="button" title="Forrige K-gruppe">◀︎</button>
+      </div>
+      <div class="navSlot center" id="kAllNavLabel"></div>
+      <div class="navSlot right" id="kAllNavRight">
+        <button class="btn small" id="btnNextGroup" type="button" title="Næste K-gruppe">▶︎</button>
+      </div>
+    </div>
+  </div>
+  <div class="kMsgHost" id="kMsgHost"></div>
+</div>
 <div class="list" id="kList"></div>
 </section>
 <!-- Redigér -->
