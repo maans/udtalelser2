@@ -165,6 +165,25 @@ var DEFAULT_ALIAS_MAP = {
 var DEFAULT_SCHOOL_TEXT = "Himmerlands Ungdomsskole";
 
 // Default udtalelses-skabelon (fallback hvis der ikke ligger en i localStorage)
+var DEFAULT_TEMPLATE = `{{ELEV_FORNAVN}} har haft et godt efterskoleår.
+
+{{SKOLE_TEXT}}
+
+Udvikling:
+{{UDVIKLING_AFSNIT}}
+
+Praktisk:
+{{PRAKTISK_AFSNIT}}
+
+Funktion i kontaktgruppen:
+{{KONTAKTGRUPPE_AFSNIT}}
+
+{{SANG_AFSNIT}}
+{{GYM_AFSNIT}}
+{{ELEVRAAD_AFSNIT}}`;
+
+
+// Default udtalelses-skabelon (fallback hvis der ikke ligger en i localStorage)
 
 
 
