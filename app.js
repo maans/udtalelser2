@@ -360,45 +360,6 @@ function getMyKStudents() {
     .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
 }
 
-
-function getAllStudentsForListing() {
-  return (state.students || []).slice();
-}
-
-function groupKeyForStudent(st) {
-  const a = initialsFromName(st.kontaktlaerer1 || '');
-  const b = initialsFromName(st.kontaktlaerer2 || '');
-  const parts = [a, b].filter(Boolean).sort();
-  if (!parts.length) return 'Ingen K-gruppe';
-  return parts.join('/');
-}
-
-function getGroupKeys(studs) {
-  const set = new Set();
-  studs.forEach(st => set.add(groupKeyForStudent(st)));
-  return Array.from(set).sort((x,y)=> x.localeCompare(y,'da'));
-}
-
-function getVisibleStudentsInKView() {
-  const all = getAllStudentsForListing();
-  if (!state.showAllInK) return getMyKStudents();
-  const keys = getGroupKeys(all);
-  if (!keys.length) return [];
-  state.groupIndex = Math.max(0, Math.min(state.groupIndex, keys.length - 1));
-  const key = keys[state.groupIndex];
-  return all.filter(st => groupKeyForStudent(st) === key);
-}
-
-function getCurrentGroupLabel() {
-  if (!state.showAllInK) return '';
-  const all = getAllStudentsForListing();
-  const keys = getGroupKeys(all);
-  if (!keys.length) return '';
-  const key = keys[Math.max(0, Math.min(state.groupIndex, keys.length - 1))];
-  return `${key} (${state.groupIndex+1}/${keys.length})`;
-}
-
-
 // --- Print: force single-student print to always fit on ONE A4 page by scaling down.
 // Strategy: compute available content height (A4 minus margins = 261mm) in px,
 // compare to rendered preview height at scale=1, and set CSS var --printScale.
@@ -430,7 +391,7 @@ function applyOnePagePrintScale() {
 }
 
 function printAllKStudents() {
-  const list = getVisibleStudentsInKView();
+  const list = getMyKStudents();
   if (!list.length) {
     alert('Der er ingen K-elever at printe (tjek elevliste og initialer).');
     return;
@@ -643,16 +604,6 @@ const s = getSettings();
     .trim();
 }
 
-function initialsFromName(input) {
-  const s = (input || "").toString().trim();
-  if (!s) return "";
-  // Already initials? Keep.
-  if (/^[A-Za-zÆØÅæøå]{1,4}$/.test(s)) return s.toUpperCase();
-  const parts = s.split(/\s+/).filter(Boolean);
-  const letters = parts.map(p => p[0]).filter(Boolean);
-  return letters.join("").toUpperCase();
-}
-
 function uniqStrings(arr) {
   const out = [];
   const seen = new Set();
@@ -702,6 +653,75 @@ function resolveTeacherMatch(raw) {
 
 function resolveTeacherName(raw) {
   return resolveTeacherMatch(raw).resolved;
+}
+
+function toInitials(raw) {
+  const s = ((raw||'')+'').trim();
+  if (!s) return '';
+  // Already initials?
+  if (/^[A-ZÆØÅ]{1,4}(\/[A-ZÆØÅ]{1,4})?$/.test(s)) return s;
+  // If alias map can reverse-map, prefer that.
+  const rev = reverseResolveTeacherInitials(s);
+  if (rev) return rev;
+  const parts = s.replace(/[^\p{L}\s-]/gu,'').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  const first = parts[0][0] || '';
+  const last = (parts.length>1? parts[parts.length-1][0] : parts[0][1] || '') || '';
+  return (first+last).toUpperCase();
+}
+
+function reverseResolveTeacherInitials(nameOrInitials) {
+  // Try to map full name -> initials based on known alias map (if present in settings).
+  const s = getSettings();
+  const m = (s.aliasMap || {});
+  const key = ((nameOrInitials||'')+'').trim().toLowerCase();
+  for (const [ini, full] of Object.entries(m)) {
+    if (((full||'')+'').trim().toLowerCase() === key) return (ini||'').toUpperCase();
+  }
+  return '';
+}
+
+function groupKeyFromTeachers(k1Raw, k2Raw) {
+  const a = toInitials(resolveTeacherName(k1Raw) || k1Raw);
+  const b = toInitials(resolveTeacherName(k2Raw) || k2Raw);
+  const parts = [a,b].filter(Boolean).sort((x,y)=>x.localeCompare(y,'da'));
+  return parts.length ? parts.join('/') : '—';
+}
+
+function buildKGroups(students) {
+  const groups = new Map();
+  for (const st of students) {
+    const key = groupKeyFromTeachers(st.Kontaktlaerer1||'', st.Kontaktlaerer2||'');
+    if (!groups.has(key)) groups.set(key, {key, students: []});
+    groups.get(key).students.push(st);
+  }
+  // Sort students in each group (efternavn, fornavn)
+  const coll = new Intl.Collator('da', {sensitivity:'base'});
+  for (const g of groups.values()) {
+    g.students.sort((x,y)=> {
+      const a = (x.efternavn||'').trim(); const b=(y.efternavn||'').trim();
+      const c = coll.compare(a,b);
+      if (c) return c;
+      return coll.compare((x.fornavn||'').trim(), (y.fornavn||'').trim());
+    });
+  }
+  // Sort groups by key, but put '—' last
+  const arr = Array.from(groups.values()).sort((g1,g2)=>{
+    if (g1.key==='—' && g2.key!=='—') return 1;
+    if (g2.key==='—' && g1.key!=='—') return -1;
+    return coll.compare(g1.key,g2.key);
+  });
+  return arr;
+}
+
+function computeMissingKTeacher(students) {
+  const miss = [];
+  for (const st of students) {
+    const k1 = ((st.Kontaktlaerer1||'')+'').trim();
+    const k2 = ((st.Kontaktlaerer2||'')+'').trim();
+    if (!k1 && !k2) miss.push(st);
+  }
+  return miss;
 }
 
 function updateTeacherDatalist() {
@@ -951,14 +971,15 @@ const on = (id, ev, fn, opts) => { const el = document.getElementById(id); if (e
   // ---------- app state ----------
   const state = {
     tab: 'set',
+    viewMode: 'K', // 'K' | 'ALL' (K-elever vs Alle elever)
+    kGroupIndex: 0,
+
     settingsSubtab: 'general',
     selectedUnilogin: null,
     studentInputUrls: {},
     // The current visible K-elev list (after any filters). Used for prev/next navigation in Redigér.
     visibleKElevIds: [],
-    kMeDraft: '',
-    showAllInK: false,
-    groupIndex: 0
+    kMeDraft: ''
   };
 
   // Restore last UI selection (settings subtab etc.) from localStorage
@@ -1258,6 +1279,7 @@ function defaultSettings() {
     if (tab === 'edit' && !state.selectedUnilogin) tab = 'k';
 
     state.tab = tab;
+    if (tab === 'k') updateTabLabels();
 
     if (tab === 'set') setSettingsSubtab('general');
 
@@ -1286,6 +1308,17 @@ function setSettingsSubtab(sub) {
   renderMarksTable(); // hvis export-pane er synligt
 }
 
+function updateTabLabels(){
+  const kBtn = $('tab-k');
+  if(!kBtn) return;
+  const span = kBtn.querySelector('span');
+  const title = (state.viewMode === 'ALL') ? 'Alle elever' : 'K-elever';
+  if (span) span.textContent = title;
+  kBtn.title = title;
+  const h = $('kTitle');
+  if (h) h.textContent = title;
+}
+
 
   function updateTabVisibility() {
     const editBtn = $('tab-edit');
@@ -1306,6 +1339,13 @@ function setSettingsSubtab(sub) {
   function renderStatus() {
     const s = getSettings();
     const studs = getStudents();
+    const isAll = state.viewMode === 'ALL';
+    // Build k-grupper (teacher pairs) once; later UI uses this.
+    const kGroups = buildKGroups(studs);
+    state.__kGroups = kGroups;
+    if (state.kGroupIndex < 0) state.kGroupIndex = 0;
+    if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
+
     const me = s.meResolved ? `· K-lærer: ${s.meResolved}` : '';
     $('statusText').textContent = studs.length ? `Elever: ${studs.length} ${me}` : `Ingen elevliste indlæst`;
   }
@@ -1314,6 +1354,13 @@ function setSettingsSubtab(sub) {
     const s = getSettings();
     const t = getTemplates();
     const studs = getStudents();
+    const isAll = state.viewMode === 'ALL';
+    // Build k-grupper (teacher pairs) once; later UI uses this.
+    const kGroups = buildKGroups(studs);
+    state.__kGroups = kGroups;
+    if (state.kGroupIndex < 0) state.kGroupIndex = 0;
+    if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
+
 
     // Ensure correct subtab visibility
     if (typeof setSettingsSubtab === 'function') setSettingsSubtab(state.settingsSubtab);
@@ -1339,17 +1386,19 @@ function setSettingsSubtab(sub) {
 
     $('studentsStatus').textContent = studs.length ? `✅ Elevliste indlæst: ${studs.length} elever` : `Upload elevliste først.`;
     $('studentsStatus').style.color = studs.length ? 'var(--accent)' : 'var(--muted)';
-	    const warnEl = document.getElementById('studentsWarn');
-	    if (warnEl) {
-	      const missing = state.csvWarnings && state.csvWarnings.missingKontakt;
-	      if (missing && missing > 0) {
-	        warnEl.textContent = `⚠️ Tjek manglende data i CSV: ${missing} elev(er) uden K-lærer.`;
-	        warnEl.style.display = 'block';
-	      } else {
-	        warnEl.textContent = '';
-	        warnEl.style.display = 'none';
-	      }
-	    }
+    const warnEl = $('studentsWarn');
+    if (warnEl) {
+      const miss = computeMissingKTeacher(studs);
+      if (miss.length) {
+        const ex = miss.slice(0,3).map(st => `${escapeHtml(st.fornavn||'')} ${escapeHtml(st.efternavn||'')}`.trim()).filter(Boolean);
+        warnEl.style.display = 'block';
+        warnEl.innerHTML = `⚠️ <b>Tjek manglende data i CSV</b><div class="small muted" style="margin-top:.25rem">${miss.length} elev(er) mangler K-lærere (Kontaktlærer1/2).${ex.length? '<br>Fx: '+ex.join(', '):''}</div>`;
+      } else {
+        warnEl.style.display = 'none';
+        warnEl.textContent = '';
+      }
+    }
+
 
     // Hvis vi er på Data & eksport, så render/refresh også flueben-tabellen her,
     // så den ikke "hænger" på en gammel status efter import af students.csv.
@@ -1476,17 +1525,26 @@ function commitSnippetsFromUI(scope) {
 function renderKList() {
     const s = getSettings();
     const studs = getStudents();
+    const isAll = state.viewMode === 'ALL';
+    // Build k-grupper (teacher pairs) once; later UI uses this.
+    const kGroups = buildKGroups(studs);
+    state.__kGroups = kGroups;
+    if (state.kGroupIndex < 0) state.kGroupIndex = 0;
+    if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
+
     // Resolve teacher input via alias-map (MM -> Måns ...) for both filtering and UI.
     const meRaw = ((s.me || '') + '').trim();
     const meResolvedRaw = resolveTeacherName(meRaw) || meRaw;
-    const minePreview = meResolvedRaw
-      ? studs.filter(st => {
-          const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
-          const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
-          return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
-        })
-      : [];
-    const kMsg = $('kMessage');
+    const minePreview = isAll
+      ? studs.slice()
+      : (meResolvedRaw
+        ? studs.filter(st => {
+            const k1 = resolveTeacherName((st.Kontaktlaerer1 || '') + '');
+            const k2 = resolveTeacherName((st.Kontaktlaerer2 || '') + '');
+            return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
+          })
+        : []);
+ kMsg = $('kMessage');
     if (kMsg) kMsg.classList.remove('compact');
     const kList = $('kList');
 
@@ -1576,18 +1634,8 @@ function renderKList() {
     }
 
     // Build list (and allow quick filtering by elevnavn)
-    const baseList = sortedStudents(studs);
-
-let mineList = [];
-if (state.showAllInK) {
-  const keys = getGroupKeys(baseList);
-  state.groupIndex = Math.max(0, Math.min(state.groupIndex, Math.max(0, keys.length - 1)));
-  const key = keys[state.groupIndex] || '';
-  mineList = baseList.filter(st => groupKeyForStudent(st) === key);
-} else {
-  mineList = baseList.filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
-}
-
+    const mineList = sortedStudents(studs)
+      .filter(st => normalizeName(st.kontaktlaerer1) === meNorm || normalizeName(st.kontaktlaerer2) === meNorm);
 
 const prog = mineList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
@@ -1605,55 +1653,8 @@ const prog = mineList.reduce((acc, st) => {
     const statusEl = $("kStatusLine");
     if (statusEl) statusEl.textContent = "";
     if (kHeaderInfo) {
-      const whoName = (meResolvedConfirmed || meRaw || "").trim();
-      const whoInit = initialsFromName(whoName) || whoName || "";
-
-      // Titel + topmenu-label følger mode
-      const modeTitle = state.showAllInK ? "Alle elever" : "K-elever";
-      const kTitleEl = $("kTitle");
-      if (kTitleEl) kTitleEl.textContent = modeTitle;
-      const tabK = $("tab-k");
-      if (tabK) {
-        const s = tabK.querySelector('span');
-        if (s) s.textContent = modeTitle;
-      }
-
-      kHeaderInfo.textContent = state.showAllInK
-        ? `Viser alle elever.`
-        : (whoInit ? `Viser kun ${whoInit}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`);
-
-      const btnPrintAllK = $("btnPrintAllK");
-      if (btnPrintAllK) btnPrintAllK.innerHTML = `🖨️ ${state.showAllInK ? "Print alle elever" : "Print alle K-elever"}`;
-
-      const keysAll = getGroupKeys(sortedStudents(studs));
-      const kGroupNav = $("kGroupNav");
-      if (kGroupNav) kGroupNav.style.display = state.showAllInK ? "flex" : "none";
-
-      const kGroupLabel = $("kGroupLabel");
-      if (kGroupLabel) {
-        if (state.showAllInK) {
-          const total = studs.length;
-          let u=0,p=0,k=0;
-          for (const st of studs) {
-            const t = getTextFor(st.unilogin);
-            if ((t.udvikling||"").trim()) u++;
-            if ((t.praktisk||"").trim()) p++;
-            // kgruppe tælles som udfyldt hvis der står noget (fri tekst) ELLER hvis der er valgt en gruppe
-            if ((t.kgruppe||"").trim() || (t.kGroupChoice||"").trim()) k++;
-          }
-          const gl = getCurrentGroupLabel();
-          kGroupLabel.textContent = `${gl}  ·  U:${u}/${total}  P:${p}/${total}  K:${k}/${total}`;
-        } else {
-          kGroupLabel.textContent = "";
-        }
-      }
-
-      const btnPrevGroup = $("btnPrevGroup");
-      const btnNextGroup = $("btnNextGroup");
-      const hasPrev = state.showAllInK && state.groupIndex > 0;
-      const hasNext = state.showAllInK && state.groupIndex < Math.max(0, keysAll.length - 1);
-      if (btnPrevGroup) btnPrevGroup.style.display = hasPrev ? "inline-flex" : "none";
-      if (btnNextGroup) btnNextGroup.style.display = hasNext ? "inline-flex" : "none";
+      const who = (meResolvedConfirmed || meRaw || "").trim();
+      kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
     }
 
     if (kList) {
@@ -1663,29 +1664,14 @@ const prog = mineList.reduce((acc, st) => {
         const hasU = !!(free.elevudvikling || '').trim();
         const hasP = !!(free.praktisk || '').trim();
         const hasK = !!(free.kgruppe || '').trim();
-        const editor = ((free._editedBy || '') + '').trim();
-        const group = state.showAllInK ? groupKeyForStudent(st) : '';
-
-        // Kun i "Alle elever"-modus: vis hvad der er redigeret + hvem, ude til højre
-        let metaTxt = '';
-        if (state.showAllInK) {
-          const parts = [];
-          if (hasU) parts.push('U');
-          if (hasP) parts.push('P');
-          if (hasK) parts.push('K');
-          if (parts.length) {
-            metaTxt = parts.join(' • ');
-            if (editor) metaTxt += ` → ${editor}`;
-          }
-        }
 
         return `
           <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
-              ${metaTxt ? `<div class="muted small" style="white-space:nowrap">${escapeHtml(metaTxt)}<\/div>` : ''}
+              <div class="cardFlags muted small">${hasU?'U':''}${hasP?' P':''}${hasK?' K':''}</div>
             </div>
-            <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}${group?` · ${escapeHtml(group)}`:''}<\/div>
+            <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
           </div>
         `;
       }).join('');
@@ -1767,6 +1753,13 @@ function formatTime(ts) {
     if (state.visibleKElevIds && state.visibleKElevIds.length) return state.visibleKElevIds.slice();
     const s = getSettings();
     const studs = getStudents();
+    const isAll = state.viewMode === 'ALL';
+    // Build k-grupper (teacher pairs) once; later UI uses this.
+    const kGroups = buildKGroups(studs);
+    state.__kGroups = kGroups;
+    if (state.kGroupIndex < 0) state.kGroupIndex = 0;
+    if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
+
     const meNorm = normalizeName(s.meResolved);
     if (!studs.length || !meNorm) return [];
     return sortedStudents(studs)
@@ -1790,6 +1783,13 @@ function formatTime(ts) {
 
   function renderEdit() {
     const studs = getStudents();
+    const isAll = state.viewMode === 'ALL';
+    // Build k-grupper (teacher pairs) once; later UI uses this.
+    const kGroups = buildKGroups(studs);
+    state.__kGroups = kGroups;
+    if (state.kGroupIndex < 0) state.kGroupIndex = 0;
+    if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
+
     const msg = $('editMessage');
     const hint = $('editHint');
     const navRow = $('editNavRow');
@@ -1928,6 +1928,13 @@ $('preview').textContent = buildStatement(st, getSettings());
 
   function renderMarksTable() {
     const studs = getStudents();
+    const isAll = state.viewMode === 'ALL';
+    // Build k-grupper (teacher pairs) once; later UI uses this.
+    const kGroups = buildKGroups(studs);
+    state.__kGroups = kGroups;
+    if (state.kGroupIndex < 0) state.kGroupIndex = 0;
+    if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
+
     const wrap = $('marksTableWrap');
     const typeEl = $('marksType');
     const searchEl = $('marksSearch');
@@ -2187,17 +2194,7 @@ $('preview').textContent = buildStatement(st, getSettings());
 
   // ---------- events ----------
   function wireEvents() {
-    // K-elever fungerer også som en "mode toggle": klik igen for at skifte mellem
-    // K-elever og Alle elever (kun indenfor K-visningen).
-    on('tab-k','click', () => {
-      if (state.tab === 'k') {
-        state.showAllInK = !state.showAllInK;
-        state.groupIndex = 0;
-        renderAll();
-        return;
-      }
-      setTab('k');
-    });
+    on('tab-k','click', () => { if (state.tab === 'k') { state.viewMode = (state.viewMode === 'ALL') ? 'K' : 'ALL'; renderStatus(); renderKList(); updateTabLabels(); } else { setTab('k'); } });
     // Redigér-tab er skjult når ingen elev er valgt, men vær robust hvis nogen alligevel klikker.
     on('tab-edit','click', () => setTab('edit'));
     on('tab-set','click', () => setTab('set'));
@@ -2467,10 +2464,6 @@ if (document.getElementById('btnDownloadElevraad')) {
       if (!ok) { alert('Kunne ikke finde de nødvendige kolonner (fornavn, efternavn, klasse).'); return; }
 
       const students = parsed.rows.map(r => normalizeStudentRow(r, map));
-	      // Warn if contact teacher data is missing for some students (often causes "Ingen K-gruppe" or wrong counts).
-	      const missingKontakt = students.filter(st => !normalizeName(st.kontaktlaerer1) && !normalizeName(st.kontaktlaerer2)).length;
-	      state.csvWarnings = state.csvWarnings || {};
-	      state.csvWarnings.missingKontakt = missingKontakt;
       setStudents(students);
 
       renderSettings(); renderStatus();
@@ -2497,6 +2490,13 @@ if (document.getElementById('btnDownloadElevraad')) {
     on('btnExportMarks','click', () => {
       const type = $('marksType').value;
       const studs = getStudents();
+    const isAll = state.viewMode === 'ALL';
+    // Build k-grupper (teacher pairs) once; later UI uses this.
+    const kGroups = buildKGroups(studs);
+    state.__kGroups = kGroups;
+    if (state.kGroupIndex < 0) state.kGroupIndex = 0;
+    if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
+
       if (!studs.length) return;
       const sorted = sortedStudents(studs);
 
@@ -2789,25 +2789,6 @@ if (document.getElementById('btnDownloadElevraad')) {
     // K-elever: Print alle
     const btnPrintAllK = $("btnPrintAllK");
     if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
-
-    const btnToggleAllK = $("btnToggleAllK");
-    if (btnToggleAllK) btnToggleAllK.addEventListener("click", () => {
-      state.showAllInK = !state.showAllInK;
-      state.groupIndex = 0;
-      renderAll();
-    });
-
-    const btnPrevGroup = $("btnPrevGroup");
-    if (btnPrevGroup) btnPrevGroup.addEventListener("click", () => {
-      state.groupIndex = Math.max(0, state.groupIndex - 1);
-      renderAll();
-    });
-
-    const btnNextGroup = $("btnNextGroup");
-    if (btnNextGroup) btnNextGroup.addEventListener("click", () => {
-      state.groupIndex = state.groupIndex + 1;
-      renderAll();
-    });
 
     // Hjælp-links (hop til relevante faner)
     document.body.addEventListener("click", (ev) => {

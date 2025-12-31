@@ -469,3 +469,7 @@ tr:hover td{background: rgba(255,255,255,.02)}
   .tpItem{ flex-direction: column; align-items: flex-start; }
   .tpItem .tpRight{ white-space: normal; }
 }
+
+
+.warnBox{border:1px solid rgba(255,165,0,.45); background:rgba(255,165,0,.08); padding:.6rem .75rem; border-radius:12px; font-size:.9rem; color:var(--text);} 
+.warnBox b{color:var(--text);} 

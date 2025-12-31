@@ -27,26 +27,15 @@
 <!-- K-elever -->
 <section class="view" id="view-k">
 <div class="viewHeader">
-	        <div class="viewTitleRow">
-	          <h1 id="kTitle">K-elever</h1>
-	          <div class="row gap wrap" style="justify-content:flex-end; align-items:center">
-	            <div class="muted small" id="kHeaderInfo"></div>
-	          </div>
-	        </div>
+        <div class="viewTitleRow">
+          <h1 id="kTitle">K-elever</h1>
+          <div class="row gap wrap" style="justify-content:flex-end">
+            <div class="muted small" id="kHeaderInfo"></div>
+            <button class="btn small no-print" id="btnPrintAllK" type="button" title="Print alle dine K-elever som én samlet udskrift">🖨️ Print alle</button>
+          </div>
+        </div>
       </div>
-		      <div class="row gap wrap no-print" id="kControlsRow" style="display:none"></div>
-
-<div class="callout" id="kMessage">
-  <div class="row gap wrap no-print" id="kSummaryRow" style="justify-content:space-between; align-items:center;">
-    <div class="muted small" id="kMessageText"></div>
-    <button class="btn no-print" id="btnPrintAllK" type="button" title="Print alle (den aktuelle visning) som én samlet udskrift">🖨️ Print alle</button>
-  </div>
-  <div class="row gap wrap no-print" id="kGroupNav" style="justify-content:space-between; align-items:center; margin-top:8px;">
-    <button class="btn small no-print" id="btnPrevGroup" type="button" style="min-width:110px">◀ Gruppe</button>
-    <div class="pill" id="kGroupLabel"></div>
-    <button class="btn small no-print" id="btnNextGroup" type="button" style="min-width:110px">Gruppe ▶</button>
-  </div>
-</div>
+<div class="callout" id="kMessage"></div>
 <div class="list" id="kList"></div>
 </section>
 <!-- Redigér -->
@@ -180,12 +169,12 @@
       </div>
 
       <div class="cardSubTitle">Elevliste (CSV) – skal indlæses først</div>
-      <div class="row between" style="align-items:flex-start; gap:1rem">
-        <div style="flex:1; min-width:260px">
+      <div class="row between" style="gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+        <div style="min-width:260px; flex: 1 1 360px;">
           <input accept=".csv,.txt" id="studentsFile" type="file"/>
           <div class="muted small" id="studentsStatus" style="margin-top:.35rem"></div>
         </div>
-        <div id="studentsWarn" class="small" style="min-width:240px; text-align:right; color:#f7c46c"></div>
+        <div id="studentsWarn" class="warnBox" style="display:none; flex: 0 1 360px;"></div>
       </div>
 
       <details class="fold no-print" style="margin-top:.8rem">
