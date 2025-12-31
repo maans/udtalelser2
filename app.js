@@ -1339,7 +1339,8 @@ function defaultSettings() {
     koen: new Set(["køn","koen","gender", "kon"]),
     klasse: new Set(["klasse","class","hold"]),
     kontakt1: new Set(["kontaktlærer1","kontaktlaerer1","relationerkontaktlaerernavn","relationerkontaktlærernavn","kontaktlærer","kontaktlaerer"]),
-    kontakt2: new Set(["kontaktlærer2","kontaktlaerer2","relationerandenkontaktlaerernavn","relationerandenkontaktlærernavn","andenkontaktlærer","andenkontaktlaerer"])
+    kontakt2: new Set(["kontaktlærer2","kontaktlaerer2","relationerandenkontaktlaerernavn","relationerandenkontaktlærernavn","andenkontaktlærer","andenkontaktlaerer"]),
+    kontaktgruppe: new Set(["kontaktgruppe","k-gruppe","kgruppe","k gruppen","k-gruppen","kgrp","team","kontaktgrp","kontakt-gruppe","kontakt gruppe"])
   };
   function mapStudentHeaders(headers) {
     const mapped = {};
@@ -1376,7 +1377,8 @@ function defaultSettings() {
     const klasse = get('klasse');
     const k1 = resolveTeacherName(get('kontakt1'));
     const k2 = resolveTeacherName(get('kontakt2'));
-    return { fornavn, efternavn, unilogin, koen, klasse, kontaktlaerer1: k1, kontaktlaerer2: k2 };
+    const kontaktgruppe = get('kontaktgruppe');
+    return { fornavn, efternavn, unilogin, koen, klasse, kontaktgruppe, kontaktlaerer1: k1, kontaktlaerer2: k2 };
   }
 
   // ---------- UI rendering ----------
@@ -1807,31 +1809,66 @@ const prog = totalList.reduce((acc, st) => {
     }
 
     if (kList) {
-      kList.innerHTML = displayList.map(st => {
-        const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
-        const isAllMode = !!state.showAllStudents;
-        const free = getTextFor(st.unilogin);
-        const hasU = !!(free.elevudvikling || '').trim();
-        const hasP = !!(free.praktisk || '').trim();
-        const hasK = !!(free.kgruppe || '').trim();
+      const isAllMode = !!state.showAllStudents;
+      if (isAllMode) {
+        // Piger i venstre kolonne, drenge i højre (begge alfabetisk)
+        const girls = displayList.filter(st => genderGroup(st.koen) === 0).sort((a,b)=> (a.efternavn||'').localeCompare(b.efternavn||'', 'da') || (a.fornavn||'').localeCompare(b.fornavn||'', 'da'));
+        const boys  = displayList.filter(st => genderGroup(st.koen) === 1).sort((a,b)=> (a.efternavn||'').localeCompare(b.efternavn||'', 'da') || (a.fornavn||'').localeCompare(b.fornavn||'', 'da'));
+        const other = displayList.filter(st => genderGroup(st.koen) === 2).sort((a,b)=> (a.efternavn||'').localeCompare(b.efternavn||'', 'da') || (a.fornavn||'').localeCompare(b.fornavn||'', 'da'));
 
-        return `
-          <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
-            <div class="cardTopRow">
-              <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
-              <div class="cardFlags muted small">${isAllMode ? renderOwnerBadges(st.unilogin) : (hasU?'U':'') + (hasP?' P':'') + (hasK?' K':'')}</div>
+        const renderCard = (st) => {
+          const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
+          const free = getTextFor(st.unilogin);
+          const hasU = !!(free.elevudvikling || '').trim();
+          const hasP = !!(free.praktisk || '').trim();
+          const hasK = !!(free.kgruppe || '').trim();
+          return `
+            <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
+              <div class="cardTopRow">
+                <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
+                <div class="cardFlags muted small">${renderAllModeBadges(st.unilogin)}</div>
+              </div>
+              <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
             </div>
-            <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
+          `;
+        };
+
+        const colLeft  = girls.map(renderCard).join('') + (other.length ? `<div class="colDivider muted small">Øvrige</div>` + other.map(renderCard).join('') : '');
+        const colRight = boys.map(renderCard).join('');
+
+        kList.innerHTML = `
+          <div class="splitCols">
+            <div class="splitCol" data-col="girls">${colLeft}</div>
+            <div class="splitCol" data-col="boys">${colRight}</div>
           </div>
         `;
-      }).join('');
+      } else {
+        kList.innerHTML = displayList.map(st => {
+          const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
+          const free = getTextFor(st.unilogin);
+          const hasU = !!(free.elevudvikling || '').trim();
+          const hasP = !!(free.praktisk || '').trim();
+          const hasK = !!(free.kgruppe || '').trim();
 
-      kList.querySelectorAll('[data-unilogin]').forEach(el => {
-        el.addEventListener('click', () => {
-          state.selectedUnilogin = el.getAttribute('data-unilogin');
+          return `
+            <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
+              <div class="cardTopRow">
+                <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
+                <div class="cardFlags muted small">${(hasU?'U':'') + (hasP?' P':'') + (hasK?' K':'')}</div>
+              </div>
+              <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      kList.querySelectorAll('.card.clickable').forEach(card => {
+        card.addEventListener('click', () => {
+          state.selectedUnilogin = card.getAttribute('data-unilogin');
+          state.tab = 'edit';
           setTab('edit');
           renderAll();
-          });
+        });
       });
     }
 }
