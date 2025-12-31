@@ -120,8 +120,8 @@
 
   <div class="subtabs no-print" id="settingsSubtabs" role="tablist" aria-label="Indstillinger">
     <button class="subtab active" type="button" data-subtab="general" id="settingsTab-general">Generelt</button>
-    <button class="subtab" type="button" data-subtab="data" id="settingsTab-data">Data &amp; import</button>
-    <button class="subtab" type="button" data-subtab="export" id="settingsTab-export">Data &amp; eksport</button>
+    <button class="subtab" type="button" data-subtab="data" id="settingsTab-data">Import</button>
+    <button class="subtab" type="button" data-subtab="export" id="settingsTab-export">Eksport</button>
     <button class="subtab" type="button" data-subtab="texts" id="settingsTab-texts">Tekster / skabeloner</button>
     <button class="subtab" type="button" data-subtab="help" id="settingsTab-help">Hjælp</button>
   </div>
@@ -231,7 +231,7 @@
   <div class="settingsSubtab" data-subtab="export" id="settingsSubtab-export">
     <div class="card no-print">
       <div class="row between" style="align-items:center; gap:1rem; margin-bottom:.2rem">
-        <div class="cardTitle" style="margin:0">Data &amp; eksport</div>
+        <div class="cardTitle" style="margin:0">Eksport</div>
         <button class="btn small" id="btnPrintAllGroups" type="button" title="Udskriv alle K-grupper (alle elever) som én samlet udskrift">🖨️ Print alle K-grupper</button>
       </div>
       <div class="row gap wrap" style="margin:.5rem 0 .9rem 0; align-items:center">
@@ -257,7 +257,10 @@
         </div>
         <div class="field" style="flex:1; min-width: 260px">
           <label>Find elev</label>
-          <input id="marksSearch" list="marksSearchList" type="text" placeholder="Søg på fornavn eller fulde navn…"/>
+          <div class="inputWithClear">
+            <input id="marksSearch" list="marksSearchList" type="text" placeholder="Søg på fornavn eller fulde navn…"/>
+            <button class="clearBtn" id="marksSearchClear" title="Ryd søgning" aria-label="Ryd søgning">×</button>
+          </div>
         <datalist id="marksSearchList"></datalist>
         </div>
         <div class="field" style="min-width: 200px">
@@ -436,7 +439,7 @@
         <ol class="helpList">
           <li>
             Indlæs elevlisten (<code>students.csv</code>).
-            <span class="helpRefs">– <a href="#" class="helpLink" data-goto="set:data">Data &amp; import</a></span>
+            <span class="helpRefs">– <a href="#" class="helpLink" data-goto="set:data">Import</a></span>
           </li>
           <li>
             Skriv dine initialer i <em>Generelt</em>.
@@ -448,7 +451,7 @@
           </li>
           <li>
             Faglærere: sæt krydser og eksportér CSV. Kontaktlærere: importér CSV’erne.
-            <span class="helpRefs">– <a href="#" class="helpLink" data-goto="set:export">Data &amp; eksport</a> · <a href="#" class="helpLink" data-goto="set:data">Data &amp; import</a></span>
+            <span class="helpRefs">– <a href="#" class="helpLink" data-goto="set:export">Eksport</a> · <a href="#" class="helpLink" data-goto="set:data">Import</a></span>
           </li>
           <li>
             Backup kan deles mellem lærere – import er sikker og overskriver ikke dine udfyldte felter.
@@ -473,14 +476,14 @@
       </details>
 
       <div class="helpTip">
-        <p class="muted"><strong>Tip:</strong> Brug <em>Backup (download)</em> før du rydder lokale data eller skifter computer/browser.</p>
+        <p class="muted"><strong>Tip:</strong> Brug <a href="#" class="helpLink" data-goto="set:export"><em>Backup (download)</em></a> før du rydder lokale data eller skifter computer/browser.</p>
       </div>
     </div>
   </div>
 </section>
 </main>
 <footer class="footer no-print">
-  <span class="muted small">Systemering af udtalelsesskrivning · MM 2026</span>
+  <span class="muted small">Elevudtalelser · 2026</span>
 </footer>
 
 <!-- (K-lærer) – custom dropdown bygges i app.js -->

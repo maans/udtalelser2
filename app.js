@@ -22,7 +22,7 @@
 	const KEY_MARKS_TYPE = KEYS.marksType;
 
   const TEACHER_ALIAS_MAP = {
-  "ab": "Alberte Hammer Sørensen",
+  "ab": "Andreas Bech Pedersen",
   "avp": "Ane Vestergaard Pedersen",
   "av": "Anne Valsted",
   "ao": "Astrid Sun Otte",
@@ -883,7 +883,8 @@ function updateTeacherDatalist() {
 
   const s = getSettings();
   const aliasMap = (s && s.aliasMap) ? s.aliasMap : DEFAULT_ALIAS_MAP;
-  const fullNames = getAllTeacherNamesFromStudents();
+  // Teacher names should come from aliasMap (NOT from students), to avoid accidental matches on student names.
+  const fullNames = Object.values(aliasMap || {}).map(v => (v||'').toString().trim()).filter(Boolean);
 
   const aliasItems = Object.keys(aliasMap || {}).map(k => {
     const code = (k || '').toString().toUpperCase();
@@ -901,6 +902,18 @@ function updateTeacherDatalist() {
   aliasItems.sort((a,b) => a.code.localeCompare(b.code));
   nameItems.sort((a,b) => normalizeName(a.name).localeCompare(normalizeName(b.name)));
   const allItems = [...aliasItems, ...nameItems];
+
+// Keyboard navigation state for the dropdown
+let currentMatches = [];
+let activeIndex = -1;
+function setActive(idx){
+  const opts = Array.from(menu.querySelectorAll('[role="option"]'));
+  if (!opts.length) { activeIndex = -1; return; }
+  activeIndex = Math.max(0, Math.min(idx, opts.length-1));
+  opts.forEach((el,i)=> el.classList.toggle('active', i===activeIndex));
+  try { opts[activeIndex].scrollIntoView({block:'nearest'}); } catch(_) {}
+}
+
 
   function itemMatches(it, q){
     // Autocomplete behavior: match from the *start* of alias codes or name-words.
@@ -929,6 +942,7 @@ function updateTeacherDatalist() {
   function renderMenu(){
     const q = (input.value || '').trim();
     const items = allItems.filter(it => itemMatches(it, q)).slice(0, 120);
+    currentMatches = items;
     menu.innerHTML = '';
     if (!items.length){
       const empty = document.createElement('div');
@@ -943,6 +957,7 @@ function updateTeacherDatalist() {
       const row = document.createElement('div');
       row.className = 'tpItem';
       row.setAttribute('role','option');
+      row._item = it;
       const left = document.createElement('div');
       left.className = 'tpLeft';
       const right = document.createElement('div');
@@ -983,6 +998,7 @@ function updateTeacherDatalist() {
 
       menu.appendChild(row);
     }
+    setActive(0);
   }
 
   function openMenu(){
@@ -1003,15 +1019,46 @@ function updateTeacherDatalist() {
     window.__TEACHER_PICKER_INIT__ = true;
     btn.addEventListener('click', (e) => { e.preventDefault(); toggleMenu(); input.focus(); });
     input.addEventListener('focus', () => openMenu());
-    input.addEventListener('input', () => { if (!menu.hidden) renderMenu(); });
+    input.addEventListener('input', () => { if (menu.hidden) openMenu(); else renderMenu(); });
     document.addEventListener('click', (e) => {
       if (!wrap.contains(e.target)) closeMenu();
     });
     // ESC/ENTER
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeMenu(); return; }
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (menu.hidden) openMenu();
+        e.preventDefault();
+        const delta = (e.key === 'ArrowDown') ? 1 : -1;
+        setActive(activeIndex < 0 ? 0 : activeIndex + delta);
+        return;
+      }
+
       if (e.key === 'Enter') {
         e.preventDefault();
+        if (!menu.hidden && activeIndex >= 0) {
+          const opts = Array.from(menu.querySelectorAll('[role="option"]'));
+          const el = opts[activeIndex];
+          if (el && el._item) {
+            // choose highlighted item
+            const it = el._item;
+            closeMenu();
+            const rawName = (it.kind === 'alias') ? it.code : it.name;
+            const match = resolveTeacherMatch(rawName);
+            const ini = toInitials(match.resolved || rawName);
+            const s2 = getSettings();
+            s2.me = ini;
+            s2.meResolved = match.resolved;
+            s2.meResolvedConfirmed = match.resolved;
+            setSettings(s2);
+            input.value = ini;
+            renderStatus();
+            try { setTab('k'); } catch(_) {}
+            return;
+          }
+        }
+
         closeMenu();
         const raw = (input.value || '').toString().trim();
         if (!raw) return;
@@ -1577,7 +1624,7 @@ function updateTabLabels(){
     }
 
 
-    // Hvis vi er på Data & eksport, så render/refresh også flueben-tabellen her,
+    // Hvis vi er på Eksport, så render/refresh også flueben-tabellen her,
     // så den ikke "hænger" på en gammel status efter import af students.csv.
     if (state.settingsSubtab === 'export') {
       try { renderMarksTable(); } catch (e) { /* no-op */ }
@@ -2224,19 +2271,15 @@ $('preview').textContent = buildStatement(st, getSettings());
 
   function renderMarksTable() {
     const studs = getStudents();
-    const isAll = state.viewMode === 'ALL';
-    // Build k-grupper (teacher pairs) once; later UI uses this.
-    const kGroups = buildKGroups(studs);
-    state.__kGroups = kGroups;
-    if (state.kGroupIndex < 0) state.kGroupIndex = 0;
-    if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
-
     const wrap = $('marksTableWrap');
     const typeEl = $('marksType');
     const searchEl = $('marksSearch');
     const legendEl = $('marksLegend');
-    // This view is optional (depends on current Settings sub-tab). Don't crash if it's not rendered.
     if (!wrap || !legendEl) return;
+
+    // Keep kGroups cached for K-grp labels
+    const kGroups = buildKGroups(studs);
+    window.__kGroupsCache = kGroups;
 
     // Tabs for marks type (Sang/Gymnastik/Elevråd)
     const tabs = $('marksTypeTabs');
@@ -2246,30 +2289,58 @@ $('preview').textContent = buildStatement(st, getSettings());
           const t = btn.dataset.type;
           if (t && typeEl.value !== t){
             typeEl.value = t;
-            // Reuse existing onchange handler (persists to localStorage + rerenders)
-            try { typeEl.dispatchEvent(new Event('change')); } catch(e) { renderMarksTable(); }
-          } else {
-            syncMarksTypeTabs();
+            renderMarksTable();
           }
         };
       });
-      syncMarksTypeTabs();
+      tabs.querySelectorAll('button.tab').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.type === (typeEl.value || 'sang'));
+      });
     }
 
-    const type = typeEl ? (typeEl.value || (state.marksType || 'sang')) : (state.marksType || 'sang');
-    const q = normalizeName(searchEl ? (searchEl.value || '') : '');
+    const type = (typeEl && typeEl.value) ? typeEl.value : 'sang';
+    const q = normalizeName((searchEl && searchEl.value) ? searchEl.value : '').trim();
 
-    if (!studs.length) {
-      wrap.innerHTML = `<div class="muted small">Upload elevliste først.</div>`;
+// Bind search interactions once
+if (searchEl && !searchEl.dataset.bound){
+  searchEl.dataset.bound = '1';
+  searchEl.addEventListener('input', () => renderMarksTable());
+  searchEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter'){
+      // Choose the first suggested match if any
+      const raw = (searchEl.value || '').toString().trim();
+      if (raw){
+        const nq = normalizeName(raw);
+        const first = sortedStudents(getStudents()).map(st => `${st.fornavn||''} ${st.efternavn||''}`.trim()).filter(Boolean)
+          .find(name => normalizeName(name).startsWith(nq));
+        if (first) searchEl.value = first;
+      }
+      e.preventDefault();
+      renderMarksTable();
+    }
+    if (e.key === 'Escape'){
+      searchEl.value = '';
+      renderMarksTable();
+    }
+  });
+
+  const clearBtn = $('marksSearchClear');
+  if (clearBtn){
+    clearBtn.onclick = (e) => {
+      e.preventDefault();
+      searchEl.value = '';
+      searchEl.focus();
+      renderMarksTable();
+    };
+  }
+}
+
+
+    if (!studs || !studs.length){
+      wrap.innerHTML = `<div class="muted small">Indlæs først elevliste (students.csv).</div>`;
       legendEl.textContent = '';
       return;
     }
-
-    const list = sortedStudents(studs).filter(st => {
-      if (!q) return true;
-      const full = normalizeName(`${st.fornavn} ${st.efternavn}`);
-      return full.includes(q);
-    
 
     // Autocomplete suggestions (datalist) for search: fornavn + fulde navn
     const dl = $('marksSearchList');
@@ -2277,7 +2348,38 @@ $('preview').textContent = buildStatement(st, getSettings());
       const opts = sortedStudents(studs).map(st => `${st.fornavn||''} ${st.efternavn||''}`.trim()).filter(Boolean);
       dl.innerHTML = opts.map(n => `<option value="${escapeAttr(n)}"></option>`).join('');
     }
-});
+
+    const list = sortedStudents(studs).filter(st => {
+      if (!q) return true;
+      const full = normalizeName(`${st.fornavn} ${st.efternavn}`);
+      return full.includes(q);
+    });
+
+    const kgrpLabel = (st) => {
+      const a = (st.k1 || st.k_l1 || st.kontaktlaerer1 || st.kontaktlærer1 || st.k_lærer1 || '').toString().trim().toUpperCase();
+      const b = (st.k2 || st.k_l2 || st.kontaktlaerer2 || st.kontaktlærer2 || st.k_lærer2 || '').toString().trim().toUpperCase();
+      if (a && b) return `${a}/${b}`;
+      return a || b || '–';
+    };
+
+    function renderRowCheckbox(unilogin, key, checked){
+      const id = `${escapeAttr(unilogin)}__${escapeAttr(key)}`;
+      return `<input type="checkbox" data-uni="${escapeAttr(unilogin)}" data-key="${escapeAttr(key)}" ${checked?'checked':''} aria-label="${escapeAttr(key)}" />`;
+    }
+
+    function bindCheckboxes(storeKey){
+      wrap.querySelectorAll('input[type="checkbox"][data-uni]').forEach(cb=>{
+        cb.onchange = ()=>{
+          const uni = cb.dataset.uni;
+          const key = cb.dataset.key;
+          const marks = getMarks(storeKey);
+          const prev = marks[uni] || {};
+          const next = { ...prev, [key]: cb.checked ? '1' : '' };
+          marks[uni] = next;
+          setMarks(storeKey, marks);
+        };
+      });
+    }
 
     if (type === 'sang') {
       const marks = getMarks(KEYS.marksSang);
@@ -2288,138 +2390,88 @@ $('preview').textContent = buildStatement(st, getSettings());
         <table>
           <thead>
             <tr>
-              <th>Navn</th><th>Klasse</th>
-              ${cols.map(c => `<th title="${escapeAttr(SNIPPETS.sang[c].title || c)}">${escapeHtml(c)}<br><span class="small muted">${escapeHtml(SNIPPETS.sang[c].title||'')}</span></th>`).join('')}
-              <th>–</th>
+              <th>Navn</th><th>K-grp</th><th>Klasse</th>
+              ${cols.map(c => `<th title="${escapeAttr(SNIPPETS.sang[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.sang[c].title||'')}</span></th>`).join('')}
             </tr>
           </thead>
           <tbody>
             ${list.map(st => {
-              const m = marks[st.unilogin] || { sang_variant: "" };
-              const full = `${st.fornavn} ${st.efternavn}`.trim();
-              return `<tr data-u="${escapeAttr(st.unilogin)}">
+              const m = marks[st.unilogin] || {};
+              const full = `${st.fornavn||''} ${st.efternavn||''}`.trim();
+              return `<tr>
                 <td>${escapeHtml(full)}</td>
-                <td>${escapeHtml(st.klasse||'')}</td>
-                ${cols.map(c => {
-                  const active = (m.sang_variant === c);
-                  return `<td><button type="button" class="markbtn ${active?'on':''}" data-set="${c}" title="${escapeAttr(SNIPPETS.sang[c].title||c)}"><span class="check">✓</span></button></td>`;
-                }).join('')}
-                
+                <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
+                <td class="muted small">${escapeHtml(st.klasse||'')}</td>
+                ${cols.map(c => renderRowCheckbox(st.unilogin, c, !!m[c])).join('')}
               </tr>`;
             }).join('')}
           </tbody>
-        </table>`;
-
-      wrap.querySelectorAll('tr[data-u]').forEach(tr => {
-        const u = tr.getAttribute('data-u');
-        tr.querySelectorAll('[data-set]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const code = btn.getAttribute('data-set');
-            marks[u] = marks[u] || {};
-            marks[u].sang_variant = (marks[u].sang_variant === code ? '' : code);
-            setMarks(KEYS.marksSang, marks);
-            renderMarksTable();
-          });
-        });
-});
+        </table>
+      `;
+      bindCheckboxes(KEYS.marksSang);
       return;
     }
 
     if (type === 'gym') {
       const marks = getMarks(KEYS.marksGym);
-      const variants = Object.keys(SNIPPETS.gym);
-      const roles = Object.keys(SNIPPETS.roller);
-
-      $('marksLegend').innerHTML = `<b>Gym/roller</b>: vælg gym-variant + evt. ekstra roller.`;
+      $('marksLegend').textContent = '';
+      const cols = Object.keys(SNIPPETS.gym);
 
       wrap.innerHTML = `
         <table>
           <thead>
             <tr>
-              <th>Navn</th><th>Klasse</th>
-              ${variants.map(v => `<th title="${escapeAttr(SNIPPETS.gym[v].title||v)}">${escapeHtml(v)}<br><span class="small muted">${escapeHtml(SNIPPETS.gym[v].title||'')}</span></th>`).join('')}
-              ${roles.map(r => `<th title="${escapeAttr(SNIPPETS.roller[r].title||r)}">${escapeHtml(SNIPPETS.roller[r].title||r)}</th>`).join('')}
-              <th>–</th>
+              <th>Navn</th><th>K-grp</th><th>Klasse</th>
+              ${cols.map(c => `<th title="${escapeAttr(SNIPPETS.gym[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.gym[c].title||'')}</span></th>`).join('')}
             </tr>
           </thead>
           <tbody>
             ${list.map(st => {
               const m = marks[st.unilogin] || {};
-              const full = `${st.fornavn} ${st.efternavn}`.trim();
-              return `<tr data-u="${escapeAttr(st.unilogin)}">
+              const full = `${st.fornavn||''} ${st.efternavn||''}`.trim();
+              return `<tr>
                 <td>${escapeHtml(full)}</td>
-                <td>${escapeHtml(st.klasse||'')}</td>
-                ${variants.map(v => {
-                  const active = (m.gym_variant === v);
-                  return `<td><button type="button" class="markbtn ${active?'on':''}" data-gym="${v}" title="${escapeAttr(SNIPPETS.gym[v].title||v)}"><span class="check">✓</span></button></td>`;
-                }).join('')}
-                ${roles.map(r => {
-                  const checked = !!m[r];
-                  return `<td><input type="checkbox" data-role="${r}" ${checked?'checked':''} /></td>`;
-                }).join('')}
-                
+                <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
+                <td class="muted small">${escapeHtml(st.klasse||'')}</td>
+                ${cols.map(c => renderRowCheckbox(st.unilogin, c, !!m[c])).join('')}
               </tr>`;
             }).join('')}
           </tbody>
-        </table>`;
-
-      wrap.querySelectorAll('tr[data-u]').forEach(tr => {
-        const u = tr.getAttribute('data-u');
-        tr.querySelectorAll('[data-gym]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const code = btn.getAttribute('data-gym');
-            marks[u] = marks[u] || {};
-            marks[u].gym_variant = (marks[u].gym_variant === code ? '' : code);
-            setMarks(KEYS.marksGym, marks);
-            renderMarksTable();
-          });
-        });
-        tr.querySelectorAll('input[data-role]').forEach(ch => {
-          ch.addEventListener('change', () => {
-            const r = ch.getAttribute('data-role');
-            marks[u] = marks[u] || {};
-            marks[u][r] = ch.checked;
-            setMarks(KEYS.marksGym, marks);
-          });
-        });
-});
+        </table>
+      `;
+      bindCheckboxes(KEYS.marksGym);
       return;
     }
 
-    if (type === 'elevraad') {
-      const marks = getMarks(KEYS.marksElev);
-      $('marksLegend').textContent = '';
-      wrap.innerHTML = `
-        <table>
-          <thead>
-            <tr><th>Navn</th><th>Klasse</th><th>Elevrådsrepræsentant</th><th>–</th></tr>
-          </thead>
-          <tbody>
-            ${list.map(st => {
-              const m = marks[st.unilogin] || {};
-              const full = `${st.fornavn} ${st.efternavn}`.trim();
-              const checked = !!m.elevraad;
-              return `<tr data-u="${escapeAttr(st.unilogin)}">
-                <td>${escapeHtml(full)}</td>
-                <td>${escapeHtml(st.klasse||'')}</td>
-                <td><input type="checkbox" data-er="1" ${checked?'checked':''} /></td>
-                
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>`;
+    // elevraad
+    const marks = getMarks(KEYS.marksElevraad);
+    $('marksLegend').textContent = '';
+    const cols = Object.keys(SNIPPETS.elevraad);
 
-      wrap.querySelectorAll('tr[data-u]').forEach(tr => {
-        const u = tr.getAttribute('data-u');
-        tr.querySelector('input[data-er]').addEventListener('change', (e) => {
-          marks[u] = marks[u] || {};
-          marks[u].elevraad = e.target.checked;
-          setMarks(KEYS.marksElev, marks);
-        });
-});
-      return;
-    }
-  }
+    wrap.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Navn</th><th>K-grp</th><th>Klasse</th>
+            ${cols.map(c => `<th title="${escapeAttr(SNIPPETS.elevraad[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.elevraad[c].title||'')}</span></th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map(st => {
+            const m = marks[st.unilogin] || {};
+            const full = `${st.fornavn||''} ${st.efternavn||''}`.trim();
+            return `<tr>
+              <td>${escapeHtml(full)}</td>
+              <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
+              <td class="muted small">${escapeHtml(st.klasse||'')}</td>
+              ${cols.map(c => renderRowCheckbox(st.unilogin, c, !!m[c])).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+    bindCheckboxes(KEYS.marksElevraad);
+}
 
   async function importMarksFile(e, kind) {
     const f = e.target.files && e.target.files[0];
@@ -2931,7 +2983,7 @@ if (document.getElementById('btnDownloadElevraad')) {
       setTimeout(()=>{ try{ window.print(); } catch(_) {} }, 0);
     });
   
-    // --- Faglærer-markeringer (Data & eksport) ---
+    // --- Faglærer-markeringer (Eksport) ---
     // Tabs (Sang/Gymnastik/Elevråd)
     const marksTabs = document.getElementById('marksTypeTabs');
     if (marksTabs && !marksTabs.__wired) {
@@ -3083,10 +3135,10 @@ if (document.getElementById('btnDownloadElevraad')) {
       renderAll();
     });
 
-    // Logo/brand: hvis setup ikke er gjort endnu, hop til Data & import
+    // Logo/brand: hvis setup ikke er gjort endnu, hop til Import
     const brandHome = $("brandHome");
     if (brandHome) brandHome.addEventListener("click", () => {
-      // Always go to Data & import (tooltip must match behavior)
+      // Always go to Import (tooltip must match behavior)
       setTab("set");
       setSettingsSubtab("data");
       renderAll();
@@ -3096,7 +3148,7 @@ if (document.getElementById('btnDownloadElevraad')) {
     const btnPrintAllK = $("btnPrintAllK");
     if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
 
-    // Indstillinger → Data & eksport: Print alle K-grupper (alle elever)
+    // Indstillinger → Eksport: Print alle K-grupper (alle elever)
     const btnPrintAllGroups = $("btnPrintAllGroups");
     if (btnPrintAllGroups) btnPrintAllGroups.addEventListener("click", printAllKGroups);
 
@@ -3128,7 +3180,7 @@ if (document.getElementById('btnDownloadElevraad')) {
       e.target.value = "";
     });
 
-    // Start: hvis elever eller initialer mangler, start i Data & import
+    // Start: hvis elever eller initialer mangler, start i Import
     const hasStudents = getStudents().length > 0;
     const hasMe = String(getSettings().me || "").trim().length > 0;
     if (!hasStudents || !hasMe) {
