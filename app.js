@@ -391,13 +391,25 @@ function applyOnePagePrintScale() {
 }
 
 function printAllKStudents() {
-  const list = getMyKStudents();
+  const studs = getStudents();
+  const kGroups = buildKGroups(studs);
+
+  // K-mode: print "mine" K-elever
+  // ALL-mode: print den aktive K-gruppe (som UI'et viser)
+  const isAll = state.viewMode === 'ALL';
+  const list = isAll
+    ? ((kGroups[state.kGroupIndex] && kGroups[state.kGroupIndex].students) ? kGroups[state.kGroupIndex].students.slice() : [])
+    : getMyKStudents();
+
   if (!list.length) {
-    alert('Der er ingen K-elever at printe (tjek elevliste og initialer).');
+    alert(isAll
+      ? 'Der er ingen elever i denne K-gruppe at printe.'
+      : 'Der er ingen K-elever at printe (tjek elevliste og initialer).'
+    );
     return;
   }
   // Build a dedicated print window with page breaks between students
-  const title = 'Elevudtalelser – print alle';
+  const title = isAll ? 'Elevudtalelser – print K-gruppe' : 'Elevudtalelser – print K-elever';
   // One-page-per-student, always fit by scaling down if needed.
   // Printable area: A4 minus @page margins = 178mm x 261mm.
   const styles = `
@@ -456,6 +468,82 @@ function printAllKStudents() {
   </body></html>`);
   w.document.close();
   // Let the browser lay out the document before printing
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
+}
+
+function printAllKGroups() {
+  const studs = getStudents();
+  if (!studs.length) {
+    alert('Der er ingen elevliste indlæst endnu.');
+    return;
+  }
+  const kGroups = buildKGroups(studs);
+  const all = [];
+
+  // Flatten i gruppe-rækkefølge (stabilt og forudsigeligt)
+  kGroups.forEach(g => {
+    (g.students || []).forEach(st => all.push(st));
+  });
+
+  if (!all.length) {
+    alert('Der var ingen elever i K-grupperne at printe.');
+    return;
+  }
+
+  const title = 'Elevudtalelser – print alle K-grupper';
+  const styles = `
+    <style>
+      @page { size: A4; margin: 18mm 16mm; }
+      body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#000; background:#fff; }
+      .entry{ page-break-after: always; }
+      .page{ width: 178mm; height: 261mm; overflow:hidden; position:relative; }
+      pre.content{
+        white-space: pre-wrap;
+        font: 11pt/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        margin:0;
+        transform: scale(var(--s, 1));
+        transform-origin: top left;
+        width: calc(100% / var(--s, 1));
+      }
+    </style>
+  `;
+  const body = all.map(st => {
+    const txt = buildStatement(st, getSettings());
+    return `
+      <section class="entry">
+        <div class="page"><pre class="content">${escapeHtml(txt)}</pre></div>
+      </section>
+    `;
+  }).join('');
+
+  const w = window.open('', '_blank');
+  if (!w) {
+    alert('Pop-up blev blokeret. Tillad pop-ups for at printe.');
+    return;
+  }
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>${title}</title>${styles}</head><body>${body}
+    <script>
+      (function(){
+        function fitAll(){
+          const pages = Array.from(document.querySelectorAll('.page'));
+          pages.forEach(p=>{
+            const c = p.querySelector('.content');
+            if(!c) return;
+            p.style.setProperty('--s','1');
+            const avail = p.clientHeight;
+            const needed = c.scrollHeight;
+            let s = 1;
+            if (needed > avail && avail > 0) s = Math.max(0.10, Math.min(1, avail / needed));
+            p.style.setProperty('--s', String(s));
+          });
+        }
+        window.addEventListener('load', fitAll);
+        window.addEventListener('beforeprint', fitAll);
+      })();
+    </script>
+  </body></html>`);
+  w.document.close();
   setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
 }
 
@@ -1312,7 +1400,7 @@ function updateTabLabels(){
   const kBtn = $('tab-k');
   if(!kBtn) return;
   const span = kBtn.querySelector('span');
-  const title = (state.viewMode === 'ALL') ? 'Alle elever' : 'K-elever';
+  const title = (state.viewMode === 'ALL') ? 'Alle K-grupper' : 'K-elever';
   if (span) span.textContent = title;
   kBtn.title = title;
   const h = $('kTitle');
@@ -1640,8 +1728,12 @@ function renderKList() {
 // Label differs so users can tell what will be printed.
 try {
   if (isAll) {
-    btnPrint.textContent = '🖨️ Print alle elever';
-    btnPrint.title = 'Udskriv alle elever (ALLE K-grupper) som én samlet udskrift';
+    const totalGroups = kGroups.length || 0;
+    const gi = Math.max(0, Math.min(state.kGroupIndex || 0, Math.max(0, totalGroups - 1)));
+    const g = kGroups[gi];
+    const key = g ? g.key : '—';
+    btnPrint.textContent = `🖨️ Print ${key} · K-gruppe ${gi+1}/${totalGroups}`;
+    btnPrint.title = 'Udskriv den aktive K-gruppe som én samlet udskrift';
   } else {
     btnPrint.textContent = '🖨️ Print dine K-elever';
     btnPrint.title = 'Udskriv dine K-elever som én samlet udskrift';
@@ -1667,9 +1759,8 @@ try {
         if (hasAny) edited++;
       }
 
-      const g = kGroups[gi];
-      const key = g ? g.key : '—';
-      navLabel.textContent = `${key} · Gruppe ${gi+1}/${totalGroups} · U: ${edited}/${totalStudents}`;
+      // Center-label bliver sat senere (efter vi har beregnet udfyldt-status for den aktive gruppe)
+      navLabel.textContent = '';
 
       // Arrow labels show the *target* group (like student prev/next in Redigér)
 const prevKey = (gi > 0 && kGroups[gi-1]) ? (kGroups[gi-1].key || '—') : '';
@@ -1736,18 +1827,19 @@ const prog = mineList.reduce((acc, st) => {
 
     const progEl = $("kProgLine");
     if (progEl) {
-      progEl.textContent = `Udfyldt indtil nu: Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;
+      const txt = `Udfyldt indtil nu: Udvikling: ${prog.u} af ${mineList.length} · Praktisk: ${prog.p} af ${mineList.length} · K-gruppe: ${prog.k} af ${mineList.length}`;
+      // I ALL-visning flytter vi "Udfyldt"-linjen ind i navigationsfeltet.
+      progEl.textContent = txt;
+      progEl.style.display = isAll ? 'none' : '';
+      const navLabel = $("kAllNavLabel");
+      if (isAll && navLabel) navLabel.textContent = txt;
     }
 
     const statusEl = $("kStatusLine");
     if (statusEl) statusEl.textContent = "";
     if (kHeaderInfo) {
-      if (isAll) {
-        kHeaderInfo.textContent = `Viser alle elever (K-grupper).`;
-      } else {
-        const who = (meResolvedConfirmed || meRaw || "").trim();
-        kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
-      }
+      const who = (meResolvedConfirmed || meRaw || "").trim();
+      kHeaderInfo.textContent = who ? `✏️ Redigeres nu af: ${who}` : `✏️ Redigeres nu af: —`;
     }
 
     if (kList) {
@@ -2904,6 +2996,10 @@ if (document.getElementById('btnDownloadElevraad')) {
     // K-elever: Print alle
     const btnPrintAllK = $("btnPrintAllK");
     if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
+
+    // Indstillinger → Data & eksport: Print alle K-grupper (alle elever)
+    const btnPrintAllGroups = $("btnPrintAllGroups");
+    if (btnPrintAllGroups) btnPrintAllGroups.addEventListener("click", printAllKGroups);
 
     // Hjælp-links (hop til relevante faner)
     document.body.addEventListener("click", (ev) => {
