@@ -156,6 +156,13 @@
 // Snapshot of built-in snippets for 'Gendan standard'
 const SNIPPETS_DEFAULT = JSON.parse(JSON.stringify(SNIPPETS));
 
+// Default alias map (fullname -> initials). Users can override via localStorage.
+const DEFAULT_ALIAS_MAP = {
+  "Måns Patrik Mårtensson": "MM",
+  "Måns Mårtensson": "MM",
+};
+
+
 function renderKList() {
     const s = getSettings();
     const studs = getStudents();
