@@ -27,24 +27,26 @@
 <!-- K-elever -->
 <section class="view" id="view-k">
 <div class="viewHeader">
-        <div class="viewTitleRow">
-          <h1>K-elever</h1>
-          <div class="row gap wrap" style="justify-content:flex-end">
-            <div class="muted small" id="kHeaderInfo"></div>
-          </div>
-        </div>
-      </div>
-	      <div class="row gap wrap no-print" id="kControlsRow" style="justify-content:center; margin-top:8px;">
-	        <button class="btn small no-print" id="btnPrintAllK" type="button" title="Print alle (den aktuelle visning) som én samlet udskrift">🖨️ Print alle</button>
-	        <button class="btn small no-print" id="btnToggleAllK" type="button" title="Skift mellem kun dine K-elever og alle elever">Vis alle elever</button>
-	        <div class="row gap wrap no-print" id="kGroupNav" style="display:none; justify-content:center;">
-	          <button class="btn small no-print" id="btnPrevGroup" type="button">◀ Gruppe</button>
-	          <div class="pill" id="kGroupLabel"></div>
-	          <button class="btn small no-print" id="btnNextGroup" type="button">Gruppe ▶</button>
+	        <div class="viewTitleRow">
+	          <h1 id="kTitle">K-elever</h1>
+	          <div class="row gap wrap" style="justify-content:flex-end; align-items:center">
+	            <div class="muted small" id="kHeaderInfo"></div>
+	          </div>
 	        </div>
-	      </div>
+      </div>
+		      <div class="row gap wrap no-print" id="kControlsRow" style="display:none"></div>
 
-<div class="callout" id="kMessage"></div>
+<div class="callout" id="kMessage">
+  <div class="row gap wrap no-print" id="kSummaryRow" style="justify-content:space-between; align-items:center;">
+    <div class="muted small" id="kMessageText"></div>
+    <button class="btn no-print" id="btnPrintAllK" type="button" title="Print alle (den aktuelle visning) som én samlet udskrift">🖨️ Print alle</button>
+  </div>
+  <div class="row gap wrap no-print" id="kGroupNav" style="justify-content:space-between; align-items:center; margin-top:8px;">
+    <button class="btn small no-print" id="btnPrevGroup" type="button" style="min-width:110px">◀ Gruppe</button>
+    <div class="pill" id="kGroupLabel"></div>
+    <button class="btn small no-print" id="btnNextGroup" type="button" style="min-width:110px">Gruppe ▶</button>
+  </div>
+</div>
 <div class="list" id="kList"></div>
 </section>
 <!-- Redigér -->

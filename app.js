@@ -1605,26 +1605,55 @@ const prog = mineList.reduce((acc, st) => {
     const statusEl = $("kStatusLine");
     if (statusEl) statusEl.textContent = "";
     if (kHeaderInfo) {
-      const who = (meResolvedConfirmed || meRaw || "").trim();
-      kHeaderInfo.textContent = who ? `Viser kun ${who}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`;
-// Toggle + gruppe-nav
-const btnToggleAllK = $("btnToggleAllK");
-if (btnToggleAllK) btnToggleAllK.textContent = state.showAllInK ? "Vis kun mine K-elever" : "Vis alle elever";
+      const whoName = (meResolvedConfirmed || meRaw || "").trim();
+      const whoInit = initialsFromName(whoName) || whoName || "";
 
-const btnPrintAllK = $("btnPrintAllK");
-if (btnPrintAllK) btnPrintAllK.innerHTML = `🖨️ ${state.showAllInK ? "Print alle elever" : "Print alle K-elever"}`;
+      // Titel + topmenu-label følger mode
+      const modeTitle = state.showAllInK ? "Alle elever" : "K-elever";
+      const kTitleEl = $("kTitle");
+      if (kTitleEl) kTitleEl.textContent = modeTitle;
+      const tabK = $("tab-k");
+      if (tabK) {
+        const s = tabK.querySelector('span');
+        if (s) s.textContent = modeTitle;
+      }
 
-const keysAll = getGroupKeys(sortedStudents(studs));
-const kGroupNav = $("kGroupNav");
-if (kGroupNav) kGroupNav.style.display = state.showAllInK ? "flex" : "none";
+      kHeaderInfo.textContent = state.showAllInK
+        ? `Viser alle elever.`
+        : (whoInit ? `Viser kun ${whoInit}'s ${mineList.length} k-elever.` : `Viser kun ${mineList.length} k-elever.`);
 
-const kGroupLabel = $("kGroupLabel");
-if (kGroupLabel) kGroupLabel.textContent = state.showAllInK ? getCurrentGroupLabel() : "";
+      const btnPrintAllK = $("btnPrintAllK");
+      if (btnPrintAllK) btnPrintAllK.innerHTML = `🖨️ ${state.showAllInK ? "Print alle elever" : "Print alle K-elever"}`;
 
-const btnPrevGroup = $("btnPrevGroup");
-const btnNextGroup = $("btnNextGroup");
-if (btnPrevGroup) btnPrevGroup.disabled = !state.showAllInK || state.groupIndex <= 0;
-if (btnNextGroup) btnNextGroup.disabled = !state.showAllInK || state.groupIndex >= Math.max(0, keysAll.length - 1);
+      const keysAll = getGroupKeys(sortedStudents(studs));
+      const kGroupNav = $("kGroupNav");
+      if (kGroupNav) kGroupNav.style.display = state.showAllInK ? "flex" : "none";
+
+      const kGroupLabel = $("kGroupLabel");
+      if (kGroupLabel) {
+        if (state.showAllInK) {
+          const total = studs.length;
+          let u=0,p=0,k=0;
+          for (const st of studs) {
+            const t = getTextFor(st.unilogin);
+            if ((t.udvikling||"").trim()) u++;
+            if ((t.praktisk||"").trim()) p++;
+            // kgruppe tælles som udfyldt hvis der står noget (fri tekst) ELLER hvis der er valgt en gruppe
+            if ((t.kgruppe||"").trim() || (t.kGroupChoice||"").trim()) k++;
+          }
+          const gl = getCurrentGroupLabel();
+          kGroupLabel.textContent = `${gl}  ·  U:${u}/${total}  P:${p}/${total}  K:${k}/${total}`;
+        } else {
+          kGroupLabel.textContent = "";
+        }
+      }
+
+      const btnPrevGroup = $("btnPrevGroup");
+      const btnNextGroup = $("btnNextGroup");
+      const hasPrev = state.showAllInK && state.groupIndex > 0;
+      const hasNext = state.showAllInK && state.groupIndex < Math.max(0, keysAll.length - 1);
+      if (btnPrevGroup) btnPrevGroup.style.display = hasPrev ? "inline-flex" : "none";
+      if (btnNextGroup) btnNextGroup.style.display = hasNext ? "inline-flex" : "none";
     }
 
     if (kList) {
@@ -1637,11 +1666,24 @@ if (btnNextGroup) btnNextGroup.disabled = !state.showAllInK || state.groupIndex 
         const editor = ((free._editedBy || '') + '').trim();
         const group = state.showAllInK ? groupKeyForStudent(st) : '';
 
+        // Kun i "Alle elever"-modus: vis hvad der er redigeret + hvem, ude til højre
+        let metaTxt = '';
+        if (state.showAllInK) {
+          const parts = [];
+          if (hasU) parts.push('U');
+          if (hasP) parts.push('P');
+          if (hasK) parts.push('K');
+          if (parts.length) {
+            metaTxt = parts.join(' • ');
+            if (editor) metaTxt += ` → ${editor}`;
+          }
+        }
+
         return `
           <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
-              <div class="cardFlags muted small">${hasU?'U':''}${hasP?' P':''}${hasK?' K':''}${editor?` · ${escapeHtml(editor)}`:''}<\/div>
+              ${metaTxt ? `<div class="muted small" style="white-space:nowrap">${escapeHtml(metaTxt)}<\/div>` : ''}
             </div>
             <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}${group?` · ${escapeHtml(group)}`:''}<\/div>
           </div>
@@ -2145,7 +2187,17 @@ $('preview').textContent = buildStatement(st, getSettings());
 
   // ---------- events ----------
   function wireEvents() {
-    on('tab-k','click', () => setTab('k'));
+    // K-elever fungerer også som en "mode toggle": klik igen for at skifte mellem
+    // K-elever og Alle elever (kun indenfor K-visningen).
+    on('tab-k','click', () => {
+      if (state.tab === 'k') {
+        state.showAllInK = !state.showAllInK;
+        state.groupIndex = 0;
+        renderAll();
+        return;
+      }
+      setTab('k');
+    });
     // Redigér-tab er skjult når ingen elev er valgt, men vær robust hvis nogen alligevel klikker.
     on('tab-edit','click', () => setTab('edit'));
     on('tab-set','click', () => setTab('set'));
