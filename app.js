@@ -885,6 +885,7 @@ function updateTeacherDatalist() {
   const menu  = document.getElementById('teacherPickerMenu');
   const btn   = document.getElementById('teacherPickerBtn');
   const wrap  = document.getElementById('teacherPicker');
+  const clear = document.getElementById('meInputClear');
   if (!input || !menu || !btn || !wrap) return;
 
   const s = getSettings();
@@ -919,6 +920,143 @@ function setActive(idx){
   activeIndex = Math.max(0, Math.min(idx, opts.length-1));
   opts.forEach((el,i)=> el.classList.toggle('active', i===activeIndex));
   try { opts[activeIndex].scrollIntoView({block:'nearest'}); } catch(_) {}
+}
+
+// ---------- Elev-søgning i Eksport (custom dropdown, ikke native <datalist>) ----------
+function initMarksSearchPicker(){
+  const input = document.getElementById('marksSearch');
+  const menu  = document.getElementById('marksSearchMenu');
+  const btn   = document.getElementById('marksSearchBtn');
+  const wrap  = document.getElementById('marksSearchPicker');
+  const clear = document.getElementById('marksSearchClear');
+  if (!input || !menu || !btn || !wrap) return;
+  if (wrap.dataset.pickerInit === '1') return;
+  wrap.dataset.pickerInit = '1';
+
+  let activeIndex = -1;
+
+  function getOptions(){
+    const studs = sortedStudents(getStudents());
+    return studs.map(st => {
+      const name = `${st.fornavn||''} ${st.efternavn||''}`.trim();
+      return { name, uni: st.unilogin || '' };
+    }).filter(o => o.name);
+  }
+
+  function setActive(idx){
+    const opts = Array.from(menu.querySelectorAll('[role="option"]'));
+    if (!opts.length){ activeIndex = -1; return; }
+    if (idx < 0) idx = 0;
+    if (idx >= opts.length) idx = opts.length - 1;
+    activeIndex = idx;
+    opts.forEach((el,i)=> el.classList.toggle('active', i===activeIndex));
+    const el = opts[activeIndex];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function renderMenu(){
+    const raw = (input.value || '').toString();
+    const q = normalizeName(raw).trim();
+    const all = getOptions();
+
+    let filtered = all;
+    if (q){
+      filtered = all.filter(o => normalizeName(o.name).includes(q));
+    }
+
+    filtered = filtered.slice(0, 12);
+
+    menu.innerHTML = '';
+    if (!filtered.length){
+      const empty = document.createElement('div');
+      empty.className = 'tpEmpty muted small';
+      empty.textContent = 'Ingen match…';
+      menu.appendChild(empty);
+      activeIndex = -1;
+      return;
+    }
+
+    filtered.forEach((o) => {
+      const row = document.createElement('div');
+      row.className = 'tpRow';
+      row.setAttribute('role','option');
+      row._item = o;
+      const left = document.createElement('div');
+      left.className = 'tpLeft';
+      left.textContent = o.name;
+      const right = document.createElement('div');
+      right.className = 'tpRight';
+      right.textContent = '';
+      row.appendChild(left);
+      row.appendChild(right);
+      row.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        input.value = o.name;
+        closeMenu();
+        renderMarksTable();
+      });
+      menu.appendChild(row);
+    });
+    setActive(0);
+  }
+
+  function openMenu(){
+    if (!menu.hidden) return;
+    renderMenu();
+    menu.hidden = false;
+  }
+  function closeMenu(){
+    if (menu.hidden) return;
+    menu.hidden = true;
+  }
+  function toggleMenu(){
+    if (menu.hidden) openMenu(); else closeMenu();
+  }
+
+  btn.addEventListener('click', (e) => { e.preventDefault(); toggleMenu(); input.focus(); });
+  input.addEventListener('focus', () => openMenu());
+  input.addEventListener('input', () => { if (menu.hidden) openMenu(); else renderMenu(); renderMarksTable(); });
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) closeMenu(); });
+
+  if (clear){
+    clear.addEventListener('click', (e)=>{
+      e.preventDefault();
+      input.value = '';
+      closeMenu();
+      input.focus();
+      renderMarksTable();
+    });
+  }
+
+  input.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape'){
+      closeMenu();
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      if (menu.hidden) openMenu();
+      e.preventDefault();
+      const delta = (e.key === 'ArrowDown') ? 1 : -1;
+      setActive(activeIndex < 0 ? 0 : activeIndex + delta);
+      return;
+    }
+    if (e.key === 'Enter'){
+      e.preventDefault();
+      if (!menu.hidden && activeIndex >= 0){
+        const opts = Array.from(menu.querySelectorAll('[role="option"]'));
+        const el = opts[activeIndex];
+        if (el && el._item){
+          input.value = el._item.name;
+          closeMenu();
+          renderMarksTable();
+          return;
+        }
+      }
+      // If nothing selected, keep current query (no tab jump)
+      closeMenu();
+      renderMarksTable();
+    }
+  });
 }
 
 
@@ -1025,8 +1163,23 @@ function setActive(idx){
   if (!window.__TEACHER_PICKER_INIT__){
     window.__TEACHER_PICKER_INIT__ = true;
     btn.addEventListener('click', (e) => { e.preventDefault(); toggleMenu(); input.focus(); });
+    if (clear){
+      clear.addEventListener('click', (e) => {
+        e.preventDefault();
+        input.value = '';
+        const s2 = getSettings();
+        s2.me = '';
+        s2.meResolved = '';
+        s2.meResolvedConfirmed = '';
+        setSettings(s2);
+        renderStatus();
+        closeMenu();
+        input.focus();
+      });
+    }
     input.addEventListener('focus', () => openMenu());
     input.addEventListener('input', () => { if (menu.hidden) openMenu(); else renderMenu(); });
+
     document.addEventListener('click', (e) => {
       if (!wrap.contains(e.target)) closeMenu();
     });
@@ -2308,53 +2461,13 @@ $('preview').textContent = buildStatement(st, getSettings());
     const type = (typeEl && typeEl.value) ? typeEl.value : 'sang';
     const q = normalizeName((searchEl && searchEl.value) ? searchEl.value : '').trim();
 
-// Bind search interactions once
-if (searchEl && !searchEl.dataset.bound){
-  searchEl.dataset.bound = '1';
-  searchEl.addEventListener('input', () => renderMarksTable());
-  searchEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter'){
-      // Choose the first suggested match if any
-      const raw = (searchEl.value || '').toString().trim();
-      if (raw){
-        const nq = normalizeName(raw);
-        const first = sortedStudents(getStudents()).map(st => `${st.fornavn||''} ${st.efternavn||''}`.trim()).filter(Boolean)
-          .find(name => normalizeName(name).startsWith(nq));
-        if (first) searchEl.value = first;
-      }
-      e.preventDefault();
-      renderMarksTable();
-    }
-    if (e.key === 'Escape'){
-      searchEl.value = '';
-      renderMarksTable();
-    }
-  });
-
-  const clearBtn = $('marksSearchClear');
-  if (clearBtn){
-    clearBtn.onclick = (e) => {
-      e.preventDefault();
-      searchEl.value = '';
-      searchEl.focus();
-      renderMarksTable();
-    };
-  }
-}
-
-
     if (!studs || !studs.length){
       wrap.innerHTML = `<div class="muted small">Indlæs først elevliste (students.csv).</div>`;
       legendEl.textContent = '';
       return;
     }
 
-    // Autocomplete suggestions (datalist) for search: fornavn + fulde navn
-    const dl = $('marksSearchList');
-    if (dl) {
-      const opts = sortedStudents(studs).map(st => `${st.fornavn||''} ${st.efternavn||''}`.trim()).filter(Boolean);
-      dl.innerHTML = opts.map(n => `<option value="${escapeAttr(n)}"></option>`).join('');
-    }
+
 
     const list = sortedStudents(studs).filter(st => {
       if (!q) return true;
@@ -2815,21 +2928,6 @@ if (document.getElementById('btnDownloadElevraad')) {
     });
 
     on('marksType','change', () => renderMarksTable());
-    on('marksSearch','input', () => renderMarksTable());
-    on('marksSearch','keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      const qRaw = ($('marksSearch').value || '').toString().trim();
-      const q = normalizeName(qRaw);
-      if (!q) return;
-      const studs = getStudents();
-      const matches = sortedStudents(studs).filter(st => normalizeName(`${st.fornavn} ${st.efternavn}`).includes(q));
-      if (matches.length) {
-        const top = `${matches[0].fornavn||''} ${matches[0].efternavn||''}`.trim();
-        $('marksSearch').value = top;
-        renderMarksTable();
-      }
-    });
 // Tabs (Sang/Gymnastik/Elevråd) should behave like changing the select.
     on('marksTypeTabs','click', (e) => {
       const btn = e.target && e.target.closest && e.target.closest('button[data-type]');

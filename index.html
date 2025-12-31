@@ -135,6 +135,7 @@
           <label>K-lærer (initialer eller navn)</label>
           <div class="teacherPicker" id="teacherPicker">
             <input id="meInput" placeholder="fx MM, RD, MTP eller fuldt navn" type="text" autocomplete="off"/>
+            <button class="clearBtn" id="meInputClear" title="Ryd" aria-label="Ryd">×</button>
             <button class="tpBtn" id="teacherPickerBtn" type="button" aria-label="Vis liste">
               ▾
             </button>
@@ -257,11 +258,12 @@
         </div>
         <div class="field" style="flex:1; min-width: 260px">
           <label>Find elev</label>
-          <div class="inputWithClear">
-            <input id="marksSearch" list="marksSearchList" type="text" placeholder="Søg på fornavn eller fulde navn…"/>
+          <div class="teacherPicker" id="marksSearchPicker">
+            <input id="marksSearch" type="text" placeholder="Søg på fornavn eller fulde navn…" autocomplete="off"/>
             <button class="clearBtn" id="marksSearchClear" title="Ryd søgning" aria-label="Ryd søgning">×</button>
+            <button class="tpBtn" id="marksSearchBtn" type="button" aria-label="Vis elevliste">▾</button>
+            <div class="tpMenu" id="marksSearchMenu" role="listbox" aria-label="Vælg elev" hidden></div>
           </div>
-        <datalist id="marksSearchList"></datalist>
         </div>
         <div class="field" style="min-width: 200px">
           <label>&nbsp;</label>

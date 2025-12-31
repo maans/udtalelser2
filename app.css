@@ -436,6 +436,12 @@ tr:hover td{background: rgba(255,255,255,.02)}
   gap: 8px;
   align-items: stretch;
 }
+.teacherPicker .clearBtn{
+  right: 3.35rem; /* plads til ▾-knappen */
+  top: 50%;
+  transform: translateY(-50%);
+}
+.teacherPicker input{ padding-right: 4.9rem; }
 .teacherPicker .tpBtn{
   min-width: 44px;
   border-radius: 10px;
@@ -507,3 +513,31 @@ tr:hover td{background: rgba(255,255,255,.02)}
 .clearBtn:hover{ background: rgba(255,255,255,.10); }
 
 .row.between{ justify-content: space-between; }
+
+
+/* --- Marks table button-style toggles (old format) --- */
+td.cb { width: 56px; text-align: center; }
+.markBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 26px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 8px;
+  background: rgba(255,255,255,.03);
+  color: rgba(255,255,255,.65);
+  cursor: pointer;
+  user-select: none;
+}
+.markBtn:hover { background: rgba(255,255,255,.06); }
+.markBtn[aria-pressed="true"]{
+  border-color: rgba(120,190,255,.6);
+  background: rgba(120,190,255,.18);
+  color: #e9f5ff;
+}
+.markBtn .check { font-size: 16px; line-height: 1; opacity: .0; transform: translateY(-.5px); }
+.markBtn[aria-pressed="true"] .check { opacity: 1; }
+.markBtn .empty { font-size: 14px; line-height: 1; opacity: .25; }
+.markBtn[aria-pressed="true"] .empty { opacity: 0; }
+
