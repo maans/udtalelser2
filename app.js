@@ -1544,7 +1544,7 @@ function renderKList() {
             return (k1 && k1 === meResolvedRaw) || (k2 && k2 === meResolvedRaw);
           })
         : []);
- kMsg = $('kMessage');
+    const kMsg = $('kMessage');
     if (kMsg) kMsg.classList.remove('compact');
     const kList = $('kList');
 
