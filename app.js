@@ -164,6 +164,10 @@ var DEFAULT_ALIAS_MAP = {
 
 var DEFAULT_SCHOOL_TEXT = "Himmerlands Ungdomsskole";
 
+// Default udtalelses-skabelon (fallback hvis der ikke ligger en i localStorage)
+
+
+
 
 function renderKList() {
     const s = getSettings();
