@@ -1522,13 +1522,38 @@ function setStudents(studs){ lsSet(KEYS.students, studs); rebuildAliasMapFromStu
     }
 
     const roleTexts = [];
-    Object.keys(SNIPPETS.roller).forEach(code => {
-      if (marksGym[code]) roleTexts.push(snippetTextByGender(SNIPPETS.roller[code], student.koen));
-    });
-    let rolleAfsnit = roleTexts.filter(Boolean).join('\n\n');
+const rolesObj = (SNIPPETS && SNIPPETS.roller) ? SNIPPETS.roller : {};
+const roleCodes = Object.keys(rolesObj);
 
-    let elevraadAfsnit = '';
-    if (marksER.elevraad) elevraadAfsnit = snippetTextByGender(SNIPPETS.elevraad.YES, student.koen);
+// ny model: array af valgte roller gemt som marksER.gym_roles
+const selectedArr = (marksER && Array.isArray(marksER.gym_roles)) ? marksER.gym_roles : [];
+const selected = new Set(selectedArr.map(s => String(s || '').trim()).filter(Boolean));
+
+roleCodes.forEach(code => {
+  const isOn =
+    selected.has(code) ||               // ny måde
+    (marksGym && marksGym[code] === true); // fallback (hvis gamle booleans findes)
+
+  if (isOn && rolesObj[code]) {
+    roleTexts.push(snippetTextByGender(rolesObj[code], student.koen));
+  }
+});
+
+let rolleAfsnit = roleTexts.filter(Boolean).join('\n\n');
+
+   let elevraadAfsnit = "";
+const erObj = (SNIPPETS && SNIPPETS.elevraad) ? SNIPPETS.elevraad : {};
+const erKeys = Object.keys(erObj);
+
+// ny model: valgt variant gemt som marksER.elevraad_variant
+const chosen =
+  (marksER && typeof marksER.elevraad_variant === "string" && marksER.elevraad_variant.trim())
+    ? marksER.elevraad_variant.trim()
+    : ((marksER && marksER.elevraad && erKeys[0]) ? erKeys[0] : "");
+
+if (chosen && erObj[chosen]) {
+  elevraadAfsnit = snippetTextByGender(erObj[chosen], student.koen);
+}
 
     const fullName = `${student.fornavn} ${student.efternavn}`.trim();
     const firstName = callName(student.fornavn);
