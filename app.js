@@ -1255,7 +1255,32 @@ const on = (id, ev, fn, opts) => { const el = document.getElementById(id); if (e
     const body = rows.map(r => headers.map(h => esc(r[h])).join(',')).join('\n');
     return head + '\n' + body + '\n';
   }
-  function downloadText(filename, text) {
+  
+// --- Marks export helpers (human-friendly file names) ---
+function _dateStampYYYYMMDD() {
+  const d = new Date();
+  const yyyy = String(d.getFullYear());
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+function marksExportLabel(type) {
+  if (type === 'sang') return 'Sangkarakterer';
+  if (type === 'gym')  return 'Gymnastikkarakterer & roller';
+  if (type === 'elevraad') return 'Elevrådsrepræsentanter';
+  return 'Markeringer';
+}
+function marksExportFilename(type) {
+  const stamp = _dateStampYYYYMMDD();
+  // Keep filenames ASCII-friendly for Windows/Drive etc.
+  if (type === 'sang') return `Sangkarakterer_${stamp}.csv`;
+  if (type === 'gym')  return `Gymnastikkarakterer_og_roller_Fanebaerer_Redskabshold_DGI-instruktoer_${stamp}.csv`;
+  if (type === 'elevraad') return `Elevraadsrepraesentanter_${stamp}.csv`;
+  return `Markeringer_${stamp}.csv`;
+}
+// ---------------------------------------------------------
+
+function downloadText(filename, text) {
     const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -3300,7 +3325,14 @@ if (document.getElementById('btnDownloadElevraad')) {
 
     // Eksportér CSV
     const btnExport = document.getElementById('btnExportMarksCSV');
-    if (btnExport && !btnExport.__wired) {
+  // Update button text/tooltip every render
+  if (btnExport) {
+    const t = (state.marksType || 'sang');
+    btnExport.textContent = `Eksportér ${marksExportLabel(t)}`;
+    btnExport.title = `Downloader: ${marksExportFilename(t)}`;
+  }
+
+  if (btnExport && !btnExport.__wired) {
       btnExport.__wired = true;
       btnExport.addEventListener('click', () => {
         const type = (state.marksType || 'sang');
