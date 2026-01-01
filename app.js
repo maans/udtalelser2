@@ -178,6 +178,31 @@ function unwrapOverridePack(pack){
   if (pack.payload) return pack.payload;
   return pack;
 }
+
+// Convert JSON-escaped newlines (\n) into real newlines so templates render correctly.
+// This makes overrides robust whether they store real newlines or \n sequences.
+function normalizeOverrideText(s){
+  if (typeof s !== 'string') return s;
+  // If the string contains literal "\n", turn it into a newline.
+  // Also handle "\r\n" -> "\n" -> newline.
+  return s
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\r\n/g, "\n");
+}
+function normalizeOverrideDeep(obj){
+  if (!obj) return obj;
+  if (typeof obj === 'string') return normalizeOverrideText(obj);
+  if (Array.isArray(obj)) return obj.map(normalizeOverrideDeep);
+  if (typeof obj === 'object') {
+    const out = {};
+    Object.keys(obj).forEach(k => { out[k] = normalizeOverrideDeep(obj[k]); });
+    return out;
+  }
+  return obj;
+}
+
+
 async function loadRemoteOverrides(){
   const [sang, gym, elevraad, templates] = await Promise.all([
     fetchJsonIfExists(REMOTE_OVERRIDE_FILES.sang),
@@ -188,13 +213,14 @@ async function loadRemoteOverrides(){
   // NOTE: templates_override.json is a packed object: { templates: { schoolText, template, ... } }
   // We want the inner "templates" object to be the merge target.
   const tplPack = unwrapOverridePack(templates);
-  const tplObj = (tplPack && tplPack.templates) ? tplPack.templates : tplPack;
+  const tplObj = \(tplPack && tplPack\.templates\) \? tplPack\.templates : tplPack;
+  const tplObjNorm = normalizeOverrideDeep(tplObj);
 
   REMOTE_OVERRIDES = {
-    sang: unwrapOverridePack(sang),
-    gym: unwrapOverridePack(gym),
-    elevraad: unwrapOverridePack(elevraad),
-    templates: tplObj,
+    sang: normalizeOverrideDeep(unwrapOverridePack(sang)),
+    gym: normalizeOverrideDeep(unwrapOverridePack(gym)),
+    elevraad: normalizeOverrideDeep(unwrapOverridePack(elevraad)),
+    templates: tplObjNorm,
   };
   stampOverridesFetched();
 }
@@ -1580,10 +1606,22 @@ function setStudents(studs){ lsSet(KEYS.students, studs); rebuildAliasMapFromStu
       "GYM_SNIPPET": gymAfsnit,
       "ELEVRAAD_SNIPPET": elevraadAfsnit,
       "ROLLE_SNIPPETS": rolleAfsnit,
-      "SANG_GYM_AFSNIT": [sangAfsnit, gymAfsnit, elevraadAfsnit, rolleAfsnit].filter(Boolean).join('\n\n')
+      "ELEVRAAD_AFSNIT": (elevraadAfsnit || ""),
+      "ROLLE_AFSNIT": (rolleAfsnit || ""),
+      "MARKS_AFSNIT": [sangAfsnit, gymAfsnit, elevraadAfsnit, rolleAfsnit].filter(Boolean).join('\n\n'),
+
+      "SANG_GYM_AFSNIT": ""
     };
 
     let out = tpls.template || DEFAULT_TEMPLATE;
+    // If the active template has separate placeholders for elevråd/roller,
+    // keep SANG_GYM_AFSNIT limited to sang+gym to avoid duplicates.
+    const hasElevraadSlot = (out.indexOf("{{ELEVRAAD_AFSNIT}}") !== -1);
+    const hasRolleSlot = (out.indexOf("{{ROLLE_AFSNIT}}") !== -1);
+    placeholderMap.SANG_GYM_AFSNIT = [sangAfsnit, gymAfsnit]
+      .concat((!hasElevraadSlot ? [elevraadAfsnit] : []))
+      .concat((!hasRolleSlot ? [rolleAfsnit] : []))
+      .filter(Boolean).join('\n\n');
     out = applyPlaceholders(out, placeholderMap);
     return cleanSpacing(out);
   }
