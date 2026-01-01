@@ -242,6 +242,41 @@ select option{
 table{width:100%; border-collapse: collapse; font-size:.95rem}
 th,td{border-bottom:1px solid rgba(42,47,58,.8); padding:.55rem .6rem; vertical-align: top}
 
+
+/* Tick buttons (marks) */
+button.tickbox{
+  width:22px; height:22px;
+  border:1px solid rgba(255,255,255,.25);
+  background:transparent;
+  border-radius:6px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  padding:0;
+}
+button.tickbox .check{
+  opacity:0;
+  font-weight:900;
+  line-height:1;
+  font-size:16px;
+}
+/* vis ✓ både ved class "on" og ved aria-pressed="true" (robust mod partial re-render) */
+button.tickbox.on .check,
+button.tickbox[aria-pressed="true"] .check{ opacity:1; }
+/* let baggrund ved on/pressed så det også kan ses uden ✓ (lav kontrast) */
+button.tickbox.on,
+button.tickbox[aria-pressed="true"]{ background: rgba(255,255,255,.10); }
+
+td.cb button.tickbox{ margin:0 auto; }
+/* Sticky header inside marks scroll area */
+#marksTableWrap table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(15,17,21,.98);
+}
+
 /* Marks tables: checkbox columns */
 td.cb, th.cb { text-align:center; width:1%; white-space:nowrap; }
 td.cb input[type="checkbox"] { transform: translateY(1px); }
@@ -322,6 +357,8 @@ tr:hover td{background: rgba(255,255,255,.02)}
 }
 .markbtn.clear .check { opacity: 1.0; }
 .markbtn.clear:hover { opacity: 1.0; background: rgba(255,255,255,0.06); }
+
+#marksTableWrap table{border-collapse:separate;border-spacing:0;}
 
 /* Sticky header in marks tables */
 #marksTableWrap table thead th {
@@ -541,3 +578,27 @@ td.cb { width: 56px; text-align: center; }
 .markBtn .empty { font-size: 14px; line-height: 1; opacity: .25; }
 .markBtn[aria-pressed="true"] .empty { opacity: 0; }
 
+/* --- Tick buttons: higher contrast in dark theme --- */
+.tickbox{
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(0,0,0,0.35);
+}
+.tickbox .check{
+  font-size: 16px;
+  line-height: 1;
+  color: rgba(255,255,255,0.95);
+  text-shadow: 0 0 6px rgba(0,0,0,0.8);
+}
+.tickbox.on,
+.tickbox[aria-pressed="true"]{
+  border-color: rgba(140,200,255,0.8);
+  background: rgba(40,120,200,0.35);
+  box-shadow: 0 0 0 1px rgba(140,200,255,0.35), 0 0 10px rgba(60,140,220,0.25);
+}
+.tickbox.on .check,
+.tickbox[aria-pressed="true"] .check{
+  color: #fff;
+}
