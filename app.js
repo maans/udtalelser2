@@ -1327,6 +1327,20 @@ function getRemoteTemplatesOnly(){
   return (REMOTE_OVERRIDES && REMOTE_OVERRIDES.templates) ? (REMOTE_OVERRIDES.templates.templates || REMOTE_OVERRIDES.templates) : null;
 }
 
+function normalizeGender(value) {
+  const s = String(value ?? '').trim().toLowerCase();
+  if (!s) return '';
+  // Common Danish + English variants
+  if (['m', 'mand', 'dreng', 'male', 'boy', 'han'].includes(s)) return 'm';
+  if (['k', 'kvinde', 'pige', 'female', 'girl', 'hun', 'f', 'w'].includes(s)) return 'k';
+  // Heuristics
+  if (s.startsWith('m')) return 'm';
+  if (s.startsWith('k')) return 'k';
+  if (s.startsWith('f')) return 'k';
+  return '';
+}
+
+
 function applyRemoteTemplatesToLocal(opts){
   opts = opts || {};
   const remote = getRemoteTemplatesOnly();
@@ -1702,8 +1716,8 @@ if (chosen && erObj[chosen]) {
 
     const efternavn = efternavnRaw;
     const unilogin = get('unilogin') || (normalizeName((fornavn + ' ' + efternavn)).replace(/\s/g, '') + '_missing');
-    const koen = get('koen');
-    const klasse = get('klasse');
+    const koen = normalizeGender(get('koen'));
+const klasse = get('klasse');
     const ini1 = (get('ini1') || '').trim();
     const ini2 = (get('ini2') || '').trim();
     const k1 = ini1 ? ini1.toUpperCase() : toInitials(get('kontakt1'));
