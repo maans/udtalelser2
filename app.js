@@ -213,7 +213,7 @@ async function loadRemoteOverrides(){
   // NOTE: templates_override.json is a packed object: { templates: { schoolText, template, ... } }
   // We want the inner "templates" object to be the merge target.
   const tplPack = unwrapOverridePack(templates);
-  const tplObj = \(tplPack && tplPack\.templates\) \? tplPack\.templates : tplPack;
+  const tplObj = (tplPack && tplPack.templates) ? tplPack.templates : tplPack;
   const tplObjNorm = normalizeOverrideDeep(tplObj);
 
   REMOTE_OVERRIDES = {
