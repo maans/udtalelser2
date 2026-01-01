@@ -1526,7 +1526,13 @@ const rolesObj = (SNIPPETS && SNIPPETS.roller) ? SNIPPETS.roller : {};
 const roleCodes = Object.keys(rolesObj);
 
 // ny model: array af valgte roller gemt som marksER.gym_roles
-const selectedArr = (marksER && Array.isArray(marksER.gym_roles)) ? marksER.gym_roles : [];
+// Roller kommer normalt fra gymnastik-faglærerens marks (marksGym).
+// Vi har dog set ældre / blandede backups, hvor gym_roles kan ligge andre steder.
+// Derfor: prøv marksGym først, fallback til marksER.
+const selectedArr =
+  (marksGym && Array.isArray(marksGym.gym_roles)) ? marksGym.gym_roles
+  : (marksER && Array.isArray(marksER.gym_roles)) ? marksER.gym_roles
+  : [];
 const selected = new Set(selectedArr.map(s => String(s || '').trim()).filter(Boolean));
 
 roleCodes.forEach(code => {
