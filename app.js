@@ -1492,6 +1492,14 @@ async function refreshOverridesAndApplyTemplatesIfSafe(force=false){
 }
   function setTemplates(t){ lsSet(KEYS.templates, t); }
   function getStudents(){ const s = lsGet(KEYS.students, []); window.__ALL_STUDENTS__ = s || []; return s; }
+
+  function getSelectedStudent(){
+    const u = state.selectedUnilogin;
+    if(!u) return null;
+    const studs = getStudents() || [];
+    return (studs || []).find(s => s && s.unilogin === u) || null;
+  }
+
   
 function rebuildAliasMapFromStudents(studs){
   const s = getSettings();
