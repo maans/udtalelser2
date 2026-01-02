@@ -2928,8 +2928,6 @@ async function loadDemoStudentsCsv() {
 
   console.log('Demo indlæst fra:', usedUrl);
 }
-  } catch (e) { /* try next */ }
-}
 if (!res) throw new Error('Kunne ikke hente demo_students.csv (prøvede: ' + candidates.join(', ') + ')');
   if (!res.ok) throw new Error('Kunne ikke hente demo_students.csv: ' + res.status);
   const text = await res.text();
@@ -2946,15 +2944,26 @@ if (!res) throw new Error('Kunne ikke hente demo_students.csv (prøvede: ' + can
 on('btnLoadDemo','click', async () => {
   const ok = confirm('Indlæs demo? Dette rydder ALLE lokale data og kan ikke fortrydes.');
   if (!ok) return;
-  // mark demo load for next startup, then wipe localStorage and reload
-  sessionStorage.setItem(/*DEMO_SESSION_FLAG_REMOVED*/, '1');
-  lsDelPrefix(LS_PREFIX);
-  location.reload();
+
+  // Wipe all app local data, then load demo CSV directly (no page reload)
+  try {
+    lsDelPrefix(LS_PREFIX);
+    await loadDemoStudentsCsv();
+
+    // After import, bring user to Generelt (like normal import flow)
+    try {
+      setTab('set');
+      const btnGen = document.getElementById('settingsTab-general');
+      if (btnGen) btnGen.click();
+      const me = document.getElementById('meInput');
+      if (me) me.focus();
+    } catch (_) {}
+  } catch (e) {
+    console.error(e);
+    alert('Kunne ikke indlæse demo_students.csv. Se console for detaljer.');
+  }
 });
-
-
-
-    on('btnToggleForstander','click', () => {
+on('btnToggleForstander','click', () => {
       const s = getSettings();
       s.forstanderLocked = !s.forstanderLocked;
       setSettings(s);
