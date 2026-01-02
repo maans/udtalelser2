@@ -1,3 +1,33 @@
+// v1.2: toggle lock for the input/textarea inside the same .field
+function toggleLockedField(pencilEl) {
+  const field = pencilEl?.closest?.('.field');
+  if (!field) return;
+  const el = field.querySelector('textarea, input');
+  if (!el) return;
+
+  const isLocked = el.classList.contains('locked-text') || el.hasAttribute('readonly');
+
+  if (isLocked) {
+    el.classList.remove('locked-text');
+    el.removeAttribute('readonly');
+    el.removeAttribute('disabled');
+    el.focus?.();
+    // place cursor at end for inputs
+    try { if (el.setSelectionRange) { const v = el.value || ''; el.setSelectionRange(v.length, v.length); } } catch(e){}
+  } else {
+    el.classList.add('locked-text');
+    el.setAttribute('readonly','readonly');
+  }
+}
+
+// Patch v1.1: helper used by single-student print button
+function getSelectedStudent() {
+  const u = state?.selectedUnilogin;
+  if (!u) return null;
+  const studs = (typeof getStudents === 'function') ? getStudents() : [];
+  return (studs || []).find(s => s && s.unilogin === u) || null;
+}
+
 
 // Patch UI v1: lock/unlock helper
 function toggleLockedTextarea(textareaId) {

@@ -613,3 +613,21 @@ td.cb { width: 56px; text-align: center; }
   max-width: 220px;
   white-space: nowrap;
 }
+
+
+/* v1.2 – larger udtalelses-skabelon */
+#templateText { min-height: 420px; }
+
+
+/* v1.2 – locked fields + pencil */
+.locked-text {
+  pointer-events: none;
+  background: #f7f7f7;
+  border-color: #ddd;
+}
+.edit-pencil {
+  cursor: pointer;
+  margin-left: 6px;
+  opacity: .85;
+}
+.edit-pencil:hover { opacity: 1; }
