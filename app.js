@@ -2882,20 +2882,52 @@ $('preview').textContent = buildStatement(st, getSettings());
       location.reload();
     });
 
-const DEMO_SESSION_FLAG = 'udt_load_demo_students_v1';
 
 async function loadDemoStudentsCsv() {
-  // Fetch demo csv from same site (GitHub Pages)
   const candidates = [
-  'demo_students.csv',          // same folder (e.g. /udtalelser2/)
-  '/demo_students.csv',         // site root (GitHub Pages root)
-  '../demo_students.csv'        // parent folder (if hosted in subfolder)
-];
-let res = null;
-for (const url of candidates) {
+    'demo_students.csv',
+    '/demo_students.csv',
+    '../demo_students.csv'
+  ];
+
+  let text = null;
+  let usedUrl = null;
+
+  for (const url of candidates) {
+    try {
+      const r = await fetch(url, { cache: 'no-store' });
+      if (r && r.ok) { text = await r.text(); usedUrl = url; break; }
+    } catch (e) {}
+  }
+
+  if (!text) throw new Error('Kunne ikke hente demo_students.csv (prøvede: ' + candidates.join(', ') + ')');
+
+  const parsed = parseCsv(text);
+  const map = mapStudentHeaders(parsed.headers);
+  const required = ['fornavn','efternavn','klasse'];
+  if (!required.every(r => map[r])) {
+    alert('Kunne ikke finde de nødvendige kolonner (fornavn, efternavn, klasse) i demo_students.csv.');
+    return;
+  }
+
+  const students = parsed.rows.map(r => normalizeStudentRow(r, map));
+  setStudents(students);
+
+  renderSettings(); renderStatus();
+  if (state.tab === 'k') renderKList();
+  if (state.tab === 'edit') renderEdit();
+
+  // Navigate to settings -> Generelt (vælg K-lærer)
   try {
-    const r = await fetch(url, { cache: 'no-store' });
-    if (r && r.ok) { res = r; break; }
+    setTab('set');
+    const btnGen = document.getElementById('settingsTab-general');
+    if (btnGen) btnGen.click();
+    const me = document.getElementById('meInput');
+    if (me) me.focus();
+  } catch (_) {}
+
+  console.log('Demo indlæst fra:', usedUrl);
+}
   } catch (e) { /* try next */ }
 }
 if (!res) throw new Error('Kunne ikke hente demo_students.csv (prøvede: ' + candidates.join(', ') + ')');
@@ -2915,7 +2947,7 @@ on('btnLoadDemo','click', async () => {
   const ok = confirm('Indlæs demo? Dette rydder ALLE lokale data og kan ikke fortrydes.');
   if (!ok) return;
   // mark demo load for next startup, then wipe localStorage and reload
-  sessionStorage.setItem(DEMO_SESSION_FLAG, '1');
+  sessionStorage.setItem(/*DEMO_SESSION_FLAG_REMOVED*/, '1');
   lsDelPrefix(LS_PREFIX);
   location.reload();
 });
@@ -3503,10 +3535,6 @@ if (document.getElementById('btnDownloadElevraad')) {
 
 // Demo: load demo_students.csv if requested (after wipe)
 try {
-  if (sessionStorage.getItem(DEMO_SESSION_FLAG) === '1') {
-    sessionStorage.removeItem(DEMO_SESSION_FLAG);
-    await loadDemoStudentsCsv();
-  }
 } catch (e) {
   console.error(e);
   alert('Kunne ikke indlæse demo_students.csv. Se console for detaljer.');
