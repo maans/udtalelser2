@@ -573,7 +573,7 @@ ${pagesHtml}
   win.document.close();
 }
 
-async async function printOneStudent() {
+async function printOneStudent() {
   try {
     await loadRemoteOverrides();
     applyTemplatesFromOverridesToLocal({ preserveLocks: true });
@@ -617,7 +617,7 @@ async function printAllKStudents() {
   openPrintWindowForStudents(sorted, getSettings(), title);
 }
 
-async async function printAllKGroups() {
+async function printAllKGroups() {
   // Keep overrides fresh for printing unless the user is actively editing templates.
   try {
     await loadRemoteOverrides();
