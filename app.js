@@ -1,49 +1,3 @@
-// v1.2: toggle lock for the input/textarea inside the same .field
-function toggleLockedField(pencilEl) {
-  const field = pencilEl?.closest?.('.field');
-  if (!field) return;
-  const el = field.querySelector('textarea, input');
-  if (!el) return;
-
-  const isLocked = el.classList.contains('locked-text') || el.hasAttribute('readonly');
-
-  if (isLocked) {
-    el.classList.remove('locked-text');
-    el.removeAttribute('readonly');
-    el.removeAttribute('disabled');
-    el.focus?.();
-    // place cursor at end for inputs
-    try { if (el.setSelectionRange) { const v = el.value || ''; el.setSelectionRange(v.length, v.length); } } catch(e){}
-  } else {
-    el.classList.add('locked-text');
-    el.setAttribute('readonly','readonly');
-  }
-}
-
-// Patch v1.1: helper used by single-student print button
-function getSelectedStudent() {
-  const u = state?.selectedUnilogin;
-  if (!u) return null;
-  const studs = (typeof getStudents === 'function') ? getStudents() : [];
-  return (studs || []).find(s => s && s.unilogin === u) || null;
-}
-
-
-// Patch UI v1: lock/unlock helper
-function toggleLockedTextarea(textareaId) {
-  const ta = document.getElementById(textareaId);
-  if (!ta) return;
-  const locked = ta.classList.contains('locked-text');
-  if (locked) {
-    ta.classList.remove('locked-text');
-    ta.removeAttribute('readonly');
-    ta.focus();
-  } else {
-    ta.classList.add('locked-text');
-    ta.setAttribute('readonly', 'readonly');
-  }
-}
-
 /* Udtalelser v1.0 – statisk GitHub Pages app (ingen libs)
    localStorage prefix: udt_
 */
@@ -571,20 +525,6 @@ ${pagesHtml}
   win.document.open();
   win.document.write(html);
   win.document.close();
-}
-
-async function printOneStudent() {
-  try {
-    await loadRemoteOverrides();
-    applyTemplatesFromOverridesToLocal({ preserveLocks: true });
-  } catch (_) {}
-
-  const s = getSelectedStudent();
-  if (!s) {
-    alert('Ingen elev valgt.');
-    return;
-  }
-  openPrintWindowForStudents([s], getSettings(), 'Udtalelser v1.0 – print elev');
 }
 
 async function printAllKStudents() {
@@ -3562,8 +3502,6 @@ if (document.getElementById('btnDownloadElevraad')) {
     // K-elever: Print alle
     const btnPrintAllK = $("btnPrintAllK");
     if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
-    const btnPrint = $("btnPrint");
-    if (btnPrint) btnPrint.addEventListener("click", () => { printOneStudent().catch(console.error); });
 
     // Indstillinger → Eksport: Print alle K-grupper (alle elever)
     const btnPrintAllGroups = $("btnPrintAllGroups");
