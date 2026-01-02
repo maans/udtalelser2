@@ -2928,17 +2928,6 @@ async function loadDemoStudentsCsv() {
 
   console.log('Demo indlæst fra:', usedUrl);
 }
-if (!res) throw new Error('Kunne ikke hente demo_students.csv (prøvede: ' + candidates.join(', ') + ')');
-  if (!res.ok) throw new Error('Kunne ikke hente demo_students.csv: ' + res.status);
-  const text = await res.text();
-  const parsed = parseCsv(text);
-  const map = mapStudentHeaders(parsed.headers);
-  const required = ['fornavn','efternavn','klasse'];
-  const ok = required.every(r => map[r]);
-  if (!ok) throw new Error('Demo-CSV mangler nødvendige kolonner (fornavn, efternavn, klasse).');
-  const students = parsed.rows.map(r => normalizeStudentRow(r, map));
-  setStudents(students);
-}
 
 
 on('btnLoadDemo','click', async () => {
