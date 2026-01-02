@@ -2882,6 +2882,34 @@ $('preview').textContent = buildStatement(st, getSettings());
       location.reload();
     });
 
+const DEMO_SESSION_FLAG = 'udt_load_demo_students_v1';
+
+async function loadDemoStudentsCsv() {
+  // Fetch demo csv from same site (GitHub Pages)
+  const res = await fetch('demo_students.csv', { cache: 'no-store' });
+  if (!res.ok) throw new Error('Kunne ikke hente demo_students.csv: ' + res.status);
+  const text = await res.text();
+  const parsed = parseCsv(text);
+  const map = mapStudentHeaders(parsed.headers);
+  const required = ['fornavn','efternavn','klasse'];
+  const ok = required.every(r => map[r]);
+  if (!ok) throw new Error('Demo-CSV mangler nødvendige kolonner (fornavn, efternavn, klasse).');
+  const students = parsed.rows.map(r => normalizeStudentRow(r, map));
+  setStudents(students);
+}
+
+
+on('btnLoadDemo','click', async () => {
+  const ok = confirm('Indlæs demo? Dette rydder ALLE lokale data og kan ikke fortrydes.');
+  if (!ok) return;
+  // mark demo load for next startup, then wipe localStorage and reload
+  sessionStorage.setItem(DEMO_SESSION_FLAG, '1');
+  lsDelPrefix(LS_PREFIX);
+  location.reload();
+});
+
+
+
     on('btnToggleForstander','click', () => {
       const s = getSettings();
       s.forstanderLocked = !s.forstanderLocked;
@@ -3459,7 +3487,19 @@ if (document.getElementById('btnDownloadElevraad')) {
 
 }
 
-  async function init() {
+  async async function init() {
+
+// Demo: load demo_students.csv if requested (after wipe)
+try {
+  if (sessionStorage.getItem(DEMO_SESSION_FLAG) === '1') {
+    sessionStorage.removeItem(DEMO_SESSION_FLAG);
+    await loadDemoStudentsCsv();
+  }
+} catch (e) {
+  console.error(e);
+  alert('Kunne ikke indlæse demo_students.csv. Se console for detaljer.');
+}
+
     wireEvents();
 
     // Print scaling (single-student print)
@@ -3554,6 +3594,5 @@ if (document.getElementById('btnDownloadElevraad')) {
     }
     renderAll();
 }
-
-  init();
+  init().catch(console.error);
 })();
