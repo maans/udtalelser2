@@ -606,3 +606,10 @@ td.cb { width: 56px; text-align: center; }
 .tickbox[aria-pressed="true"] .check{
   color: #fff;
 }
+
+/* --- Patch: make single-student print button compact (do not stretch full row) --- */
+#btnPrint {
+  width: auto;
+  max-width: 220px;
+  white-space: nowrap;
+}

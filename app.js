@@ -420,12 +420,119 @@ function applyOnePagePrintScale() {
   }
 }
 
+
+function openPrintWindowForStudents(students, settings, title) {
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c]));
+
+  const list = sortedStudents(Array.isArray(students) ? students : []);
+  const pagesHtml = list.map(st => {
+    const txt = buildStatement(st, settings);
+    return `
+      <div class="page">
+        <div class="content">
+          <pre class="statement">${escapeHtml(txt)}</pre>
+        </div>
+      </div>`;
+  }).join('');
+
+  const docTitle = escapeHtml(title || 'Print');
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${docTitle}</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    html, body { margin: 0; padding: 0; background: #fff; }
+    .page {
+      width: 210mm;
+      height: 297mm;
+      padding: 12mm 14mm;
+      box-sizing: border-box;
+      page-break-after: always;
+      overflow: hidden;
+      --s: 1;
+    }
+    .content { width: 100%; height: 100%; overflow: hidden; }
+    .statement {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 12pt;
+      line-height: 1.45;
+      transform: scale(var(--s));
+      transform-origin: top left;
+    }
+  </style>
+</head>
+<body>
+${pagesHtml}
+<script>
+(function(){
+  function fitAll(){
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(p => {
+      const c = p.querySelector('.statement');
+      if(!c) return;
+
+      // Reset
+      p.style.setProperty('--s', 1);
+      c.style.width = '';
+
+      const availH = p.clientHeight;
+      const availW = p.clientWidth;
+      let neededH = c.scrollHeight;
+      let neededW = c.scrollWidth;
+
+      let s = Math.min(1, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
+
+      // If we scale down, widen the element proportionally to preserve line wrapping
+      // and re-check height.
+      if (s < 1) {
+        c.style.width = (100 / s) + '%';
+        neededH = c.scrollHeight;
+        neededW = c.scrollWidth;
+        s = Math.min(s, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
+      }
+
+      p.style.setProperty('--s', s.toFixed(4));
+    });
+  }
+
+  window.addEventListener('load', () => {
+    fitAll();
+    // A tiny delay helps after font rasterization
+    setTimeout(fitAll, 50);
+    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 120);
+  });
+})();
+</script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) {
+    alert('Kunne ikke åbne print-vindue (pop-up blokeret).');
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+
 async function printAllKStudents() {
   // Keep overrides fresh for printing unless the user is actively editing templates.
   try {
     await loadRemoteOverrides();
     applyTemplatesFromOverridesToLocal({ preserveLocks: true });
-  } catch(_) {}
+  } catch (_) {}
 
   const studs = getStudents();
   const kGroups = buildKGroups(studs);
@@ -444,67 +551,10 @@ async function printAllKStudents() {
     );
     return;
   }
-  // Build a dedicated print window with page breaks between students
-  const title = isAll ? 'Udtalelser v1.0 – print K-gruppe' : 'Udtalelser v1.0 – print K-elever';
-  // One-page-per-student, always fit by scaling down if needed.
-  // Printable area: A4 minus @page margins = 178mm x 261mm.
-  const styles = `
-    <style>
-      @page { size: A4; margin: 18mm 16mm; }
-      body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#000; background:#fff; }
-      .entry{ page-break-after: always; }
-      .page{ width: 178mm; height: 261mm; overflow:hidden; position:relative; }
-      pre.content{
-        white-space: pre-wrap;
-        font: 11pt/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        margin:0;
-        transform: scale(var(--s, 1));
-        transform-origin: top left;
-        width: calc(100% / var(--s, 1));
-      }
-    </style>
-  `;
-  const body = list.map(st => {
-    const txt = buildStatement(st, getSettings());
-    return `
-      <section class="entry">
-        <div class="page"><pre class="content">${escapeHtml(txt)}</pre></div>
-      </section>
-    `;
-  }).join('');
 
-  const w = window.open('', '_blank');
-  if (!w) {
-    alert('Pop-up blev blokeret. Tillad pop-ups for at printe alle.');
-    return;
-  }
-  w.document.open();
-  w.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>${title}</title>${styles}</head><body>${body}
-    <script>
-      (function(){
-        function fitAll(){
-          const pages = Array.from(document.querySelectorAll('.page'));
-          pages.forEach(p=>{
-            const c = p.querySelector('.content');
-            if(!c) return;
-            // Reset
-            p.style.setProperty('--s','1');
-            // Measure at scale=1
-            const avail = p.clientHeight;
-            const needed = c.scrollHeight;
-            let s = 1;
-            if (needed > avail && avail > 0) s = Math.max(0.10, Math.min(1, avail / needed));
-            p.style.setProperty('--s', String(s));
-          });
-        }
-        window.addEventListener('load', fitAll);
-        window.addEventListener('beforeprint', fitAll);
-      })();
-    </script>
-  </body></html>`);
-  w.document.close();
-  // Let the browser lay out the document before printing
-  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
+  const title = isAll ? 'Udtalelser v1.0 – print K-gruppe' : 'Udtalelser v1.0 – print K-elever';
+  const sorted = sortedStudents(list);
+  openPrintWindowForStudents(sorted, getSettings(), title);
 }
 
 async function printAllKGroups() {
@@ -1030,7 +1080,9 @@ function updateTeacherDatalist() {
     if (!wrap.contains(e.target)) closeMenu();
   });
 
-  input.addEventListener('keydown', (e) => {
+
+  const handlePickerKeydown = (e) => {
+    // Arrow/Enter should work even if fokus ender på dropdown-knappen eller menuen.
     if (e.key === 'Escape') { closeMenu(); return; }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       if (!wrap.classList.contains('open')) openMenu();
@@ -1046,7 +1098,11 @@ function updateTeacherDatalist() {
         closeMenu();
       }
     }
-  });
+  };
+  input.addEventListener('keydown', handlePickerKeydown);
+  btn.addEventListener('keydown', handlePickerKeydown);
+  menu.addEventListener('keydown', handlePickerKeydown);
+  wrap.addEventListener('keydown', handlePickerKeydown);
 }
 
 
@@ -3223,10 +3279,12 @@ if (document.getElementById('btnDownloadElevraad')) {
         applyTemplatesFromOverridesToLocal({ preserveLocks: true });
       } catch(_) {}
 
-      // Ensure the statement always fits on ONE A4 page (scale down if needed)
-      try { applyOnePagePrintScale(); } catch(_) {}
-      // Give the browser a tick to apply CSS variable before print dialog
-      setTimeout(()=>{ try{ window.print(); } catch(_) {} }, 0);
+      const st = getSelectedStudent();
+      if (!st) return;
+
+      const settings = getSettings();
+      const title = (`Udtalelse - ${(st.fornavn || '').trim()} ${(st.efternavn || '').trim()}`).trim() || 'Udtalelse';
+      openPrintWindowForStudents([st], settings, title);
     });
   
     // --- Faglærer-markeringer (Eksport) ---
