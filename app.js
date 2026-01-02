@@ -2886,7 +2886,19 @@ const DEMO_SESSION_FLAG = 'udt_load_demo_students_v1';
 
 async function loadDemoStudentsCsv() {
   // Fetch demo csv from same site (GitHub Pages)
-  const res = await fetch('demo_students.csv', { cache: 'no-store' });
+  const candidates = [
+  'demo_students.csv',          // same folder (e.g. /udtalelser2/)
+  '/demo_students.csv',         // site root (GitHub Pages root)
+  '../demo_students.csv'        // parent folder (if hosted in subfolder)
+];
+let res = null;
+for (const url of candidates) {
+  try {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (r && r.ok) { res = r; break; }
+  } catch (e) { /* try next */ }
+}
+if (!res) throw new Error('Kunne ikke hente demo_students.csv (prøvede: ' + candidates.join(', ') + ')');
   if (!res.ok) throw new Error('Kunne ikke hente demo_students.csv: ' + res.status);
   const text = await res.text();
   const parsed = parseCsv(text);
@@ -3487,7 +3499,7 @@ if (document.getElementById('btnDownloadElevraad')) {
 
 }
 
-  async async function init() {
+  async function init() {
 
 // Demo: load demo_students.csv if requested (after wipe)
 try {
