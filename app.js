@@ -573,6 +573,20 @@ ${pagesHtml}
   win.document.close();
 }
 
+async async function printOneStudent() {
+  try {
+    await loadRemoteOverrides();
+    applyTemplatesFromOverridesToLocal({ preserveLocks: true });
+  } catch (_) {}
+
+  const s = getSelectedStudent();
+  if (!s) {
+    alert('Ingen elev valgt.');
+    return;
+  }
+  openPrintWindowForStudents([s], getSettings(), 'Udtalelser v1.0 – print elev');
+}
+
 async function printAllKStudents() {
   // Keep overrides fresh for printing unless the user is actively editing templates.
   try {
@@ -603,7 +617,7 @@ async function printAllKStudents() {
   openPrintWindowForStudents(sorted, getSettings(), title);
 }
 
-async function printAllKGroups() {
+async async function printAllKGroups() {
   // Keep overrides fresh for printing unless the user is actively editing templates.
   try {
     await loadRemoteOverrides();
@@ -3548,6 +3562,8 @@ if (document.getElementById('btnDownloadElevraad')) {
     // K-elever: Print alle
     const btnPrintAllK = $("btnPrintAllK");
     if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
+    const btnPrint = $("btnPrint");
+    if (btnPrint) btnPrint.addEventListener("click", () => { printOneStudent().catch(console.error); });
 
     // Indstillinger → Eksport: Print alle K-grupper (alle elever)
     const btnPrintAllGroups = $("btnPrintAllGroups");

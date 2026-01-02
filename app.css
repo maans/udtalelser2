@@ -616,12 +616,11 @@ td.cb { width: 56px; text-align: center; }
 
 
 /* v1.2 – larger udtalelses-skabelon */
-#templateText { min-height: 420px; }
+#templateText { min-height: 55vh; }
 
 
 /* v1.2 – locked fields + pencil */
 .locked-text {
-  pointer-events: none;
   background: #f7f7f7;
   border-color: #ddd;
 }
