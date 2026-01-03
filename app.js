@@ -3036,8 +3036,8 @@ on('schoolYearEnd','input', () => {
     });
 
     // Del / importér skabeloner (leder)
-    if (document.getElementById('btnDownloadTemplates')) {
-      on('btnDownloadTemplates','click', () => {
+    if (document.getElementById('btnExportTemplates')) {
+      on('btnExportTemplates','click', () => {
         const pkg = buildOverridePackage('templates');
         downloadJson('templates_override.json', pkg);
       });
