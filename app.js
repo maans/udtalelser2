@@ -1084,10 +1084,10 @@ function updateTeacherDatalist() {
   const handlePickerKeydown = (e) => {
     // Arrow/Enter should work even if fokus ender på dropdown-knappen eller menuen.
     if (e.key === 'Escape') { closeMenu(); return; }
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Down' || e.key === 'Up') || (e.keyCode === 40 || e.keyCode === 38)) {
       if (!wrap.classList.contains('open')) openMenu();
       e.preventDefault();
-      setActive(activeIndex + (e.key === 'ArrowDown' ? 1 : -1));
+      setActive(activeIndex + ((e.key === 'ArrowDown' || e.key === 'Down' || e.keyCode === 40) ? 1 : -1));
       return;
     }
     if (e.key === 'Enter') {
@@ -1099,10 +1099,10 @@ function updateTeacherDatalist() {
       }
     }
   };
-  input.addEventListener('keydown', handlePickerKeydown);
-  btn.addEventListener('keydown', handlePickerKeydown);
-  menu.addEventListener('keydown', handlePickerKeydown);
-  wrap.addEventListener('keydown', handlePickerKeydown);
+  input.addEventListener('keydown', handlePickerKeydown, true);
+  btn.addEventListener('keydown', handlePickerKeydown, true);
+  menu.addEventListener('keydown', handlePickerKeydown, true);
+  wrap.addEventListener('keydown', handlePickerKeydown, true);
 }
 
 
@@ -3633,46 +3633,4 @@ try {
     renderAll();
 }
   init().catch(console.error);
-})();
-
-
-/* ===== PATCH: keyboard navigation for K-lærer ===== */
-(function(){
-  function initKTeacherKeyboard(){
-    const list =
-      document.getElementById('kTeacherList') ||
-      document.querySelector('[data-k-teacher-list]');
-    if(!list) return;
-
-    let idx = 0;
-    const rows = () => Array.from(list.querySelectorAll('[data-k-teacher]'));
-
-    function update(){
-      rows().forEach((r,i)=>r.classList.toggle('active', i===idx));
-      const r = rows()[idx];
-      if(r && r.scrollIntoView) r.scrollIntoView({block:'nearest'});
-    }
-
-    list.addEventListener('keydown', (e)=>{
-      const rs = rows();
-      if(!rs.length) return;
-
-      if(e.key === 'ArrowDown'){
-        e.preventDefault();
-        idx = Math.min(idx+1, rs.length-1);
-        update();
-      }
-      if(e.key === 'ArrowUp'){
-        e.preventDefault();
-        idx = Math.max(idx-1, 0);
-        update();
-      }
-      if(e.key === 'Enter'){
-        e.preventDefault();
-        const r = rs[idx];
-        if(r) r.click();
-      }
-    });
-  }
-  document.addEventListener('DOMContentLoaded', initKTeacherKeyboard);
 })();
