@@ -1,3 +1,11 @@
+function resolveFullName(row) {
+  const full = row.fullName || row.fuldtNavn || row.navn || row.kontaktlaerer || row.kontaktlaererNavn;
+  if (full && String(full).trim()) return String(full).trim();
+  const fn = row.fornavn || row.firstName || "";
+  const en = row.efternavn || row.lastName || "";
+  return `${fn} ${en}`.trim();
+}
+
 /* Udtalelser v1.0 – statisk GitHub Pages app (ingen libs)
    localStorage prefix: udt_
 */
@@ -3697,3 +3705,11 @@ try {
     index = -1;
   });
 })();
+
+function updateCsvButton(count) {
+  const btn = document.getElementById('btnImportStudents');
+  if (!btn) return;
+  btn.classList.add('success');
+  btn.textContent = `Elevliste indlæst: ${count} elever`;
+  btn.title = 'Klik for at indlæse en ny CSV og overskrive den nuværende elevliste';
+}

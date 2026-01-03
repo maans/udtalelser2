@@ -613,3 +613,5 @@ td.cb { width: 56px; text-align: center; }
   max-width: 220px;
   white-space: nowrap;
 }
+
+button.success{background:#2e7d32;border-color:#2e7d32;color:#fff}
