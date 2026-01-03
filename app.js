@@ -970,7 +970,8 @@ function computeMissingKTeacher(students) {
   return miss;
 }
 
-ffunction updateTeacherDatalist() {
+function updateTeacherDatalist() {
+  // v1.0: Identitet-listen bygges udelukkende ud fra elevlisten (initialer), ingen hardcodede lærere.
   const input = document.getElementById('meInput');
   const menu  = document.getElementById('teacherPickerMenu');
   const btn   = document.getElementById('teacherPickerBtn');
@@ -987,128 +988,6 @@ ffunction updateTeacherDatalist() {
     menu.innerHTML = `<div class="pickerEmpty">Indlæs elevliste først (students.csv).</div>`;
     wrap.classList.remove('open');
     return;
-  }
-
-  // VIGTIGT: Forhindrer duplikerede lyttere
-  if (input.__wired) {
-    input.disabled = false;
-    btn.disabled = false;
-    return;
-  }
-  input.__wired = true;
-
-  input.disabled = false;
-  btn.disabled = false;
-
-  let activeIndex = 0;
-  let items = [];
-
-  function getFilteredItems() {
-    const set = new Set();
-    for (const st of studs) {
-      const a = (st.kontaktlaerer1_ini || '').toString().trim().toUpperCase();
-      const b = (st.kontaktlaerer2_ini || '').toString().trim().toUpperCase();
-      if (a) set.add(a);
-      if (b) set.add(b);
-    }
-    items = Array.from(set).sort((x, y) => x.localeCompare(y, 'da'));
-    const q = (input.value || '').toString().trim().toUpperCase();
-    return !q ? items : items.filter(x => x.includes(q));
-  }
-
-  function setActive(idx) {
-    const opts = Array.from(menu.querySelectorAll('[role="option"]'));
-    if (!opts.length) return;
-    activeIndex = Math.max(0, Math.min(idx, opts.length - 1));
-    opts.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
-    const el = opts[activeIndex];
-    if (el) el.scrollIntoView({ block: 'nearest' });
-  }
-
-  function renderMenu() {
-    const filtered = getFilteredItems();
-    menu.innerHTML = '';
-    if (!filtered.length) {
-      menu.innerHTML = `<div class="pickerEmpty">Ingen match</div>`;
-      return;
-    }
-    filtered.forEach((code, i) => {
-      const row = document.createElement('div');
-      row.className = 'tpRow';
-      row.setAttribute('role', 'option');
-      row.textContent = code;
-      row.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        commit(code);
-        closeMenu();
-      });
-      menu.appendChild(row);
-    });
-    setActive(0);
-  }
-
-  function openMenu() {
-    menu.hidden = false;
-    wrap.classList.add('open');
-    renderMenu();
-  }
-
-  function closeMenu() {
-    wrap.classList.remove('open');
-    menu.hidden = true;
-  }
-
-  function commit(code) {
-    const ini = (code || '').toString().trim().toUpperCase();
-    const s2 = getSettings();
-    s2.me = ini;
-    setSettings(s2);
-    input.value = ini;
-    renderStatus();
-    if (clear) clear.hidden = !ini;
-    try { state.viewMode = 'K'; setTab('k'); } catch (_) {}
-  }
-
-  btn.onclick = (e) => { e.preventDefault(); wrap.classList.contains('open') ? closeMenu() : openMenu(); input.focus(); };
-  input.onfocus = () => openMenu();
-  input.oninput = () => { if (!wrap.classList.contains('open')) openMenu(); else renderMenu(); };
-
-  if (clear) {
-    clear.onclick = (e) => {
-      e.preventDefault();
-      const s2 = getSettings(); s2.me = ''; setSettings(s2);
-      input.value = '';
-      clear.hidden = true;
-      closeMenu();
-      renderStatus();
-    };
-    clear.hidden = !(getSettings().me || '').trim();
-  }
-
-  input.addEventListener('keydown', (e) => {
-    const filtered = getFilteredItems();
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!wrap.classList.contains('open')) openMenu();
-      setActive(activeIndex + 1);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setActive(activeIndex - 1);
-    } else if (e.key === 'Enter') {
-      if (wrap.classList.contains('open') && filtered[activeIndex]) {
-        e.preventDefault();
-        commit(filtered[activeIndex]);
-        closeMenu();
-      }
-    } else if (e.key === 'Escape') {
-      closeMenu();
-    }
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!wrap.contains(e.target)) closeMenu();
-  });
-}
   }
 
   input.disabled = false;
