@@ -3839,27 +3839,22 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-/* === v1.0.2: K-lærer dropdown uses SAME logic as Find-elev ===
-   This does NOT modify the Find-elev implementation.
-   It simply reuses the initializer with a different data source.
+/* === v1.0.3 FIX: teacherPicker Enter selects active option ===
+   Local override, baseline-safe.
 */
-document.addEventListener("DOMContentLoaded", () => {
-  if (typeof initFindElevDropdown !== "function") return;
+(function(){
+  const picker = document.getElementById("teacherPicker");
+  const input  = document.getElementById("meInput");
+  if (!picker || !input) return;
 
-  const kInput = document.getElementById("kLaererInitialerInput");
-  const kList  = document.getElementById("kLaererDropdown");
+  input.addEventListener("keydown", function(e){
+    if (e.key !== "Enter") return;
 
-  if (!kInput || !kList) return;
+    const active = picker.querySelector(".option.active");
+    if (!active) return;
 
-  // Data adapter: reuse same dropdown logic
-  initFindElevDropdown({
-    input: kInput,
-    list: kList,
-    getItems: () => window.kLaerereInitialer || [],
-    onSelect: (item) => {
-      if (typeof setAktivKontaktlaerer === "function") {
-        setAktivKontaktlaerer(item);
-      }
-    }
-  });
-});
+    e.preventDefault();
+    e.stopPropagation();
+    active.click();
+  }, true); // capture to override earlier handlers
+})();
