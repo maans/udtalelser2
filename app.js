@@ -3838,19 +3838,3 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
-
-/* === FIX: K-lærer dropdown Enter selects highlighted option === */
-(function(){
-  document.addEventListener("keydown", function(e){
-    if (e.key !== "Enter") return;
-
-    const list = document.querySelector(".k-laerer-dropdown, .k-laerer-options, .dropdown-options");
-    if (!list) return;
-
-    const active = list.querySelector(".active, .highlighted");
-    if (!active) return;
-
-    e.preventDefault();
-    active.click();
-  });
-})();
