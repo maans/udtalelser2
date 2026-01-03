@@ -3713,3 +3713,57 @@ function updateCsvButton(count) {
   btn.textContent = `Elevliste indlæst: ${count} elever`;
   btn.title = 'Klik for at indlæse en ny CSV og overskrive den nuværende elevliste';
 }
+
+
+/* === EXPORT / IMPORT SKABELONER === */
+function exportTemplates() {
+  const data = {
+    forstanderNavn,
+    standardTekst,
+    udtalelsesSkabelon
+  };
+
+  const blob = new Blob(
+    [JSON.stringify(data, null, 2)],
+    { type: "application/json" }
+  );
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "udtalelses-skabeloner.json";
+  a.click();
+}
+
+function handleImportTemplates(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      forstanderNavn = data.forstanderNavn ?? "";
+      standardTekst = data.standardTekst ?? "";
+      udtalelsesSkabelon = data.udtalelsesSkabelon ?? "";
+      saveToLocalStorage();
+      renderAll();
+      alert("Skabeloner importeret");
+    } catch (e) {
+      alert("Ugyldig skabelon-fil");
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const exportBtn = document.getElementById("exportTemplatesBtn");
+  if (exportBtn) exportBtn.addEventListener("click", exportTemplates);
+
+  const importBtn = document.getElementById("importTemplatesBtn");
+  const importInput = document.getElementById("importTemplatesInput");
+
+  if (importBtn && importInput) {
+    importBtn.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", e => {
+      if (e.target.files[0]) handleImportTemplates(e.target.files[0]);
+    });
+  }
+});
