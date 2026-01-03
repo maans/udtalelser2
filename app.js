@@ -3744,7 +3744,7 @@ function handleImportTemplates(file) {
       udtalelsesSkabelon = data.udtalelsesSkabelon ?? "";
       saveToLocalStorage();
       renderAll();
-      alert("Skabeloner importeret");
+      setTemplatesImportedState();
     } catch (e) {
       alert("Ugyldig skabelon-fil");
     }
@@ -3767,3 +3767,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+
+function setTemplatesImportedState() {
+  const btn = document.getElementById("importTemplatesBtn");
+  if (!btn) return;
+  btn.classList.add("btn-imported");
+  btn.textContent = "Skabeloner importeret";
+  btn.title = "Klik for at overskrive skabeloner ved ny import";
+}

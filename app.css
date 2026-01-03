@@ -615,3 +615,11 @@ td.cb { width: 56px; text-align: center; }
 }
 
 button.success{background:#2e7d32;border-color:#2e7d32;color:#fff}
+
+
+/* Imported template visual state */
+.btn-imported {
+  background: #1f7a3f !important;
+  border-color: #1f7a3f !important;
+  color: #fff !important;
+}
