@@ -3622,11 +3622,13 @@ try {
     });
 
     // Start: hvis elever eller initialer mangler, start i Import
+    // Start-fane-logik:
+    // - Ingen elevliste → Hjælp
+    // - Elevliste findes → K-elever
     const hasStudents = getStudents().length > 0;
-    const hasMe = String(getSettings().me || "").trim().length > 0;
-    if (!hasStudents || !hasMe) {
+    if (!hasStudents) {
       setTab("set");
-      setSettingsSubtab("data");
+      setSettingsSubtab("help");
     } else {
       setTab("k");
     }
@@ -3695,9 +3697,3 @@ try {
     index = -1;
   });
 })();
-
-document.getElementById('resetAppBtn')?.addEventListener('click', () => {
-  if (confirm('Nulstil app?\n\nFjerner alle elevdata og indstillinger i denne browser.\nKan ikke fortrydes.')) {
-    resetApp();
-  }
-});
