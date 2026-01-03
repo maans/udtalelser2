@@ -558,9 +558,14 @@ tr:hover td{background: rgba(255,255,255,.02)}
 /* --- Eksportfanen: knap-layout (v1.0 UX) --- */
 .exportActions{
   display:flex;
-  flex-direction:column;
-  gap:.45rem;
-  align-items:flex-end;
+  flex-direction:row;
+  gap:.55rem;
+  align-items:center;
+  justify-content:flex-end;
+}
+
+.btn.exportActionBtn{
+  min-width: 190px;
 }
 
 .backupRow{
@@ -575,12 +580,22 @@ tr:hover td{background: rgba(255,255,255,.02)}
   font-weight:600;
 }
 
+.exportIntro{
+  text-align:center;
+  margin:.4rem 0 .75rem 0;
+}
+
 .marksToolbar{
   display:flex;
   gap:.6rem;
   align-items:center;
   justify-content:center;
   margin:.2rem 0 .7rem 0;
+}
+
+.exportIntro{
+  text-align:center;
+  margin:.35rem 0 .6rem 0;
 }
 
 /* Dock is only a storage place; the picker is mounted into table header */
@@ -603,7 +618,8 @@ th.nameTh{ min-width: 220px; }
 .thControl .clearBtn{ flex: 0 0 auto; }
 
 @media (max-width: 720px){
-  .exportActions{ align-items:stretch; }
+  .exportActions{ flex-direction:column; align-items:stretch; }
+  .btn.exportActionBtn{ min-width: 0; width: 100%; }
   .exportTopRow{ align-items:flex-start; }
   th.nameTh{ min-width: 200px; }
   .thControl input{ min-width: 160px; }
