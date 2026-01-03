@@ -3776,3 +3776,32 @@ function setTemplatesImportedState() {
   btn.textContent = "Skabeloner importeret";
   btn.title = "Klik for at overskrive skabeloner ved ny import";
 }
+
+
+/* === ULTRA ROBUST TEMPLATE HANDLERS (fallback) === */
+document.addEventListener("click", (e) => {
+  const t = e.target;
+  if (!t || !t.textContent) return;
+
+  const label = t.textContent.trim();
+
+  if (label === "Download skabeloner") {
+    exportTemplates();
+  }
+
+  if (label === "Importér skabeloner") {
+    let input = document.getElementById("importTemplatesInput");
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json";
+      input.id = "importTemplatesInput";
+      input.style.display = "none";
+      document.body.appendChild(input);
+      input.addEventListener("change", ev => {
+        if (ev.target.files[0]) handleImportTemplates(ev.target.files[0]);
+      });
+    }
+    input.click();
+  }
+});
