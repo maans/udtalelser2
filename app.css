@@ -623,3 +623,12 @@ button.success{background:#2e7d32;border-color:#2e7d32;color:#fff}
   border-color: #1f7a3f !important;
   color: #fff !important;
 }
+
+
+/* === HIDE MATCH INFO (safe, cosmetic only) ===
+   Skjuler kun debug/status-teksten.
+   Bjælke, knapper og tællere påvirkes IKKE.
+*/
+.match-info {
+  display: none;
+}
