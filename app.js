@@ -3634,3 +3634,65 @@ try {
 }
   init().catch(console.error);
 })();
+(function teacherPickerKeyboardNavigation() {
+  const input = document.getElementById("meInput");
+  const picker = document.getElementById("teacherPicker");
+
+  if (!input || !picker) {
+    console.warn("TeacherPicker: input eller picker ikke fundet");
+    return;
+  }
+
+  let index = -1;
+
+  function getOptions() {
+    return Array.from(
+      picker.querySelectorAll("[data-value], .option, div, li")
+    ).filter(el => el !== input && el.textContent.trim() !== "");
+  }
+
+  function highlight(i) {
+    const options = getOptions();
+    options.forEach((el, idx) => {
+      el.classList.toggle("active", idx === i);
+      el.style.background = idx === i ? "rgba(255,255,255,0.08)" : "";
+    });
+
+    if (options[i]) {
+      options[i].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  input.addEventListener("keydown", e => {
+    const options = getOptions();
+    if (!options.length) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      index = (index + 1) % options.length;
+      highlight(index);
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      index = (index - 1 + options.length) % options.length;
+      highlight(index);
+    }
+
+    if (e.key === "Enter" && index >= 0) {
+      e.preventDefault();
+      options[index].click();
+      index = -1;
+    }
+
+    if (e.key === "Escape") {
+      index = -1;
+      highlight(-1);
+    }
+  });
+
+  input.addEventListener("focus", () => {
+    index = -1;
+  });
+})();
+
