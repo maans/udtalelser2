@@ -3778,7 +3778,7 @@ function setTemplatesImportedState() {
 }
 
 
-/* === ULTRA ROBUST TEMPLATE HANDLERS (fallback) === */
+
 document.addEventListener("click", (e) => {
   const t = e.target;
   if (!t || !t.textContent) return;
@@ -3804,4 +3804,37 @@ document.addEventListener("click", (e) => {
     }
     input.click();
   }
+});
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  const exportBtn = document.getElementById("btnExportTemplates");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", exportTemplates);
+  }
+
+  let importBtn = document.getElementById("btnImportTemplates");
+  let importInput = document.getElementById("importTemplatesInput");
+
+  if (!importInput) {
+    importInput = document.createElement("input");
+    importInput.type = "file";
+    importInput.accept = ".json";
+    importInput.id = "importTemplatesInput";
+    importInput.hidden = true;
+    document.body.appendChild(importInput);
+  }
+
+  if (importBtn) {
+    importBtn.addEventListener("click", () => importInput.click());
+  }
+
+  importInput.addEventListener("change", e => {
+    if (e.target.files[0]) {
+      handleImportTemplates(e.target.files[0]);
+      importBtn?.classList.add("btn-imported");
+      importBtn.textContent = "Skabeloner importeret";
+      importBtn.title = "Klik for at overskrive skabeloner ved ny import";
+    }
+  });
 });
