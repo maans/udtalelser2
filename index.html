@@ -199,27 +199,20 @@
         <div id="studentsWarn" class="warnBox" style="display:none; flex: 0 1 360px;"></div>
       </div>
 
-      <details class="fold no-print" >
-        <summary>
-<strong>Accepterede kolonner (eksempler)</strong>
+      <details class="fold no-print" style="margin-top:.8rem">
+        <summary>Accepterede kolonner (eksempler)</summary>
+        <div class="muted small">
+          <div><b>Demo / standard-elevliste:</b> Fornavn, Efternavn, Unilogin, Køn, Klasse, Kontaktlærer1, Kontaktlærer2, Initialer for k-lærer1, Initialer for k-lærer2</div>
 
-<p><strong>Demo / standard-elevliste</strong><br>
-Fornavn, Efternavn, Unilogin, Køn, Klasse,<br>
-Kontaktlærer1, Kontaktlærer2,<br>
-Initialer for k-lærer1, Initialer for k-lærer2
-</p>
+          <div style="margin-top:.35rem"><b>Kontaktlærere og initialer:</b></div>
+          <ul style="margin:.25rem 0 0 1.1rem">
+            <li>I <i>Kontaktlærer1</i> og <i>Kontaktlærer2</i> kan du skrive kontaktlærerens navn (fx “Gert Hansen”).</li>
+            <li>Hvis der ikke er angivet initialer, danner appen dem automatisk (fx Gert Hansen → GH).</li>
+            <li>Hvis du vil bruge andre initialer, udfyld <i>Initialer for k-lærer1</i> / <i>Initialer for k-lærer2</i> (fx GTH). Disse overstyrer de automatiske initialer.</li>
+            <li>Kontaktlærer 2 og/eller initialer kan være tomme. Tomme felter ignoreres.</li>
+          </ul>
 
-<p><strong>Kontaktlærere og initialer</strong></p>
-<ul>
-  <li>I <em>Kontaktlærer1</em> og <em>Kontaktlærer2</em> kan du skrive kontaktlærerens navn (fx “Gert Hansen”).</li>
-  <li>Hvis der ikke er angivet initialer, danner appen dem automatisk (fx Gert Hansen → GH).</li>
-  <li>Hvis du vil bruge andre initialer, udfyld <em>Initialer for k-lærer1</em> / <em>Initialer for k-lærer2</em> (fx GTH).
-      Disse overstyrer de automatiske initialer.</li>
-  <li>Kontaktlærer 2 og/eller initialer kan være tomme. Tomme felter ignoreres.</li>
-</ul>
-
-<p><em>Appen matcher kolonner robust (store/små bogstaver er ligegyldige, mellemrum trimmes, og kendte varianter accepteres).</em></p>
-</div>
+          <div style="margin-top:.35rem"><em>Appen matcher kolonner robust (store/små bogstaver er ligegyldige, mellemrum trimmes, og kendte varianter accepteres).</em></div>
           <div><b>Uni-C:</b> Klasse, Fornavn, Efternavn, Uni-C brugernavn, Relationer-Kontaktlærer-Navn, Relationer-Anden kontaktlærer-Navn</div>
           <div>Appen mapper kolonner robust (case-insensitivt, trim, accepter Unilogin/Uni-C brugernavn).</div>
         </div>
