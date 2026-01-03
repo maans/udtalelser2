@@ -3695,3 +3695,9 @@ try {
     index = -1;
   });
 })();
+
+document.getElementById('resetAppBtn')?.addEventListener('click', () => {
+  if (confirm('Nulstil app?\n\nFjerner alle elevdata og indstillinger i denne browser.\nKan ikke fortrydes.')) {
+    resetApp();
+  }
+});
