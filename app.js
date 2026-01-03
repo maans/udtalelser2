@@ -979,6 +979,12 @@ function updateTeacherDatalist() {
   const clear = document.getElementById('meInputClear');
   if (!input || !menu || !btn || !wrap) return;
 
+  // Make menu focusable so ArrowUp/Down works reliably across browsers
+  try {
+    if (typeof menu.tabIndex === 'number' && menu.tabIndex < 0) menu.tabIndex = 0;
+    else if (menu.getAttribute && menu.getAttribute('tabindex') === null) menu.setAttribute('tabindex','0');
+  } catch (_) {}
+
   const studs = getStudents();
   if (!studs.length) {
     input.value = '';
@@ -1038,9 +1044,17 @@ function updateTeacherDatalist() {
   }
 
   function openMenu(){
+    // Open dropdown and focus menu so ArrowUp/Down works
     menu.hidden = false;
     if (!wrap.classList.contains('open')) wrap.classList.add('open');
     renderMenu();
+    try {
+      if (items && items.length) {
+        if (typeof activeIndex !== 'number') activeIndex = 0;
+        setActive(Math.max(0, Math.min(activeIndex, items.length - 1)));
+      }
+      if (menu.focus) menu.focus({ preventScroll: true });
+    } catch (_) {}
   }
   function closeMenu(){
     wrap.classList.remove('open');
@@ -1082,27 +1096,44 @@ function updateTeacherDatalist() {
 
 
   const handlePickerKeydown = (e) => {
-    // Arrow/Enter should work even if fokus ender på dropdown-knappen eller menuen.
-    if (e.key === 'Escape') { closeMenu(); return; }
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Down' || e.key === 'Up') || (e.keyCode === 40 || e.keyCode === 38)) {
-      if (!wrap.classList.contains('open')) openMenu();
+    // Keyboard navigation for the K-lærer picker (match Export-search behavior)
+    const key = e.key;
+    const isDown = key === 'ArrowDown' || key === 'Down';
+    const isUp   = key === 'ArrowUp'   || key === 'Up';
+    const isEnter = key === 'Enter' || key === 'NumpadEnter';
+    const isEsc = key === 'Escape' || key === 'Esc';
+
+    if (isEsc) {
       e.preventDefault();
-      setActive(activeIndex + ((e.key === 'ArrowDown' || e.key === 'Down' || e.keyCode === 40) ? 1 : -1));
+      e.stopPropagation();
+      closeMenu();
+      try { input.focus({ preventScroll: true }); } catch (_) {}
       return;
     }
-    if (e.key === 'Enter') {
-      const el = menu.querySelectorAll('[role="option"]')[activeIndex];
-      if (el && el.dataset.value) {
+
+    if (isDown || isUp) {
+      if (!wrap.classList.contains('open')) openMenu();
+      e.preventDefault();
+      e.stopPropagation();
+      setActive(activeIndex + (isDown ? 1 : -1));
+      return;
+    }
+
+    if (isEnter && wrap.classList.contains('open')) {
+      const els = menu.querySelectorAll('[role="option"]');
+      const el = els && els.length ? els[Math.max(0, Math.min(activeIndex, els.length - 1))] : null;
+      if (el && el.dataset && el.dataset.value) {
         e.preventDefault();
+        e.stopPropagation();
         commit(el.dataset.value);
         closeMenu();
       }
     }
   };
-  input.addEventListener('keydown', handlePickerKeydown, true);
-  btn.addEventListener('keydown', handlePickerKeydown, true);
-  menu.addEventListener('keydown', handlePickerKeydown, true);
-  wrap.addEventListener('keydown', handlePickerKeydown, true);
+  input.addEventListener('keydown', handlePickerKeydown);
+  btn.addEventListener('keydown', handlePickerKeydown);
+  menu.addEventListener('keydown', handlePickerKeydown);
+  wrap.addEventListener('keydown', handlePickerKeydown);
 }
 
 
