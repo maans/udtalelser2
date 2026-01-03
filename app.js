@@ -3622,13 +3622,11 @@ try {
     });
 
     // Start: hvis elever eller initialer mangler, start i Import
-    // Start-fane-logik:
-    // - Ingen elevliste → Hjælp
-    // - Elevliste findes → K-elever
     const hasStudents = getStudents().length > 0;
-    if (!hasStudents) {
+    const hasMe = String(getSettings().me || "").trim().length > 0;
+    if (!hasStudents || !hasMe) {
       setTab("set");
-      setSettingsSubtab("help");
+      setSettingsSubtab("data");
     } else {
       setTab("k");
     }
