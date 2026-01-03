@@ -60,7 +60,7 @@ code{font-family:var(--mono)}
 /* Stable navigation row in Redigér */
 .editNavRow{display:flex;align-items:center;gap:.75rem;margin-top:0;}
 .editNavRow .navSlot{flex:1;display:flex;align-items:center;}
-.editNavRow .navSlot.left{justify-content:flex-start;}
+.editNavRow .navSlot.left{justify-content:center;}
 .editNavRow .navSlot.center{justify-content:center;}
 .editNavRow .navSlot.right{justify-content:flex-end;}
 .editNavRow .navSlot.center{justify-content:center;text-align:center;}
@@ -579,7 +579,7 @@ tr:hover td{background: rgba(255,255,255,.02)}
   display:flex;
   gap:.6rem;
   align-items:center;
-  justify-content:flex-start;
+  justify-content:center;
   margin:.2rem 0 .7rem 0;
 }
 
@@ -587,23 +587,20 @@ tr:hover td{background: rgba(255,255,255,.02)}
 .marksSearchDock{ display:none; }
 
 /* Search-in-header layout */
-th.nameTh{ min-width: 260px; }
-.thName{ display:flex; flex-direction:column; gap:.35rem; }
-.thLabel{ font-weight:600; }
-.thControl{ display:flex; gap:.4rem; align-items:center; }
+th.nameTh{ min-width: 220px; }
+.thName{ display:flex; flex-direction:row; gap:.45rem; align-items:center; }
+.thControl{ display:flex; gap:.4rem; align-items:center; width:100%; }
 .thControl input{
   width: 100%;
-  min-width: 220px;
-  padding: .45rem .55rem;
+  min-width: 200px;
+  padding: .35rem .55rem;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,.16);
   background: rgba(0,0,0,.22);
   color: rgba(255,255,255,.88);
 }
 .thControl input:focus{ outline: none; border-color: rgba(120,190,255,.55); }
-.thControl .clearBtn{
-  flex: 0 0 auto;
-}
+.thControl .clearBtn{ flex: 0 0 auto; }
 
 @media (max-width: 720px){
   .exportActions{ align-items:stretch; }
@@ -689,3 +686,11 @@ button.success{background:#2e7d32;border-color:#2e7d32;color:#fff}
 .match-info {
   display: none;
 }
+
+
+/* Export button styled like tabs */
+.tabs .tab.exportTab{ font-weight:600; }
+
+#marksTableWrap thead th{ padding-top:.45rem; padding-bottom:.45rem; }
+
+.tabs.centered{ justify-content:center; flex:0 0 auto; width:100%; flex-wrap:wrap; }

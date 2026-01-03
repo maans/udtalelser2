@@ -258,25 +258,26 @@
       <div class="row between exportTopRow" style="align-items:flex-start; gap:1rem; margin-bottom:0">
         <div class="cardTitle" style="margin:0">Eksport</div>
         <div class="exportActions" aria-label="Eksport handlinger">
+          <button class="btn backupBig" id="btnBackupDownload" type="button" title="Download backup af alle lokale data">⬇️ Backup (download)</button>
           <button class="btn small" id="btnPrintAllGroups" type="button" title="Udskriv alle K-grupper (alle elever) som én samlet udskrift">🖨️ Print alle K-grupper</button>
-          <button class="btn small" id="btnExportMarks" type="button" title="Download en CSV, som kontaktlærerne kan importere">⬇️ Eksportér CSV</button>
         </div>
       </div>
 
       <div class="backupRow" style="margin:.25rem 0 .75rem 0">
-        <button class="btn backupBig" id="btnBackupDownload" type="button" title="Download backup af alle lokale data">⬇️ Backup (download)</button>
         <div class="muted small">Backup gemmer alt lokalt indhold (udtalelser, indstillinger, elevliste osv.) som en JSON-fil.</div>
       </div>
+
       <div class="muted small" style="margin:.35rem 0 .9rem 0">
         Her kan sang-/gymnastik-/elevrådsfaglærere sætte flueben og eksportere en CSV, som kontaktlærerne kan importere.
       </div>
       <!-- Filtre/søgning hører visuelt sammen med tabellen. -->
       <div class="marksToolbar" aria-label="Filtre til eksporttabellen">
-        <div class="tabs small" id="marksTypeTabs">
+        <div class="tabs small centered" id="marksTypeTabs">
           <!-- data-type values are internal codes used by app.js -->
           <button type="button" class="tab" data-type="sang">Sang</button>
           <button type="button" class="tab" data-type="gym">Gymnastik</button>
           <button type="button" class="tab" data-type="elevraad">Elevråd</button>
+          <button type="button" class="tab exportTab" id="btnExportMarks" title="Download en CSV, som kontaktlærerne kan importere">↓ Eksportér CSV</button>
         </div>
         <select id="marksType" style="display:none">
           <option value="sang">Sang</option>

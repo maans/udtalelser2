@@ -2676,8 +2676,11 @@ $('preview').textContent = buildStatement(st, getSettings());
 
     const list = sortedStudents(studs).filter(st => {
       if (!q) return true;
+      const fn = normalizeName(st.fornavn || '');
+      const en = normalizeName(st.efternavn || '');
       const full = normalizeName(`${st.fornavn} ${st.efternavn}`);
-      return full.includes(q);
+      // Mere forudsigelig filtrering: start på fornavn/efternavn (og evt. fuldt navn)
+      return fn.startsWith(q) || en.startsWith(q) || full.startsWith(q);
     });
 
     const kgrpLabel = (st) => {
@@ -2742,11 +2745,10 @@ $('preview').textContent = buildStatement(st, getSettings());
 
     const nameTh = `
       <th class="nameTh">
-        <div class="thName">
-          <div class="thLabel">Navn</div>
+        <div class="thName compact">
           <div class="thControl">
-            <input id="marksSearchInline" type="text" placeholder="Søg navn…" autocomplete="off" />
-            <button class="clearBtn" id="marksSearchInlineClear" title="Ryd søgning" aria-label="Ryd søgning" hidden>×</button>
+            <input id="marksSearchInline" type="text" placeholder="Søg navn…" aria-label="Filtrer navn" autocomplete="off" />
+            <button class="clearBtn" id="marksSearchInlineClear" title="Ryd" aria-label="Ryd" hidden>×</button>
           </div>
         </div>
       </th>`;
