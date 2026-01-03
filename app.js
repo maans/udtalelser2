@@ -3838,3 +3838,28 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+/* === v1.0.2: K-lærer dropdown uses SAME logic as Find-elev ===
+   This does NOT modify the Find-elev implementation.
+   It simply reuses the initializer with a different data source.
+*/
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof initFindElevDropdown !== "function") return;
+
+  const kInput = document.getElementById("kLaererInitialerInput");
+  const kList  = document.getElementById("kLaererDropdown");
+
+  if (!kInput || !kList) return;
+
+  // Data adapter: reuse same dropdown logic
+  initFindElevDropdown({
+    input: kInput,
+    list: kList,
+    getItems: () => window.kLaerereInitialer || [],
+    onSelect: (item) => {
+      if (typeof setAktivKontaktlaerer === "function") {
+        setAktivKontaktlaerer(item);
+      }
+    }
+  });
+});
