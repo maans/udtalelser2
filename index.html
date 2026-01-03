@@ -255,43 +255,46 @@
   <!-- DATA & EKSPORT (FAGLÆRERE) -->
   <div class="settingsSubtab" data-subtab="export" id="settingsSubtab-export">
     <div class="card no-print">
-      <div class="row between" style="align-items:center; gap:1rem; margin-bottom:.2rem">
+      <div class="row between exportTopRow" style="align-items:flex-start; gap:1rem; margin-bottom:.2rem">
         <div class="cardTitle" style="margin:0">Eksport</div>
-        <button class="btn small" id="btnPrintAllGroups" type="button" title="Udskriv alle K-grupper (alle elever) som én samlet udskrift">🖨️ Print alle K-grupper</button>
+        <div class="exportActions" aria-label="Eksport handlinger">
+          <button class="btn small" id="btnPrintAllGroups" type="button" title="Udskriv alle K-grupper (alle elever) som én samlet udskrift">🖨️ Print alle K-grupper</button>
+          <button class="btn small" id="btnExportMarks" type="button" title="Download en CSV, som kontaktlærerne kan importere">⬇️ Eksportér CSV</button>
+        </div>
       </div>
-      <div class="row gap wrap" style="margin:.5rem 0 .9rem 0; align-items:center">
-        <button class="btn ghost" id="btnBackupDownload" type="button" title="Download backup af alle lokale data">⬇️ Backup (download)</button>
+
+      <div class="backupRow" style="margin:.55rem 0 .9rem 0">
+        <button class="btn backupBig" id="btnBackupDownload" type="button" title="Download backup af alle lokale data">⬇️ Backup (download)</button>
         <div class="muted small">Backup gemmer alt lokalt indhold (udtalelser, indstillinger, elevliste osv.) som en JSON-fil.</div>
       </div>
       <div class="muted small" style="margin:.35rem 0 .9rem 0">
         Her kan sang-/gymnastik-/elevrådsfaglærere sætte flueben og eksportere en CSV, som kontaktlærerne kan importere.
       </div>
-      <div class="row gap wrap">
-        <div class="field" style="min-width: 260px">
-          <div class="tabs small" id="marksTypeTabs">
-            <!-- data-type values are internal codes used by app.js -->
-            <button type="button" class="tab" data-type="sang">Sang</button>
-            <button type="button" class="tab" data-type="gym">Gymnastik</button>
-            <button type="button" class="tab" data-type="elevraad">Elevråd</button>
-          </div>
-          <select id="marksType" style="display:none">
-            <option value="sang">Sang</option>
-            <option value="gym">Gymnastik</option>
-            <option value="elevraad">Elevråd</option>
-          </select>
+      <!--
+        Filtre/søgning hører visuelt sammen med tabellen.
+        Selve søgefeltet monteres ind i tabel-headeren (Navn) via JS.
+      -->
+      <div class="marksToolbar" aria-label="Filtre til eksporttabellen">
+        <div class="tabs small" id="marksTypeTabs">
+          <!-- data-type values are internal codes used by app.js -->
+          <button type="button" class="tab" data-type="sang">Sang</button>
+          <button type="button" class="tab" data-type="gym">Gymnastik</button>
+          <button type="button" class="tab" data-type="elevraad">Elevråd</button>
         </div>
-        <div class="field" style="flex:1; min-width: 260px">
-          <label>Find elev</label>
-          <div class="teacherPicker" id="marksSearchPicker">
-            <input id="marksSearch" type="text" placeholder="Søg på fornavn eller fulde navn…" autocomplete="off"/>
-            <button class="clearBtn" id="marksSearchClear" title="Ryd søgning" aria-label="Ryd søgning">×</button>
-            <button class="tpBtn" id="marksSearchBtn" type="button" aria-label="Vis elevliste">▾</button>
-            <div class="tpMenu" id="marksSearchMenu" role="listbox" aria-label="Vælg elev" hidden></div>
-          </div>
-        </div>
-        <div class="field" style="min-width: 200px">
-          <label>&nbsp;</label>
-          <button class="btn" id="btnExportMarks" type="button">⬇️ Eksportér CSV</button>
+        <select id="marksType" style="display:none">
+          <option value="sang">Sang</option>
+          <option value="gym">Gymnastik</option>
+          <option value="elevraad">Elevråd</option>
+        </select>
+      </div>
+
+      <!-- hidden dock: flyttes ind i tabel-headeren ved renderMarksTable() -->
+      <div class="marksSearchDock" id="marksSearchDock" aria-hidden="true">
+        <div class="teacherPicker" id="marksSearchPicker">
+          <input id="marksSearch" type="text" placeholder="Søg navn…" autocomplete="off"/>
+          <button class="clearBtn" id="marksSearchClear" title="Ryd søgning" aria-label="Ryd søgning">×</button>
+          <button class="tpBtn" id="marksSearchBtn" type="button" aria-label="Vis elevliste">▾</button>
+          <div class="tpMenu" id="marksSearchMenu" role="listbox" aria-label="Vælg elev" hidden></div>
         </div>
       </div>
 

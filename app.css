@@ -555,6 +555,51 @@ tr:hover td{background: rgba(255,255,255,.02)}
 
 .row.between{ justify-content: space-between; }
 
+/* --- Eksportfanen: knap-layout (v1.0 UX) --- */
+.exportActions{
+  display:flex;
+  flex-direction:column;
+  gap:.45rem;
+  align-items:flex-end;
+}
+
+.backupRow{
+  display:flex;
+  gap:.8rem;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.btn.backupBig{
+  padding:.65rem .9rem;
+  font-weight:600;
+}
+
+.marksToolbar{
+  display:flex;
+  gap:.6rem;
+  align-items:center;
+  justify-content:flex-start;
+  margin:.2rem 0 .7rem 0;
+}
+
+/* Dock is only a storage place; the picker is mounted into table header */
+.marksSearchDock{ display:none; }
+
+/* Search-in-header layout */
+th.nameTh{ min-width: 260px; }
+.thName{ display:flex; flex-direction:column; gap:.35rem; }
+.thLabel{ font-weight:600; }
+.thControl .teacherPicker{ width:100%; }
+.thControl .teacherPicker input{ width:100%; min-width: 220px; }
+
+@media (max-width: 720px){
+  .exportActions{ align-items:stretch; }
+  .exportTopRow{ align-items:flex-start; }
+  th.nameTh{ min-width: 200px; }
+  .thControl .teacherPicker input{ min-width: 160px; }
+}
+
 
 /* --- Marks table button-style toggles (old format) --- */
 td.cb { width: 56px; text-align: center; }

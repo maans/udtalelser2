@@ -2696,6 +2696,27 @@ $('preview').textContent = buildStatement(st, getSettings());
 
 
 
+    // Mount the existing search picker into the table header (so we don't
+    // re-init it and accidentally accumulate event listeners).
+    function mountMarksSearchIntoHeader(){
+      const mount = document.getElementById('marksSearchMount');
+      const picker = document.getElementById('marksSearchPicker');
+      const dock = document.getElementById('marksSearchDock');
+      if (!mount || !picker) return;
+      // Move picker into header mount (preserves listeners)
+      if (!mount.contains(picker)) mount.appendChild(picker);
+      // Keep dock inert when empty
+      if (dock) dock.setAttribute('aria-hidden','true');
+    }
+
+    const nameTh = `
+      <th class="nameTh">
+        <div class="thName">
+          <div class="thLabel">Navn</div>
+          <div class="thControl" id="marksSearchMount"></div>
+        </div>
+      </th>`;
+
     if (type === 'sang') {
       const marks = getMarks(KEYS.marksSang);
       $('marksLegend').textContent = '';
@@ -2705,7 +2726,7 @@ $('preview').textContent = buildStatement(st, getSettings());
         <table>
           <thead>
             <tr>
-              <th>Navn</th><th>K-grp</th><th>Klasse</th>
+              ${nameTh}<th>K-grp</th><th>Klasse</th>
               ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.sang[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.sang[c].title||'')}</span></th>`).join('')}
             </tr>
           </thead>
@@ -2723,6 +2744,7 @@ $('preview').textContent = buildStatement(st, getSettings());
           </tbody>
         </table>
       `;
+      mountMarksSearchIntoHeader();
       return;
     }
 
@@ -2736,7 +2758,7 @@ $('preview').textContent = buildStatement(st, getSettings());
         <table>
           <thead>
             <tr>
-              <th>Navn</th><th>K-grp</th><th>Klasse</th>
+              ${nameTh}<th>K-grp</th><th>Klasse</th>
               ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.gym[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.gym[c].title||'')}</span></th>`).join('')}
               ${roleCodes.map(r => `<th class="cb" title="${escapeAttr((SNIPPETS.roller[r]||{}).hint||'')}"><span class="muted small">${escapeHtml((SNIPPETS.roller[r]||{}).title||r)}</span></th>`).join('')}
             </tr>
@@ -2756,6 +2778,7 @@ $('preview').textContent = buildStatement(st, getSettings());
           </tbody>
         </table>
       `;
+      mountMarksSearchIntoHeader();
       return;
     }
 
@@ -2768,7 +2791,7 @@ $('preview').textContent = buildStatement(st, getSettings());
       <table>
         <thead>
           <tr>
-            <th>Navn</th><th>K-grp</th><th>Klasse</th>
+            ${nameTh}<th>K-grp</th><th>Klasse</th>
             ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.elevraad[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.elevraad[c].title||'')}</span></th>`).join('')}
           </tr>
         </thead>
@@ -2786,6 +2809,7 @@ $('preview').textContent = buildStatement(st, getSettings());
         </tbody>
       </table>
     `;
+    mountMarksSearchIntoHeader();
 }
 
   async function importMarksFile(e, kind) {
