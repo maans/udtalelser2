@@ -590,14 +590,26 @@ tr:hover td{background: rgba(255,255,255,.02)}
 th.nameTh{ min-width: 260px; }
 .thName{ display:flex; flex-direction:column; gap:.35rem; }
 .thLabel{ font-weight:600; }
-.thControl .teacherPicker{ width:100%; }
-.thControl .teacherPicker input{ width:100%; min-width: 220px; }
+.thControl{ display:flex; gap:.4rem; align-items:center; }
+.thControl input{
+  width: 100%;
+  min-width: 220px;
+  padding: .45rem .55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(0,0,0,.22);
+  color: rgba(255,255,255,.88);
+}
+.thControl input:focus{ outline: none; border-color: rgba(120,190,255,.55); }
+.thControl .clearBtn{
+  flex: 0 0 auto;
+}
 
 @media (max-width: 720px){
   .exportActions{ align-items:stretch; }
   .exportTopRow{ align-items:flex-start; }
   th.nameTh{ min-width: 200px; }
-  .thControl .teacherPicker input{ min-width: 160px; }
+  .thControl input{ min-width: 160px; }
 }
 
 

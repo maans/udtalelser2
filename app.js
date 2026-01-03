@@ -2696,24 +2696,58 @@ $('preview').textContent = buildStatement(st, getSettings());
 
 
 
-    // Mount the existing search picker into the table header (so we don't
-    // re-init it and accidentally accumulate event listeners).
-    function mountMarksSearchIntoHeader(){
-      const mount = document.getElementById('marksSearchMount');
-      const picker = document.getElementById('marksSearchPicker');
-      const dock = document.getElementById('marksSearchDock');
-      if (!mount || !picker) return;
-      // Move picker into header mount (preserves listeners)
-      if (!mount.contains(picker)) mount.appendChild(picker);
-      // Keep dock inert when empty
-      if (dock) dock.setAttribute('aria-hidden','true');
+    // Inline search i kolonneheaderen ("Navn").
+    // Vi bruger en separat input (marksSearchInline) og spejler værdien til
+    // den eksisterende skjulte marksSearch-input, så resten af logikken er intakt.
+    function attachInlineMarksSearch(){
+      const inline = document.getElementById('marksSearchInline');
+      const clear  = document.getElementById('marksSearchInlineClear');
+      if (!inline) return;
+
+      // sync current value
+      inline.value = (searchEl && searchEl.value) ? searchEl.value : '';
+      if (clear) clear.hidden = !inline.value;
+
+      const rerenderWithFocus = () => {
+        // preserve caret
+        const pos = inline.selectionStart ?? inline.value.length;
+        setTimeout(() => {
+          const ii = document.getElementById('marksSearchInline');
+          if (!ii) return;
+          try {
+            ii.focus();
+            ii.setSelectionRange(pos, pos);
+          } catch(_){ /* no-op */ }
+        }, 0);
+      };
+
+      inline.oninput = () => {
+        if (searchEl) searchEl.value = inline.value;
+        if (clear) clear.hidden = !inline.value;
+        renderMarksTable();
+        rerenderWithFocus();
+      };
+
+      if (clear) {
+        clear.onclick = (e) => {
+          e.preventDefault();
+          inline.value = '';
+          if (searchEl) searchEl.value = '';
+          clear.hidden = true;
+          renderMarksTable();
+          rerenderWithFocus();
+        };
+      }
     }
 
     const nameTh = `
       <th class="nameTh">
         <div class="thName">
           <div class="thLabel">Navn</div>
-          <div class="thControl" id="marksSearchMount"></div>
+          <div class="thControl">
+            <input id="marksSearchInline" type="text" placeholder="Søg navn…" autocomplete="off" />
+            <button class="clearBtn" id="marksSearchInlineClear" title="Ryd søgning" aria-label="Ryd søgning" hidden>×</button>
+          </div>
         </div>
       </th>`;
 
@@ -2744,7 +2778,7 @@ $('preview').textContent = buildStatement(st, getSettings());
           </tbody>
         </table>
       `;
-      mountMarksSearchIntoHeader();
+      attachInlineMarksSearch();
       return;
     }
 
@@ -2778,7 +2812,7 @@ $('preview').textContent = buildStatement(st, getSettings());
           </tbody>
         </table>
       `;
-      mountMarksSearchIntoHeader();
+      attachInlineMarksSearch();
       return;
     }
 
@@ -2809,7 +2843,7 @@ $('preview').textContent = buildStatement(st, getSettings());
         </tbody>
       </table>
     `;
-    mountMarksSearchIntoHeader();
+    attachInlineMarksSearch();
 }
 
   async function importMarksFile(e, kind) {

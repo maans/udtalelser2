@@ -255,7 +255,7 @@
   <!-- DATA & EKSPORT (FAGLÆRERE) -->
   <div class="settingsSubtab" data-subtab="export" id="settingsSubtab-export">
     <div class="card no-print">
-      <div class="row between exportTopRow" style="align-items:flex-start; gap:1rem; margin-bottom:.2rem">
+      <div class="row between exportTopRow" style="align-items:flex-start; gap:1rem; margin-bottom:0">
         <div class="cardTitle" style="margin:0">Eksport</div>
         <div class="exportActions" aria-label="Eksport handlinger">
           <button class="btn small" id="btnPrintAllGroups" type="button" title="Udskriv alle K-grupper (alle elever) som én samlet udskrift">🖨️ Print alle K-grupper</button>
@@ -263,17 +263,14 @@
         </div>
       </div>
 
-      <div class="backupRow" style="margin:.55rem 0 .9rem 0">
+      <div class="backupRow" style="margin:.25rem 0 .75rem 0">
         <button class="btn backupBig" id="btnBackupDownload" type="button" title="Download backup af alle lokale data">⬇️ Backup (download)</button>
         <div class="muted small">Backup gemmer alt lokalt indhold (udtalelser, indstillinger, elevliste osv.) som en JSON-fil.</div>
       </div>
       <div class="muted small" style="margin:.35rem 0 .9rem 0">
         Her kan sang-/gymnastik-/elevrådsfaglærere sætte flueben og eksportere en CSV, som kontaktlærerne kan importere.
       </div>
-      <!--
-        Filtre/søgning hører visuelt sammen med tabellen.
-        Selve søgefeltet monteres ind i tabel-headeren (Navn) via JS.
-      -->
+      <!-- Filtre/søgning hører visuelt sammen med tabellen. -->
       <div class="marksToolbar" aria-label="Filtre til eksporttabellen">
         <div class="tabs small" id="marksTypeTabs">
           <!-- data-type values are internal codes used by app.js -->
@@ -288,7 +285,7 @@
         </select>
       </div>
 
-      <!-- hidden dock: flyttes ind i tabel-headeren ved renderMarksTable() -->
+      <!-- hidden dock: ældre elev-søgepicker (beholdes skjult af hensyn til bagudkompatibilitet) -->
       <div class="marksSearchDock" id="marksSearchDock" aria-hidden="true">
         <div class="teacherPicker" id="marksSearchPicker">
           <input id="marksSearch" type="text" placeholder="Søg navn…" autocomplete="off"/>
@@ -298,12 +295,7 @@
         </div>
       </div>
 
-      
       <div class="divider"></div>
-      <div class="cardSubTitle"></div>
-      <div class="row gap wrap" style="align-items:center">
-        <div class="muted small" style="flex:1; min-width:260px"></div>
-        </div>
 
       <div class="muted small" id="marksLegend" style="margin:.35rem 0 .6rem 0"></div>
       <div id="marksTableWrap"></div>
