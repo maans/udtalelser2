@@ -812,8 +812,16 @@ function openPrintWindowForStudents(students, settings, title) {
           <div class="printHeaderLogo"><img src="${PRINT_HEADER_LOGO_DATAURL}" alt="Himmerlands Ungdomsskole" /></div>
           ${sig.titleLine ? `<div class="statementTitle">${escapeHtml(sig.titleLine)}</div>` : ``}
           <pre class="statementBody">${escapeHtml(sig.mainText)}</pre>
-          <div class="signatureBlock">
-            <div class="cell value">${escapeHtml(ctLine)}</div>
+          <table class="signature-table">
+  <tr>
+    <td class="sig-name">{{CONTACT_TEACHERS}}</td>
+    <td class="sig-name">{{PRINCIPAL_NAME}}</td>
+  </tr>
+  <tr>
+    <td class="sig-role">Kontaktgruppelærere</td>
+    <td class="sig-role">Forstander</td>
+  </tr>
+</table>
             <div class="cell value">${escapeHtml(sig.principal)}</div>
             <div class="cell label">Kontaktgruppelærere</div>
             <div class="cell label">Forstander</div>
@@ -963,6 +971,30 @@ function openPrintWindowForStudents(students, settings, title) {
     .signatureBlock .cell{ text-align:center; white-space:nowrap; line-height:1.15; }
     .signatureBlock .label{ font-weight:600; }
     .signatureBlock .value{ font-weight:400; }
+
+.signature-table {
+  width: auto;
+  margin: 10mm auto 0 auto;
+  border-collapse: collapse;
+}
+.signature-table td {
+  padding: 0 18mm 0 0;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.signature-table td:last-child {
+  padding-right: 0;
+}
+.signature-table .sig-name {
+  font-size: 12pt;
+  font-weight: 400;
+}
+.signature-table .sig-role {
+  font-size: 11pt;
+  font-weight: 600;
+}
+
 </style>
 </head>
 <body>
@@ -1095,7 +1127,31 @@ async function printAllKGroups() {
         transform-origin: top left;
         width: calc(100% / var(--s, 1));
       }
-    </style>
+    
+.signature-table {
+  width: auto;
+  margin: 10mm auto 0 auto;
+  border-collapse: collapse;
+}
+.signature-table td {
+  padding: 0 18mm 0 0;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.signature-table td:last-child {
+  padding-right: 0;
+}
+.signature-table .sig-name {
+  font-size: 12pt;
+  font-weight: 400;
+}
+.signature-table .sig-role {
+  font-size: 11pt;
+  font-weight: 600;
+}
+
+</style>
   `;
   const body = all.map(st => {
     const txt = buildStatement(st, getSettings());
