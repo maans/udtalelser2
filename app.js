@@ -3549,7 +3549,15 @@ if (document.getElementById('btnDownloadElevraad')) {
       const ok = required.every(r => map[r]);
       if (!ok) { alert('Kunne ikke finde de nødvendige kolonner (fornavn, efternavn, klasse).'); return; }
 
-      const studentsRaw = parsed.rows.map(r => normalizeStudentRow(r, map));
+      // IMPORTANT:
+      // We must honor per-row explicit initials overrides from the CSV columns
+      // "Initialer for k-lærer1" / "Initialer for k-lærer2".
+      // These overrides are tied to the corresponding contact teacher column
+      // (Kontaktlærer1/Kontaktlærer2) and should become the canonical initials
+      // for that full name across the entire dataset.
+      const teacherOverrides = buildTeacherOverrideMap(parsed.rows, map);
+
+      const studentsRaw = parsed.rows.map(r => normalizeStudentRow(r, map, teacherOverrides));
       const students = canonicalizeTeacherInitials(studentsRaw);
       setStudents(students);
 
