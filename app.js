@@ -1923,6 +1923,26 @@ if (chosen && erObj[chosen]) {
         if (set.has(key)) mapped[field] = h;
       }
     }
+
+    // Fuzzy fallbacks (Excel/Uni-C variants with odd dashes/spaces etc.)
+    // We ONLY use these if the strict map did not find a column.
+    const findBy = (pred) => {
+      for (const h of headers) {
+        const k = normalizeHeader(h);
+        if (pred(k)) return h;
+      }
+      return null;
+    };
+
+    if (!mapped.ini1) {
+      const h = findBy(k => k.includes('initialer') && k.includes('laerer') && k.includes('1'));
+      if (h) mapped.ini1 = h;
+    }
+    if (!mapped.ini2) {
+      const h = findBy(k => k.includes('initialer') && k.includes('laerer') && k.includes('2'));
+      if (h) mapped.ini2 = h;
+    }
+
     return mapped;
   }
   function normalizeStudentRow(row, map) {
