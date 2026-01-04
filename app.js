@@ -989,6 +989,7 @@ function updateTeacherDatalist() {
   const wrap  = document.getElementById('teacherPicker');
   const clear = document.getElementById('meInputClear');
   if (!input || !menu || !btn || !wrap) return;
+  try { menu.tabIndex = -1; } catch(_) {}
 
   const studs = getStudents();
   if (!studs.length) {
@@ -1062,7 +1063,7 @@ function updateTeacherDatalist() {
       full,
       first,
       last,
-      label: full ? `${ini} · ${full}` : ini
+      label: full ? `${ini} (${full})` : ini
     };
   });
 
@@ -1122,11 +1123,12 @@ function updateTeacherDatalist() {
 
     filteredItems.slice(0, 40).forEach((it, i) => {
       const row = document.createElement('div');
-      row.className = 'tpRow';
+      row.className = 'tpItem';
       row.setAttribute('role','option');
       row.dataset.value = it.ini;
       row.dataset.full = it.full || '';
-      row.textContent = it.label;
+      row.id = `teacherOpt_${it.ini}_${i}`;
+      row.innerHTML = `<span class="tpLeft">${it.ini}</span><span class="tpRight">${it.full ? '('+it.full+')' : ''}</span>`;
       row.addEventListener('mousedown', (e) => {
         // mousedown so selection happens before blur
         e.preventDefault();
@@ -1212,12 +1214,10 @@ function updateTeacherDatalist() {
     }
   };
 
-  input.addEventListener('keydown', handlePickerKeydown, true);
-  btn.addEventListener('keydown', handlePickerKeydown, true);
-  menu.addEventListener('keydown', handlePickerKeydown, true);
-  wrap.addEventListener('keydown', handlePickerKeydown, true);
+  input.addEventListener('keydown', handlePickerKeydown);
+  btn.addEventListener('keydown', handlePickerKeydown);
+  menu.addEventListener('keydown', handlePickerKeydown);
 }
-
 
 function initMarksSearchPicker(){
   const input = document.getElementById('marksSearch');
