@@ -651,16 +651,20 @@ function openPrintWindowForStudents(students, settings, title) {
   }[c]));
 
   const list = sortedStudents(Array.isArray(students) ? students : []);
-  const docTitle = escapeHtml(title || 'Print');
 
-  // Header date must match "Dato måned/år (auto)" in Indstillinger → Periode
-  const _period = computePeriod(settings && settings.schoolYearEnd);
-  const headerDateText = (_period && _period.dateMonthYear) ? _period.dateMonthYear : '';
-
-  // iOS/iPadOS Safari print: disable transform-based scaling to avoid alternating blank pages
-  const isIOSPrint = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const disableScale = isIOSPrint;
-
+  // Header date (month + year) should match 'Dato måned/år (auto)' from Indstillinger → Periode
+  let headerDateText = '';
+  try {
+    if (typeof computePeriod === 'function') {
+      const p = computePeriod(settings && settings.schoolYearEnd);
+      headerDateText = (p && p.dateMonthYear) ? String(p.dateMonthYear) : '';
+    }
+  } catch(e) {}
+  if (!headerDateText) {
+    const _d = new Date();
+    const _monthYear = _d.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
+    headerDateText = _monthYear ? (_monthYear.charAt(0).toUpperCase() + _monthYear.slice(1)) : '';
+  }
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
     return `
@@ -673,6 +677,8 @@ function openPrintWindowForStudents(students, settings, title) {
       </div>`;
   }).join('');
 
+  const docTitle = escapeHtml(title || 'Print');
+
   const html = `<!doctype html>
 <html>
 <head>
@@ -681,34 +687,45 @@ function openPrintWindowForStudents(students, settings, title) {
   <style>
     @page { size: A4; margin: 0; }
     html, body { margin: 0; padding: 0; background: #fff; }
-
     .page {
       width: 210mm;
       height: 297mm;
       padding: 12mm 14mm;
       box-sizing: border-box;
-      position: relative;
-      --s: 1;
       page-break-after: always;
-      break-after: page;
+      overflow: hidden;
+      --s: 1;
     }
-    .page:last-child { page-break-after: auto; break-after: auto; }
-
-    .content {
-      width: 100%;
-      height: 100%;
-      box-sizing: border-box;
-    }
-
+    .content { width: 100%; height: 100%; overflow: hidden; }
     .statement {
       margin: 0;
       white-space: pre-wrap;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-      font-size: 11.5pt;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 12pt;
       line-height: 1.45;
       transform: scale(var(--s));
       transform-origin: top left;
     }
+  
+    /* iOS/iPadOS Safari: disable scaling transforms to avoid alternating blank pages */
+    @supports (-webkit-touch-callout: none) {
+      .page { --s: 1 !important; }
+      .statement { transform: none !important; width: auto !important; }
+    }
+
+    /* Header logo */
+    .printHeader{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      margin: 14mm 0 6mm 0;
+    }
+    .printHeader img{
+      height: 18mm;
+      width: auto;
+      display:block;
+    }
+
 
     /* Header: date (top-right) + logo (center) */
     .printHeaderTop{
@@ -720,7 +737,6 @@ function openPrintWindowForStudents(students, settings, title) {
       color: #222;
     }
     .printHeaderDate{ white-space: nowrap; }
-
     .printHeaderLogo{
       display:flex;
       justify-content:center;
@@ -733,75 +749,983 @@ function openPrintWindowForStudents(students, settings, title) {
       display:block;
     }
 
-    /* iOS/iPadOS: disable transforms (critical for avoiding blank even pages) */
-    @supports (-webkit-touch-callout: none) {
-      @media print {
-        .page { --s: 1 !important; }
-        .statement { transform: none !important; }
-      }
-    }
-  </style>
+</style>
 </head>
 <body>
-  ${pagesHtml}
-  <script>
-  (function() {
-    const disableScale = true && true;
-  })();
-  </script>
+${pagesHtml}
+<script>
+(function(){
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
+  const disableScale = isIOS;
+  function fitAll(){
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(p => {
+      const c = p.querySelector('.statement');
+      if(!c) return;
+
+      // Reset
+      p.style.setProperty('--s', 1);
+      c.style.width = '';
+
+      const availH = p.clientHeight;
+      const availW = p.clientWidth;
+      let neededH = c.scrollHeight;
+      let neededW = c.scrollWidth;
+
+      let s = Math.min(1, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
+
+      // If we scale down, widen the element proportionally to preserve line wrapping
+      // and re-check height.
+      if (s < 1) {
+        c.style.width = (100 / s) + '%';
+        neededH = c.scrollHeight;
+        neededW = c.scrollWidth;
+        s = Math.min(s, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
+      }
+
+      p.style.setProperty('--s', s.toFixed(4));
+    });
+  }
+
+  window.addEventListener('load', () => {
+    if(!disableScale) {
+      fitAll();
+      // A tiny delay helps after font rasterization
+      setTimeout(fitAll, 50);
+    }
+    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 120);
+  });
+})();
+</script>
 </body>
 </html>`;
 
-  // Open print window
+  const win = window.open('', '_blank');
+  if (!win) {
+    alert('Kunne ikke åbne print-vindue (pop-up blokeret).');
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+
+async function printAllKStudents() {
+  // Keep overrides fresh for printing unless the user is actively editing templates.
+  try {
+    await loadRemoteOverrides();
+    applyTemplatesFromOverridesToLocal({ preserveLocks: true });
+  } catch (_) {}
+
+  const studs = getStudents();
+  const kGroups = buildKGroups(studs);
+
+  // K-mode: print "mine" K-elever
+  // ALL-mode: print den aktive K-gruppe (som UI'et viser)
+  const isAll = state.viewMode === 'ALL';
+  const list = isAll
+    ? ((kGroups[state.kGroupIndex] && kGroups[state.kGroupIndex].students) ? kGroups[state.kGroupIndex].students.slice() : [])
+    : getMyKStudents();
+
+  if (!list.length) {
+    alert(isAll
+      ? 'Der er ingen elever i denne K-gruppe at printe.'
+      : 'Der er ingen K-elever at printe (tjek elevliste og initialer).'
+    );
+    return;
+  }
+
+  const title = isAll ? 'Udtalelser v1.0 – print K-gruppe' : 'Udtalelser v1.0 – print K-elever';
+  const sorted = sortedStudents(list);
+  openPrintWindowForStudents(sorted, getSettings(), title);
+}
+
+async function printAllKGroups() {
+  // Keep overrides fresh for printing unless the user is actively editing templates.
+  try {
+    await loadRemoteOverrides();
+    applyTemplatesFromOverridesToLocal({ preserveLocks: true });
+  } catch(_) {}
+
+  const studs = getStudents();
+  if (!studs.length) {
+    alert('Der er ingen elevliste indlæst endnu.');
+    return;
+  }
+  const kGroups = buildKGroups(studs);
+  const all = [];
+
+  // Flatten i gruppe-rækkefølge (stabilt og forudsigeligt)
+  kGroups.forEach(g => {
+    (g.students || []).forEach(st => all.push(st));
+  });
+
+  if (!all.length) {
+    alert('Der var ingen elever i K-grupperne at printe.');
+    return;
+  }
+
+  const title = 'Udtalelser v1.0 – print alle K-grupper';
+  const styles = `
+    <style>
+      @page { size: A4; margin: 18mm 16mm; }
+      body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#000; background:#fff; }
+      .entry{ page-break-after: always; }
+      .page{ width: 178mm; height: 261mm; overflow:hidden; position:relative; }
+      pre.content{
+        white-space: pre-wrap;
+        font: 11pt/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        margin:0;
+        transform: scale(var(--s, 1));
+        transform-origin: top left;
+        width: calc(100% / var(--s, 1));
+      }
+    </style>
+  `;
+  const body = all.map(st => {
+    const txt = buildStatement(st, getSettings());
+    return `
+      <section class="entry">
+        <div class="page"><pre class="content">${escapeHtml(txt)}</pre></div>
+      </section>
+    `;
+  }).join('');
+
   const w = window.open('', '_blank');
   if (!w) {
-    alert('Pop-up blokeret. Tillad pop-ups for at printe.');
+    alert('Pop-up blev blokeret. Tillad pop-ups for at printe.');
     return;
   }
   w.document.open();
-  w.document.write(html);
+  w.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>${title}</title>${styles}</head><body>${body}
+    <script>
+      (function(){
+        function fitAll(){
+          const pages = Array.from(document.querySelectorAll('.page'));
+          pages.forEach(p=>{
+            const c = p.querySelector('.content');
+            if(!c) return;
+            p.style.setProperty('--s','1');
+            const avail = p.clientHeight;
+            const needed = c.scrollHeight;
+            let s = 1;
+            if (needed > avail && avail > 0) s = Math.max(0.10, Math.min(1, avail / needed));
+            p.style.setProperty('--s', String(s));
+          });
+        }
+        window.addEventListener('load', fitAll);
+        window.addEventListener('beforeprint', fitAll);
+      })();
+    </script>
+  </body></html>`);
   w.document.close();
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
+}
 
-  // Desktop: fit-to-page scaling (kept), iOS: no scaling
-  function fitAll() {
+function importLocalBackup(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
     try {
-      const pages = w.document.querySelectorAll('.page');
-      pages.forEach(p => {
-        const st = p.querySelector('.statement');
-        const c = p.querySelector('.content');
-        if (!st || !c) return;
+      const obj = JSON.parse(String(reader.result || '{}'));
+      if (!obj || typeof obj !== 'object' || !obj.data) throw new Error('Ugyldig backupfil.');
+      const prefix = obj.prefix || LS_PREFIX;
 
-        // Reset scale
-        p.style.setProperty('--s', '1');
+      // Helper: try to extract teacher initials from filename (AB-backup.json, EB_backup_2026.json, ...)
+      const guessIniFromFilename = (name) => {
+        const base = String(name || '').trim();
+        if (!base) return '';
+        const m = base.match(/^\s*([A-Za-zÆØÅæøå]{1,4})[\-_]/);
+        return m ? String(m[1] || '').toUpperCase() : '';
+      };
 
-        const pageRect = p.getBoundingClientRect();
-        const availW = pageRect.width;
-        const availH = pageRect.height;
+      // SAFE IMPORT (merge) so you can import colleagues' backups without losing your own work.
+      // Policy:
+      // - We never delete existing data.
+      // - For text keys (udt_text_<unilogin>): merge per field (only fill blanks).
+      // - For non-text keys: import only if missing locally.
+      const textKeyPrefix = prefix + 'text_';
+      let mergedText = 0, addedText = 0, skippedText = 0;
+      let addedOther = 0, skippedOther = 0;
 
-        // Measure needed size
-        const neededW = c.scrollWidth;
-        const neededH = c.scrollHeight;
+      // Special-case: "aktiv K-lærer" is allowed to be restored from backup if it is missing locally.
+      // We still avoid clobbering other colleague settings.
+      let restoredTeacher = false;
+      const tryRestoreTeacherFromIncomingSettings = (incomingRaw) => {
+        try {
+          const inc = JSON.parse(String(incomingRaw || '{}')) || {};
+          const incomingMe = ((inc.me || inc.activeTeacher || '') + '').trim();
+          if (!incomingMe) return false;
+          const cur = getSettings();
+          const curMe = ((cur.me || '') + '').trim();
+          if (curMe) return false; // don't override an already chosen teacher
+          cur.me = incomingMe.toUpperCase();
+          cur.meResolved = cur.me;
+          cur.meResolvedConfirmed = cur.me;
+          if ((inc.meFullName || '') && !cur.meFullName) cur.meFullName = String(inc.meFullName || '').trim();
+          setSettings(cur);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      };
 
-        let s = 1;
-        s = Math.min(s, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
-        p.style.setProperty('--s', s.toFixed(4));
+      // Clear any previous post-import hint before we start.
+      try { localStorage.removeItem(KEY_POST_IMPORT_TEACHER_HINT); } catch (_) {}
+
+      Object.entries(obj.data).forEach(([k, v]) => {
+        if (typeof k !== 'string' || !k.startsWith(prefix)) return;
+        const incomingRaw = String(v ?? '');
+
+        // Settings: keep safe-by-default, but allow restoring missing K-lærer identity.
+        if (k === KEYS.settings) {
+          if (tryRestoreTeacherFromIncomingSettings(incomingRaw)) {
+            restoredTeacher = true;
+          }
+          skippedOther++;
+          return;
+        }
+
+        if (k.startsWith(textKeyPrefix)) {
+          const existingRaw = localStorage.getItem(k);
+          if (!existingRaw) {
+            localStorage.setItem(k, incomingRaw);
+            addedText++;
+            return;
+          }
+          // Merge JSON fields if possible
+          try {
+            const ex = JSON.parse(existingRaw || '{}') || {};
+            const inc = JSON.parse(incomingRaw || '{}') || {};
+            const fields = ['elevudvikling','praktisk','kgruppe'];
+            let changed = false;
+            fields.forEach(f => {
+              const exVal = ((ex[f] ?? '') + '').trim();
+              const incVal = ((inc[f] ?? '') + '').trim();
+              if (!exVal && incVal) { ex[f] = inc[f]; changed = true; }
+            });
+            // If we had no local lastEditedBy, keep incoming for visibility.
+            if (!((ex.lastEditedBy || '') + '').trim() && ((inc.lastEditedBy || '') + '').trim()) {
+              ex.lastEditedBy = inc.lastEditedBy;
+              changed = true;
+            }
+            if (changed) {
+              localStorage.setItem(k, JSON.stringify(ex));
+              mergedText++;
+            } else {
+              skippedText++;
+            }
+          } catch (_) {
+            // Fallback: keep existing (safe)
+            skippedText++;
+          }
+          return;
+        }
+
+        // Non-text keys: import only if missing, to avoid clobbering your setup.
+        if (localStorage.getItem(k) == null) {
+          localStorage.setItem(k, incomingRaw);
+          addedOther++;
+        } else {
+          skippedOther++;
+        }
       });
-    } catch (e) {}
+
+      alert(
+        `Backup importeret (sikkert)\n\n` +
+        `Tekster: +${addedText} nye, +${mergedText} udfyldt (tomt→fyldt), ${skippedText} uændret\n` +
+        `Andet: +${addedOther} nye nøgler, ${skippedOther} uændret\n\n` +
+        `Tip: Import af kollegers backup udfylder primært tomme felter – det overskriver ikke din tekst.`
+      );
+
+      // Post-import navigation rules:
+      // - If we have an active teacher after import: go directly to K-elever (normal/fast case)
+      // - Otherwise: go to Indstillinger → Generelt and show a small info text.
+      //   If the filename looks like "AB-backup.json", prefill "AB" and open the dropdown.
+      try {
+        const meNow = ((getSettings().me || '') + '').trim();
+        if (!meNow) {
+          const suggested = guessIniFromFilename(file && file.name);
+          const hint = { showInfo: true };
+          if (suggested) hint.suggestedIni = suggested;
+          localStorage.setItem(KEY_POST_IMPORT_TEACHER_HINT, JSON.stringify(hint));
+        } else {
+          localStorage.removeItem(KEY_POST_IMPORT_TEACHER_HINT);
+        }
+      } catch (_) {}
+
+      location.reload();
+    } catch (err) {
+      alert(err?.message || 'Kunne ikke indlæse backup.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+function buildOverridePackage(scope) {
+  const today = new Date().toISOString().slice(0,10);
+  const s = getSettings();
+  const author = (s && s.me) ? String(s.me) : '';
+  const pkg = { schema: OVERRIDE_SCHEMA, scope, author, createdAt: today, payload: {} };
+
+  if (scope === 'sang') {
+    const items = {};
+    ['S1','S2','S3'].forEach(k => {
+      const label = ($('sangLabel_'+k)?.value || '').trim() || k;
+      const text = ($('sangText_'+k)?.value || '').trim();
+      items[k] = { label, text };
+    });
+    pkg.payload.sang = { items, order: ['S1','S2','S3'] };
   }
 
-  w.addEventListener('load', () => {
-    if (!disableScale) {
-      fitAll();
-      setTimeout(fitAll, 50);
-    }
-    setTimeout(() => {
-      try {
-        w.focus();
-        w.print();
-      } catch(e) {}
-    }, 60);
-  });
+  if (scope === 'gym') {
+    const variants = {};
+    ['G1','G2','G3'].forEach(k => {
+      const label = ($('gymLabel_'+k)?.value || '').trim() || k;
+      const text = ($('gymText_'+k)?.value || '').trim();
+      variants[k] = { label, text };
+    });
+
+    const roles = {};
+    const roleRows = Array.from(document.querySelectorAll('[data-role-key]'));
+    roleRows.forEach(row => {
+      const key = row.getAttribute('data-role-key');
+      const label = (row.querySelector('.roleLabel')?.value || '').trim() || key;
+      const text = (row.querySelector('.roleText')?.value || '').trim();
+      if (key) roles[key] = { label, text };
+    });
+
+    pkg.payload.gym = {
+      variants,
+      variantOrder: ['G1','G2','G3'],
+      roles,
+      roleOrder: Object.keys(roles)
+    };
+  }
+
+  if (scope === 'elevraad') {
+    const text = ($('elevraadText')?.value || '').trim();
+    pkg.payload.elevraad = { label: 'Elevråd', text };
+  }
+
+  if (scope === 'templates') {
+    const t = getTemplates();
+    const s2 = getSettings();
+    pkg.payload.templates = {
+      forstanderNavn: (s2.forstanderName || '').trim(),
+      schoolText: String(t.schoolText ?? DEFAULT_SCHOOL_TEXT),
+      template: String(t.template ?? DEFAULT_TEMPLATE)
+    };
+  }
+
+  return pkg;
 }
+
+function importOverridePackage(expectedScope, obj) {
+  if (!obj || obj.schema !== OVERRIDE_SCHEMA) throw new Error('Forkert fil: schema matcher ikke.');
+  if (!obj.scope) throw new Error('Forkert fil: mangler scope.');
+  if (obj.scope !== expectedScope && obj.scope !== 'all') throw new Error('Forkert fil: scope matcher ikke.');
+
+  const overrides = getSnippetImported();
+  const p = obj.payload || {};
+
+  if (obj.scope === 'all' || obj.scope === 'sang') {
+    if (p.sang && p.sang.items) overrides.sang = p.sang;
+  }
+  if (obj.scope === 'all' || obj.scope === 'gym') {
+    if (p.gym) overrides.gym = p.gym;
+  }
+  if (obj.scope === 'all' || obj.scope === 'elevraad') {
+    if (p.elevraad) overrides.elevraad = p.elevraad;
+  }
+
+  // Mark local snippet edits so auto-refresh does not overwrite them.
+  if (obj.scope === 'all' || obj.scope === 'sang' || obj.scope === 'gym' || obj.scope === 'elevraad') {
+    setSnippetsDirty(true);
+  }
+
+  if (expectedScope === 'templates' || obj.scope === 'templates' || obj.scope === 'all') {
+    // Templates er ikke snippets-overrides, men indstillinger/templates.
+    if (p.templates) {
+      // Store imported templates separately, so a local draft is not overwritten on refresh.
+      const tImp = lsGet(KEYS.templatesImported, {});
+      if (typeof p.templates.schoolText === 'string') tImp.schoolText = p.templates.schoolText;
+      if (typeof p.templates.template === 'string') tImp.template = p.templates.template;
+      if (typeof p.templates.forstanderName === 'string') tImp.forstanderName = p.templates.forstanderName;
+      // Backwards compatibility
+      if (typeof p.templates.forstanderNavn === 'string') tImp.forstanderName = p.templates.forstanderNavn;
+      lsSet(KEYS.templatesImported, tImp);
+
+      setTemplatesDirty(true);
+    }
+  }
+
+  setSnippetImported(overrides);
+  setSnippetsDirty(true);
+  applySnippetOverrides();
+}
+
+// ---------- normalize ----------
+  function normalizeName(input) {
+  if (!input) return "";
+  return input
+    .toString()
+    .trim()
+    // Handle common mojibake when a UTF-8 CSV has been decoded as latin1/Win-1252
+    // (e.g. "KontaktlÃ¦rer" instead of "Kontaktlærer").
+    .replace(/Ã¦/g, 'æ')
+    .replace(/Ã¸/g, 'ø')
+    .replace(/Ã¥/g, 'å')
+    .replace(/Ã†/g, 'Æ')
+    .replace(/Ã˜/g, 'Ø')
+    .replace(/Ã…/g, 'Å')
+    .toLowerCase()
+    .replace(/\./g, " ")
+    // Danish letters are not decomposed by NFD, so transliterate explicitly
+    .replace(/æ/g, "ae")
+    .replace(/ø/g, "oe")
+    .replace(/å/g, "aa")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function uniqStrings(arr) {
+  const out = [];
+  const seen = new Set();
+  for (const v of arr || []) {
+    const raw = (v || "").toString().trim();
+    if (!raw) continue;
+    const k = normalizeName(raw);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(raw);
+  }
+  return out;
+}
+
+function getAllTeacherNamesFromStudents() {
+  const studs = (window.__STATE__ && window.__STATE__.students) ? window.__STATE__.students : [];
+  const names = [];
+  for (const st of studs) {
+    if (st && st.kontaktlaerer1) names.push(st.kontaktlaerer1);
+    if (st && st.kontaktlaerer2) names.push(st.kontaktlaerer2);
+  }
+  return uniqStrings(names).sort((a,b) => normalizeName(a).localeCompare(normalizeName(b)));
+}
+
+function resolveTeacherMatch(raw) {
+  const s = getSettings();
+  const input = (raw ?? "").toString().trim();
+  if (!input) return { raw: "", resolved: "" };
+
+  // Merge alias maps, but let DEFAULT_ALIAS_MAP win to avoid stale/wrong mappings in localStorage.
+  const aliasMap = { ...(s && s.aliasMap ? s.aliasMap : {}), ...DEFAULT_ALIAS_MAP };
+  const key = normalizeName(input).replace(/\s+/g, "");
+  if (aliasMap && aliasMap[key]) {
+    return { raw: input, resolved: aliasMap[key] };
+  }
+
+  const all = getAllTeacherNamesFromStudents();
+  const nIn = normalizeName(input);
+  const exact = all.find(n => normalizeName(n) === nIn);
+  if (exact) return { raw: input, resolved: exact };
+
+  // Partial match: allow "Måns" -> "Måns Patrik Mårtensson" etc.
+  const partial = all.filter(n => normalizeName(n).includes(nIn));
+  if (partial.length === 1) return { raw: input, resolved: partial[0] };
+
+  return { raw: input, resolved: input };
+}
+
+function resolveTeacherName(raw) {
+  return resolveTeacherMatch(raw).resolved;
+}
+
+function toInitials(raw) {
+  // v1.0: generic initials, no name-based special cases (persondata-safe)
+  const s = (raw ?? "").toString().trim();
+  if (!s) return "";
+  const up = s.toUpperCase();
+
+  // If it already looks like initials (1–4 letters), keep it
+  if (/^[A-ZÆØÅ]{1,4}$/.test(up)) return up;
+
+  // Otherwise: first letter of first word + first letter of last word
+  const parts = up.split(/[^A-ZÆØÅ]+/).filter(Boolean);
+  if (!parts.length) return "";
+  const first = parts[0][0] || "";
+  const last = parts[parts.length - 1][0] || "";
+  return (first + last).toUpperCase();
+}
+
+function cleanInitials(raw){
+  // CSV'er og brugere kan skrive initialer med tegn som punktum, mellemrum osv.
+  // Vi stripper alt andet end bogstaver og accepterer 1–4 bogstaver som "gyldige" initialer.
+  const s = (raw ?? '').toString().trim().toUpperCase();
+  const cleaned = s.replace(/[^A-ZÆØÅ]+/g, '');
+  return cleaned;
+}
+
+function isValidInitials(raw){
+  const cleaned = cleanInitials(raw);
+  return /^[A-ZÆØÅ]{1,4}$/.test(cleaned);
+}
+
+function normalizedInitials(overrideRaw, fullNameRaw){
+  // Rules (per "Accepterede kolonner"):
+  // - If Initialer for k-lærer1/2 is provided AND looks like real initials (1-4 letters), use it.
+  // - Otherwise auto-generate from the full name.
+  const o = (overrideRaw ?? '').toString().trim();
+  if (isValidInitials(o)) return cleanInitials(o);
+  return toInitials(fullNameRaw);
+}
+
+
+function reverseResolveTeacherInitials(nameOrInitials) {
+  // Try to map full name -> initials based on known alias map (if present in settings).
+  const s = getSettings();
+  // Merge, but let defaults win to avoid stale/wrong mappings.
+  const m = { ...(s.aliasMap || {}), ...DEFAULT_ALIAS_MAP };
+  const key = ((nameOrInitials||'')+'').trim().toLowerCase();
+  for (const [ini, full] of Object.entries(m)) {
+    if (((full||'')+'').trim().toLowerCase() === key) return (ini||'').toUpperCase();
+  }
+  return '';
+}
+
+function groupKeyFromTeachers(k1Raw, k2Raw) {
+  const a = toInitials(k1Raw);
+  const b = toInitials(k2Raw);
+  const parts = [a,b].filter(Boolean).sort((x,y)=>x.localeCompare(y,'da'));
+  return parts.length ? parts.join('/') : '—';
+}
+
+function buildKGroups(students) {
+  const groups = new Map();
+  for (const st of students) {
+    const key = groupKeyFromTeachers(st.kontaktlaerer1_ini||'', st.kontaktlaerer2_ini||'');
+    if (!groups.has(key)) groups.set(key, {key, students: []});
+    groups.get(key).students.push(st);
+  }
+  // Sort students in each group (efternavn, fornavn)
+  const coll = new Intl.Collator('da', {sensitivity:'base'});
+  for (const g of groups.values()) {
+    g.students.sort((x,y)=> {
+      const a = (x.efternavn||'').trim(); const b=(y.efternavn||'').trim();
+      const c = coll.compare(a,b);
+      if (c) return c;
+      return coll.compare((x.fornavn||'').trim(), (y.fornavn||'').trim());
+    });
+  }
+  // Sort groups by key, but put '—' last
+  const arr = Array.from(groups.values()).sort((g1,g2)=>{
+    if (g1.key==='—' && g2.key!=='—') return 1;
+    if (g2.key==='—' && g1.key!=='—') return -1;
+    return coll.compare(g1.key,g2.key);
+  });
+  return arr;
+}
+
+function computeMissingKTeacher(students) {
+  const miss = [];
+  for (const st of students) {
+    const k1 = ((st.kontaktlaerer1_ini||'')+'').trim();
+    const k2 = ((st.kontaktlaerer2_ini||'')+'').trim();
+    if (!k1 && !k2) miss.push(st);
+  }
+  return miss;
+}
+
+function updateTeacherDatalist() {
+  // K-lærer-pickeren bygges primært ud fra elevlisten:
+  // - Initialer findes i kontaktlærer1/2_ini
+  // - Fulde navne (hvis til stede) findes i kontaktlærer1/2
+  // Derudover kan brugerens aliasMap supplere med fulde navne.
+  const input = document.getElementById('meInput');
+  const menu  = document.getElementById('teacherPickerMenu');
+  const btn   = document.getElementById('teacherPickerBtn');
+  const wrap  = document.getElementById('teacherPicker');
+  const clear = document.getElementById('meInputClear');
+  if (!input || !menu || !btn || !wrap) return;
+  try { menu.tabIndex = -1; } catch(_) {}
+
+  const studs = getStudents();
+  if (!studs.length) {
+    input.value = '';
+    input.disabled = true;
+    btn.disabled = true;
+    if (clear) clear.hidden = true;
+    menu.innerHTML = `<div class="pickerEmpty">Indlæs elevliste først (students.csv).</div>`;
+    wrap.classList.remove('open');
+    menu.hidden = true;
+    return;
+  }
+
+  input.disabled = false;
+  btn.disabled = false;
+
+  // Build initials -> full name map (prefer names seen in students.csv)
+  const nameByIni = new Map();          // ini -> bestName
+  const freqByIni = new Map();          // ini -> Map(name->count)
+  const bump = (ini, full) => {
+    const I = (ini || '').toString().trim().toUpperCase();
+    const F = (full || '').toString().trim();
+    if (!I) return;
+    if (!freqByIni.has(I)) freqByIni.set(I, new Map());
+    if (F) {
+      const m = freqByIni.get(I);
+      m.set(F, (m.get(F) || 0) + 1);
+    }
+  };
+
+  for (const st of studs) {
+    // Vær defensiv: hvis der ligger ældre/fejl-importerede values i localStorage,
+    // så genberegner vi initialer ud fra fulde navne, med mindre der ligger en
+    // gyldig override (1-4 bogstaver).
+    bump(normalizedInitials(st.kontaktlaerer1_ini, st.kontaktlaerer1), st.kontaktlaerer1);
+    bump(normalizedInitials(st.kontaktlaerer2_ini, st.kontaktlaerer2), st.kontaktlaerer2);
+  }
+
+  // Choose most frequent name per initials
+  for (const [ini, m] of freqByIni.entries()) {
+    let best = '';
+    let bestN = 0;
+    for (const [nm, n] of m.entries()) {
+      if (n > bestN) { bestN = n; best = nm; }
+    }
+    if (best) nameByIni.set(ini, best);
+  }
+
+  // Merge aliasMap (ini -> full name)
+  try {
+    const s = getSettings();
+    const alias = { ...(s.aliasMap || {}), ...(DEFAULT_ALIAS_MAP || {}) };
+    Object.keys(alias || {}).forEach(k => {
+      const I = (k || '').toString().trim().toUpperCase();
+      const F = (alias[k] || '').toString().trim();
+      // aliasMap indeholder også navne-keys (fx "andreasbechpedersen").
+      // I pickeren vil vi KUN bruge rigtige initialer (1-4 bogstaver).
+      if (!I || !F) return;
+      if (!isValidInitials(I)) return;
+      if (!nameByIni.has(I)) nameByIni.set(I, F);
+    });
+  } catch(_) {}
+
+  // Build items
+  const coll = new Intl.Collator('da', { sensitivity: 'base' });
+  const allInitials = Array.from(new Set([
+    ...Array.from(freqByIni.keys()),
+    ...Array.from(nameByIni.keys())
+  ])).sort((a,b)=>coll.compare(a,b));
+
+  const items = allInitials.map(ini => {
+    const full = nameByIni.get(ini) || '';
+    const first = (full.split(/\s+/).filter(Boolean)[0] || '').toLowerCase();
+    const last  = (full.split(/\s+/).filter(Boolean).slice(-1)[0] || '').toLowerCase();
+    return {
+      ini,
+      full,
+      first,
+      last,
+      label: full ? `${ini} (${full})` : ini
+    };
+  });
+
+  let activeIndex = 0;
+  let filteredItems = items.slice();
+
+  function setActive(idx){
+    const opts = Array.from(menu.querySelectorAll('[role="option"]'));
+    if (!opts.length) return;
+    activeIndex = Math.max(0, Math.min(idx, opts.length-1));
+    opts.forEach((el,i)=>el.classList.toggle('active', i===activeIndex));
+    const el = opts[activeIndex];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+    // aria-activedescendant (optional)
+    try { input.setAttribute('aria-activedescendant', el.id || ''); } catch(_) {}
+  }
+
+  function norm(s){ return normalizeName((s||'').toString()); }
+
+  function matches(it, qRaw){
+    const q = (qRaw || '').toString().trim();
+    if (!q) return true;
+
+    const qUpper = q.toUpperCase();
+    const qNorm  = norm(q);
+    const iniOk = it.ini.startsWith(qUpper);
+
+    // If user types a short token (often initials), prioritize initials and name-begins.
+    const parts = qNorm.split(/\s+/).filter(Boolean);
+    const fullNorm = norm(it.full || '');
+    const firstOk = it.first && it.first.startsWith(parts[0] || '');
+    const lastOk  = it.last  && it.last.startsWith(parts[0] || '');
+
+    if (parts.length === 1) {
+      // Accept:
+      // - initials prefix
+      // - first or last name prefix
+      // - or full name contains token (fallback)
+      return iniOk || firstOk || lastOk || (fullNorm && fullNorm.includes(parts[0]));
+    }
+
+    // Multiple tokens: require all tokens to be present in full name OR initials prefix for first token
+    if (iniOk) return true;
+    if (!fullNorm) return false;
+    return parts.every(t => fullNorm.includes(t));
+  }
+
+  function renderMenu(){
+    const q = (input.value || '');
+    filteredItems = items.filter(it => matches(it, q));
+
+    menu.innerHTML = '';
+    if (!filteredItems.length){
+      menu.innerHTML = `<div class="pickerEmpty">Ingen match</div>`;
+      return;
+    }
+
+    filteredItems.slice(0, 40).forEach((it, i) => {
+      const row = document.createElement('div');
+      row.className = 'tpItem';
+      row.setAttribute('role','option');
+      row.dataset.value = it.ini;
+      row.dataset.full = it.full || '';
+      row.id = `teacherOpt_${it.ini}_${i}`;
+      row.innerHTML = `<span class="tpLeft">${it.ini}</span><span class="tpRight">${it.full ? '('+it.full+')' : ''}</span>`;
+      row.addEventListener('mousedown', (e) => {
+        // mousedown so selection happens before blur
+        e.preventDefault();
+        commit(it);
+        closeMenu();
+      });
+      menu.appendChild(row);
+    });
+    setActive(0);
+  }
+
+  function openMenu(){
+    menu.hidden = false;
+    wrap.classList.add('open');
+    renderMenu();
+  }
+  function closeMenu(){
+    wrap.classList.remove('open');
+    menu.hidden = true;
+  }
+
+  function commit(it){
+    const ini = (it && it.ini) ? it.ini : ((it||'')+'').trim().toUpperCase();
+    if (!ini) return;
+
+    const s2 = getSettings();
+    // Gem altid initialer som "me" (bruges til match mod elevernes k-lærer1/2-initialer)
+    s2.me = ini;
+    s2.meResolved = ini;
+    s2.meResolvedConfirmed = ini;
+
+    // Gem fulde navn separat (bruges kun til visning i UI)
+    s2.meFullName = (it && it.full) ? (it.full + '').trim() : '';
+    setSettings(s2);
+
+    // If we came here right after a backup import that lacked a chosen teacher,
+    // this selection completes the flow.
+    try { localStorage.removeItem(KEY_POST_IMPORT_TEACHER_HINT); } catch (_) {}
+
+    input.value = ini; // feltet holdes kort; listen viser fulde navne
+    if (clear) clear.hidden = false;
+    renderStatus();
+
+    // Send user direkte til K-elever (som ønsket)
+    try { state.viewMode = 'K'; setTab('k'); } catch(_) {}
+  }
+
+
+  // Button / clear
+  btn.onclick = (e) => { e.preventDefault(); wrap.classList.contains('open') ? closeMenu() : openMenu(); input.focus(); };
+  input.onfocus = () => openMenu();
+  input.oninput = () => { if (!wrap.classList.contains('open')) openMenu(); else renderMenu(); };
+
+  if (clear) {
+    clear.onclick = (e) => {
+      e.preventDefault();
+      const s2 = getSettings(); s2.me = ''; s2.meResolved = ''; s2.meResolvedConfirmed = ''; s2.meFullName = ''; setSettings(s2);
+      input.value = '';
+      clear.hidden = true;
+      closeMenu();
+      renderStatus();
+    };
+    clear.hidden = !(getSettings().me || '').trim();
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) closeMenu();
+  });
+
+  const handlePickerKeydown = (e) => {
+    if (e.key === 'Escape') { closeMenu(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'Down' || e.keyCode === 40) {
+      if (!wrap.classList.contains('open')) openMenu();
+      e.preventDefault();
+      setActive(activeIndex + 1);
+      return;
+    }
+    if (e.key === 'ArrowUp' || e.key === 'Up' || e.keyCode === 38) {
+      if (!wrap.classList.contains('open')) openMenu();
+      e.preventDefault();
+      setActive(activeIndex - 1);
+      return;
+    }
+    if (e.key === 'Enter') {
+      const el = menu.querySelectorAll('[role="option"]')[activeIndex];
+      if (el && el.dataset.value) {
+        e.preventDefault();
+        const ini = el.dataset.value;
+        const full = el.dataset.full || '';
+        commit({ ini, full });
+        closeMenu();
+      }
+    }
+  };
+
+  input.addEventListener('keydown', handlePickerKeydown);
+  btn.addEventListener('keydown', handlePickerKeydown);
+  menu.addEventListener('keydown', handlePickerKeydown);
+}
+
+function initMarksSearchPicker(){
+  const input = document.getElementById('marksSearch');
+  const menu  = document.getElementById('marksSearchMenu');
+  const btn   = document.getElementById('marksSearchBtn');
+  const wrap  = document.getElementById('marksSearchPicker');
+  const clear = document.getElementById('marksSearchClear');
+  if (!input || !menu || !btn || !wrap) return;
+
+  let items = [];
+  let activeIndex = 0;
+
+  function setActive(idx){
+    const opts = Array.from(menu.querySelectorAll('[role="option"]'));
+    if (!opts.length) return;
+    activeIndex = Math.max(0, Math.min(idx, opts.length-1));
+    opts.forEach((el,i)=>el.classList.toggle('active', i===activeIndex));
+    const el = opts[activeIndex];
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function computeItems(){
+    const studs = getStudents();
+    const coll = new Intl.Collator('da', {sensitivity:'base'});
+    items = studs.slice().sort((a,b)=>coll.compare((a.efternavn||'')+' '+(a.fornavn||''),(b.efternavn||'')+' '+(b.fornavn||''))).map(st=>{
+      const full = `${(st.fornavn||'').trim()} ${(st.efternavn||'').trim()}`.trim();
+      return { full, unilogin: (st.unilogin||'').trim(), kgrp: groupKeyFromTeachers(st.kontaktlaerer1_ini||'', st.kontaktlaerer2_ini||'') };
+    });
+  }
+
+  function renderMenu(){
+    if (!items.length) computeItems();
+    const q = (input.value || '').toString().trim().toLowerCase();
+    const filtered = !q ? items : items.filter(it => (it.full||'').toLowerCase().includes(q));
+    menu.innerHTML = '';
+    if (!filtered.length){
+      menu.innerHTML = `<div class="pickerEmpty">Ingen match</div>`;
+      return;
+    }
+    filtered.slice(0, 24).forEach((it) => {
+      const row = document.createElement('div');
+      row.className = 'tpItem';
+      row.setAttribute('role','option');
+      row.dataset.value = it.unilogin || it.full;
+      row.setAttribute('data-full', it.full || '');
+      row.innerHTML = `<div class="tpLeft">${escapeHtml(it.full)}</div><div class="tpRight">${escapeHtml(it.kgrp||'')}</div>`;
+      row.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        commit(it.full);
+        closeMenu();
+      });
+      menu.appendChild(row);
+    });
+    setActive(0);
+  }
+
+  function openMenu(){
+    menu.hidden = false;
+    wrap.classList.add('open');
+    computeItems();
+    renderMenu();
+  }
+
+  function closeMenu(){
+    wrap.classList.remove('open');
+    menu.hidden = true;
+  }
+
+  function commit(name){
+    input.value = name;
+    // keep plain search filter in state; renderMarksTable reads input value on render
+    renderMarksTable();
+    if (clear) clear.hidden = !input.value;
+  }
+
+  btn.onclick = (e) => { e.preventDefault(); wrap.classList.contains('open') ? closeMenu() : openMenu(); input.focus(); };
+  input.onfocus = () => openMenu();
+  input.oninput = () => { if (!wrap.classList.contains('open')) openMenu(); else renderMenu(); };
+
+  if (clear){
+    clear.onclick = (e)=>{ e.preventDefault(); input.value=''; clear.hidden=true; closeMenu(); renderMarksTable(); };
+    clear.hidden = !input.value;
+  }
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!wrap.classList.contains('open')) openMenu();
+      e.preventDefault();
+      setActive(activeIndex + (e.key === 'ArrowDown' ? 1 : -1));
+      return;
+    }
+    if (e.key === 'Escape') { e.preventDefault(); closeMenu(); return; }
+    if (e.key === 'Enter') {
+      const el = menu.querySelectorAll('[role="option"]')[activeIndex];
+      if (el){ e.preventDefault(); commit((el.getAttribute('data-full') || el.dataset.full || el.textContent || '').trim()); closeMenu(); }
+    }
+  });
+
+  document.addEventListener('click', (e)=>{ if (!wrap.contains(e.target)) closeMenu(); });
+  closeMenu();
+}
+
+
+function normalizePlaceholderKey(key) {
+  if (!key) return "";
+  return key
+    .toString()
+    .trim()
+    .toUpperCase()
+    .replace(/Æ/g, "AE")
+    .replace(/Ø/g, "OE")
+    .replace(/Å/g, "AA")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+
+
+  function callName(rawFirstName) {
+    // HU-data: hvis fornavn-feltet indeholder ekstra efternavn, brug kun første ord.
+    // Behold bindestreg-navne (fx Anne-Sofie) uændret.
+    const s = (rawFirstName ?? '').toString().trim();
+    if (!s) return '';
+    const parts = s.split(/\s+/).filter(Boolean);
+    return parts.length ? parts[0] : s;
+  }
+  function normalizeHeader(input) { return normalizeName(input).replace(/[^a-z0-9]+/g, ""); }
+
+  // ---------- util ----------
+  function escapeAttr(s) { return (s ?? '').toString().replace(/"/g,'&quot;'); }
   function $(id){ return document.getElementById(id); }
 
 // Focus + open K-lærer picker (waits for DOM + picker init)
