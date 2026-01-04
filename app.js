@@ -839,6 +839,8 @@ statement.style.fontSize = size + 'pt';
   }
 
   window.addEventListener('load', () => {
+  try { if (typeof fitAll === 'function') fitAll(); } catch(e) { console.warn('fitAll failed', e); }
+
     // Always run autofit; no transform scaling (avoids iOS blank pages + clipping bugs)
     fitAll();
     setTimeout(fitAll, 80);
