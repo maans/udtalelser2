@@ -2039,7 +2039,9 @@ const klasse = get('klasse');
     // Tomme felter ignoreres senere i UI.
     const ov1 = teacherOverrides && kontakt1_navn ? teacherOverrides.get(normalizeName(kontakt1_navn)) : '';
     const ov2 = teacherOverrides && kontakt2_navn ? teacherOverrides.get(normalizeName(kontakt2_navn)) : '';
+    const k1 = ov1 ? ov1 : normalizedInitials(ini1, kontakt1_navn);
     const k2 = ov2 ? ov2 : normalizedInitials(ini2, kontakt2_navn);
+    const navn = ((fornavn || '') + ' ' + (efternavn || '')).trim();
     return { fornavn, efternavn, navn, unilogin, koen, klasse, kontaktlaerer1: kontakt1_navn, kontaktlaerer2: kontakt2_navn, kontaktlaerer1_ini: k1, kontaktlaerer2_ini: k2 };
   }
 
