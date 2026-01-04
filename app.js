@@ -922,9 +922,17 @@ function toInitials(raw) {
   return (first + last).toUpperCase();
 }
 
-function isValidInitials(raw){
+function cleanInitials(raw){
+  // CSV'er og brugere kan skrive initialer med tegn som punktum, mellemrum osv.
+  // Vi stripper alt andet end bogstaver og accepterer 1–4 bogstaver som "gyldige" initialer.
   const s = (raw ?? '').toString().trim().toUpperCase();
-  return /^[A-ZÆØÅ]{1,4}$/.test(s);
+  const cleaned = s.replace(/[^A-ZÆØÅ]+/g, '');
+  return cleaned;
+}
+
+function isValidInitials(raw){
+  const cleaned = cleanInitials(raw);
+  return /^[A-ZÆØÅ]{1,4}$/.test(cleaned);
 }
 
 function normalizedInitials(overrideRaw, fullNameRaw){
@@ -932,7 +940,7 @@ function normalizedInitials(overrideRaw, fullNameRaw){
   // - If Initialer for k-lærer1/2 is provided AND looks like real initials (1-4 letters), use it.
   // - Otherwise auto-generate from the full name.
   const o = (overrideRaw ?? '').toString().trim();
-  if (isValidInitials(o)) return o.toUpperCase();
+  if (isValidInitials(o)) return cleanInitials(o);
   return toInitials(fullNameRaw);
 }
 
