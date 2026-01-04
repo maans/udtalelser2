@@ -662,10 +662,25 @@ function openPrintWindowForStudents(students, settings, title) {
     const text = String(statementText || '');
     const lines = text.split(/\r?\n/);
     const norm = (s) => (s || '').trim();
-    const out = { mainText: text, ct1: '', ct2: '', principal: '' };
 
-    const idxKontakt = lines.findIndex(l => /^\s*Kontaktgruppelærere\s*$/i.test(norm(l)));
-    const idxForst   = lines.findIndex(l => /^\s*Forstander\s*$/i.test(norm(l)));
+    // Accept both "Kontaktlærere" and "Kontaktgruppelærere"
+    const reKontakt = /^\s*Kontakt(?:gruppe)?lærere\s*$/i;
+    const reForst   = /^\s*Forstander\s*$/i;
+
+    const out = { mainText: text, titleLine: '', ct1: '', ct2: '', principal: '' };
+
+    // Find the first non-empty line (often "Udtalelse vedrørende ...")
+    const firstNonEmptyIdx = lines.findIndex(l => norm(l));
+    if (firstNonEmptyIdx !== -1) {
+      const first = norm(lines[firstNonEmptyIdx]);
+      if (/^Udtalelse\s+vedrørende\b/i.test(first)) {
+        out.titleLine = first;
+        // Remove title line from the main text later (after signature extraction) so indices stay stable.
+      }
+    }
+
+    const idxKontakt = lines.findIndex(l => reKontakt.test(norm(l)));
+    const idxForst   = lines.findIndex(l => reForst.test(norm(l)));
 
     if (idxKontakt !== -1 && idxForst !== -1 && idxForst > idxKontakt) {
       const before = lines.slice(0, idxKontakt);
@@ -677,11 +692,33 @@ function openPrintWindowForStudents(students, settings, title) {
       out.principal = after[0] || '';
 
       // Rebuild mainText without the signature block
-      const rebuilt = before.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
-      out.mainText = rebuilt;
+      let rebuilt = before.join('\n');
+
+      // If the first non-empty line is the title, remove it (and following blank line) from rebuilt
+      if (out.titleLine) {
+        const rLines = rebuilt.split(/\r?\n/);
+        const i = rLines.findIndex(l => norm(l) && norm(l) === out.titleLine);
+        if (i !== -1) {
+          rLines.splice(i, 1);
+          if (i < rLines.length && !norm(rLines[i])) rLines.splice(i, 1);
+          rebuilt = rLines.join('\n');
+        }
+      }
+
+      out.mainText = rebuilt.replace(/\n{3,}/g, '\n\n').trimEnd();
     } else {
-      // Still normalize excessive blank lines for print compactness
-      out.mainText = text.replace(/\n{3,}/g, '\n\n').trimEnd();
+      // No recognizable signature block — still normalize excessive blank lines and strip title if present
+      let normalized = text.replace(/\n{3,}/g, '\n\n').trimEnd();
+      if (out.titleLine) {
+        const rLines = normalized.split(/\r?\n/);
+        const i = rLines.findIndex(l => norm(l) && norm(l) === out.titleLine);
+        if (i !== -1) {
+          rLines.splice(i, 1);
+          if (i < rLines.length && !norm(rLines[i])) rLines.splice(i, 1);
+          normalized = rLines.join('\n');
+        }
+      }
+      out.mainText = normalized;
     }
     return out;
   }
@@ -710,11 +747,15 @@ function openPrintWindowForStudents(students, settings, title) {
         <div class="content">
           <div class="printHeaderTop"><div class="printHeaderDate">${escapeHtml(headerDateText)}</div></div>
           <div class="printHeaderLogo"><img src="${PRINT_HEADER_LOGO_DATAURL}" alt="Himmerlands Ungdomsskole" /></div>
-          <pre class="statement">${escapeHtml(sig.mainText)}</pre>
+          ${sig.titleLine ? `<div class="statementTitle">${escapeHtml(sig.titleLine)}</div>` : ``}
+          <pre class="statementBody">${escapeHtml(sig.mainText)}</pre>
           <div class="signatureBlock">
-            <div class="label">Kontaktgruppelærere</div><div class="label">Forstander</div>
-            <div class="value">${escapeHtml(sig.ct1)}</div><div class="value">${escapeHtml(sig.principal)}</div>
-            <div class="value">${escapeHtml(sig.ct2)}</div><div class="value"></div>
+            <div class="cell value">${escapeHtml(sig.ct1)}</div>
+            <div class="cell value">${escapeHtml(sig.principal)}</div>
+            <div class="cell value">${escapeHtml(sig.ct2)}</div>
+            <div class="cell value"></div>
+            <div class="cell label">Kontaktgruppelærere</div>
+            <div class="cell label">Forstander</div>
           </div>
         </div>
       </div>`;
@@ -748,20 +789,41 @@ function openPrintWindowForStudents(students, settings, title) {
       box-sizing: border-box;
       padding: 0;
     }
-    .statement {
+    .statementBody {
       margin: 0;
       white-space: pre-wrap;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       font-size: 12pt;
-      line-height: 1.45;
+      line-height: 1.35;
       transform: none;
       transform-origin: top left;
     }
   
+    .statementTitle{
+      text-align: center;
+      font-weight: 700;
+      font-size: 14pt;
+      margin: 0 0 6mm 0;
+    }
+    .signatureBlock{
+      margin-top: 6mm;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-auto-rows: auto;
+      column-gap: 18mm;
+      row-gap: 2mm;
+      text-align: center;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 10.5pt;
+    }
+    .signatureBlock .label{
+      font-size: 9pt;
+      font-weight: 600;
+    }
     /* iOS/iPadOS Safari: disable scaling transforms to avoid alternating blank pages */
     @supports (-webkit-touch-callout: none) {
       .page { --s: 1 !important; }
-      .statement { transform: none !important; width: auto !important; }
+      .statementBody { transform: none !important; width: auto !important; }
     }
 
     /* Header logo */
@@ -781,7 +843,7 @@ function openPrintWindowForStudents(students, settings, title) {
     /* Header: date (top-right) + logo (center) */
     .printHeaderTop{
   position: relative;
-  height: 12mm;
+  height: 8mm;
 }
 .printHeaderDate{
   position:absolute;
@@ -794,7 +856,7 @@ function openPrintWindowForStudents(students, settings, title) {
   display:flex;
   justify-content:center;
   align-items:center;
-  margin: 2mm 0 8mm 0;
+  margin: 0mm 0 6mm 0;
 }
 .printHeaderLogo img{
   height: 26mm;
@@ -810,6 +872,18 @@ function openPrintWindowForStudents(students, settings, title) {
 
     /* Footer page numbers (if supported by the browser/print driver) */
     @page{ margin: 12mm 14mm 12mm 14mm; }
+
+    .studentDoc{
+      width: 210mm;
+      box-sizing: border-box;
+      padding: 12mm 14mm;
+      break-after: page;
+      page-break-after: always;
+    }
+    .studentDoc:first-child{
+      break-before: auto;
+      page-break-before: auto;
+    }
 
     @media print{
   .studentDoc{break-before:page;page-break-before:always;break-after:page;page-break-after:always;}
@@ -837,7 +911,7 @@ ${pagesHtml}
   function fitAll(){
     const pages = document.querySelectorAll('.page');
     pages.forEach(p => {
-      const c = p.querySelector('.statement');
+      const c = p.querySelector('.statementBody');
       if(!c) return;
 
       // Reset
