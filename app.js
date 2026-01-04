@@ -2318,6 +2318,95 @@ function updateTabLabels(){
       if (s0.contactGroupCount) { s0.contactGroupCount = ''; setSettings(s0); }
     }
 
+    // ---- Import-status for faglærer-vurderinger (Sang/Gymnastik/Elevråd) ----
+    // Viser om der findes vurderinger for eleverne i den aktive K-gruppe.
+    const statsCard = document.getElementById('importStatsCard');
+    if (statsCard) {
+      const total = (studs.length && meNorm)
+        ? studs.filter(st => normalizeName(toInitials(st.kontaktlaerer1_ini)) === meNorm || normalizeName(toInitials(st.kontaktlaerer2_ini)) === meNorm)
+        : [];
+
+      const marksSang = getMarks(KEYS.marksSang) || {};
+      const marksGym  = getMarks(KEYS.marksGym)  || {};
+      const marksER   = getMarks(KEYS.marksElev) || {};
+
+      const mkName = (st) => {
+        const n = ((st.fornavn||'') + ' ' + (st.efternavn||'')).trim();
+        return n || (st.navn||'') || (st.fulde_navn||'') || (st.unilogin||'');
+      };
+
+      const missing = { sang: [], gym: [], elevraad: [] };
+      let doneS=0, doneG=0, doneE=0;
+      for (const st of total) {
+        const u = st.unilogin || '';
+        const sM = marksSang[u] || {};
+        const gM = marksGym[u]  || {};
+        const eM = marksER[u]   || {};
+
+        const hasS = !!(sM.sang_variant && String(sM.sang_variant).trim());
+        const hasG = !!(gM.gym_variant && String(gM.gym_variant).trim());
+        const hasE = !!(eM.elevraad_variant && String(eM.elevraad_variant).trim());
+
+        if (hasS) doneS++; else missing.sang.push(mkName(st));
+        if (hasG) doneG++; else missing.gym.push(mkName(st));
+        if (hasE) doneE++; else missing.elevraad.push(mkName(st));
+      }
+
+      const nTot = total.length;
+      const setVal = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      const setList = (id, arr) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (!arr.length) { el.innerHTML = '<span class="muted">Ingen</span>'; return; }
+        el.innerHTML = arr.map(escapeHtml).join('<span class="muted">, </span>');
+      };
+
+      // Hint
+      const hint = document.getElementById('importStatsHint');
+      if (hint) {
+        if (!meNorm || !studs.length) hint.textContent = 'Vælg K-lærer og indlæs elevliste for at se status.';
+        else hint.textContent = `Status for aktiv K-gruppe (${nTot} elev${nTot===1?'':'er'}):`;
+      }
+
+      setVal('importStatsSang', `${doneS}/${nTot}`);
+      setVal('importStatsGym', `${doneG}/${nTot}`);
+      setVal('importStatsER', `${doneE}/${nTot}`);
+      setVal('importStatsSangMissingCount', `${missing.sang.length}`);
+      setVal('importStatsGymMissingCount', `${missing.gym.length}`);
+      setVal('importStatsERMissingCount', `${missing.elevraad.length}`);
+
+      setList('importStatsSangMissing', missing.sang);
+      setList('importStatsGymMissing', missing.gym);
+      setList('importStatsERMissing', missing.elevraad);
+
+      // Wire toggle buttons once
+      const wireToggle = (btnId, boxId) => {
+        const btn = document.getElementById(btnId);
+        const box = document.getElementById(boxId);
+        if (!btn || !box || btn.__wired) return;
+        btn.__wired = true;
+        btn.addEventListener('click', () => {
+          const isOpen = box.style.display !== 'none';
+          box.style.display = isOpen ? 'none' : 'block';
+          btn.textContent = isOpen ? 'Vis manglende' : 'Skjul manglende';
+        });
+      };
+      wireToggle('btnToggleMissingSang', 'importStatsSangMissingWrap');
+      wireToggle('btnToggleMissingGym',  'importStatsGymMissingWrap');
+      wireToggle('btnToggleMissingER',   'importStatsERMissingWrap');
+
+      // Disable toggles if no data
+      const dis = (btnId, count) => {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.disabled = !nTot;
+        btn.style.opacity = nTot ? '1' : '.5';
+      };
+      dis('btnToggleMissingSang');
+      dis('btnToggleMissingGym');
+      dis('btnToggleMissingER');
+    }
+
     renderSnippetsEditor();
     renderMarksTable();
   }

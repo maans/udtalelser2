@@ -184,6 +184,36 @@
         </div>
       </div>
 
+      <div class="card" id="importStatsCard">
+        <div class="cardTitle">Vurderinger importeret (faglærer-CSV)</div>
+        <div class="muted small" id="importStatsHint" style="margin-top:.35rem; line-height:1.45">
+          Viser om der er importeret vurderinger til eleverne i den aktive K-gruppe.
+        </div>
+
+        <div class="importStatsGrid" style="margin-top:.8rem">
+          <div class="importStatRow">
+            <div class="importStatLabel">Sang</div>
+            <div class="importStatValue" id="importStatsSang">–</div>
+            <button class="btn tiny" id="btnToggleMissingSang" type="button">Vis manglende</button>
+          </div>
+          <div class="importStatMissing muted small" id="importMissingSang" style="display:none"></div>
+
+          <div class="importStatRow">
+            <div class="importStatLabel">Gymnastik</div>
+            <div class="importStatValue" id="importStatsGym">–</div>
+            <button class="btn tiny" id="btnToggleMissingGym" type="button">Vis manglende</button>
+          </div>
+          <div class="importStatMissing muted small" id="importMissingGym" style="display:none"></div>
+
+          <div class="importStatRow">
+            <div class="importStatLabel">Elevråd</div>
+            <div class="importStatValue" id="importStatsElevraad">–</div>
+            <button class="btn tiny" id="btnToggleMissingElevraad" type="button">Vis manglende</button>
+          </div>
+          <div class="importStatMissing muted small" id="importMissingElevraad" style="display:none"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 

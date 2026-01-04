@@ -576,6 +576,16 @@ tr:hover td{background: rgba(255,255,255,.02)}
 .warnBox{border:1px solid rgba(255,165,0,.45); background:rgba(255,165,0,.08); padding:.6rem .75rem; border-radius:12px; font-size:.9rem; color:var(--text);} 
 .warnBox b{color:var(--text);} 
 
+/* Import-status (faglærer-vurderinger) */
+.importStatsGrid{display:block}
+.importStatRow{display:flex; align-items:center; gap:.6rem; padding:.35rem 0}
+.importStatLabel{min-width:110px; font-weight:700}
+.importStatValue{min-width:110px; font-variant-numeric: tabular-nums; color:var(--text)}
+.importStatMissing{margin:0 0 .35rem 0; padding-left:110px}
+@media (max-width: 900px){
+  .importStatMissing{padding-left:0}
+}
+
 
 .titleCenter{justify-self:center;}
 .titleRight{justify-self:end; display:flex; align-items:center; gap:.5rem;}
