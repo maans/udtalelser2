@@ -1644,7 +1644,17 @@ async function refreshOverridesAndApplyTemplatesIfSafe(force=false){
   
 function rebuildAliasMapFromStudents(studs){
   const s = getSettings();
+  // Start from existing aliasMap, but drop any old initials-keys.
+  // Initials are derived from the current student list and may include overrides.
   const alias = { ...(s.aliasMap || {}) };
+  try {
+    Object.keys(alias).forEach(k => {
+      const keyUp = (k || '').toString().trim().toUpperCase();
+      if (!keyUp) return;
+      if (/^[A-ZÆØÅ]{1,4}$/.test(keyUp)) delete alias[k];
+      if (/^[A-ZÆØÅ]{1,4}\/[A-ZÆØÅ]{1,4}$/.test(keyUp)) delete alias[k];
+    });
+  } catch(_) {}
   const add = (ini, full) => {
     if (!ini || !full) return;
     const k = (ini||'').toString().trim().toLowerCase();
@@ -1652,16 +1662,29 @@ function rebuildAliasMapFromStudents(studs){
     const nk = normalizeName(full).replace(/\s+/g,'');
     if (nk) alias[nk] = full;
   };
+  // IMPORTANT:
+  // Brug de initialer, der allerede er beregnet ved import (kontaktlaererX_ini).
+  // De kan indeholde eksplicitte overrides fra CSV ("Initialer for k-lærer1/2").
+  // Hvis vi i stedet danner initialer ud fra navnet her, ender vi med at "genopfinde"
+  // auto-initialer (fx Andreas Bech Pedersen -> AP), selv om CSV'en siger AB.
   (studs || []).forEach(st => {
-    const t1 = (st && st.kontaktlaerer1) ? (st.kontaktlaerer1+'').trim() : '';
-    const t2 = (st && st.kontaktlaerer2) ? (st.kontaktlaerer2+'').trim() : '';
-    [t1,t2].filter(Boolean).forEach(t => {
-      if (/^[A-ZÆØÅ]{1,4}(\/[A-ZÆØÅ]{1,4})?$/.test(t)) {
-        add(t, t); // initials-only (fallback)
-      } else {
-        add(toInitials(t), t);
+    if (!st) return;
+
+    const pairs = [
+      { full: (st.kontaktlaerer1||'').toString().trim(), ini: (st.kontaktlaerer1_ini||'').toString().trim() },
+      { full: (st.kontaktlaerer2||'').toString().trim(), ini: (st.kontaktlaerer2_ini||'').toString().trim() }
+    ];
+
+    for (const p of pairs){
+      if (!p.full) continue;
+      // Hvis "fulde" feltet faktisk er initialer (sjældent), gem det som sig selv.
+      if (/^[A-ZÆØÅ]{1,4}(\/[A-ZÆØÅ]{1,4})?$/.test(p.full.toUpperCase())) {
+        add(p.full.toUpperCase(), p.full);
+        continue;
       }
-    });
+      const ini = isValidInitials(p.ini) ? cleanInitials(p.ini) : toInitials(p.full);
+      if (ini) add(ini, p.full);
+    }
   });
   setSettings({ ...s, aliasMap: alias });
 }
