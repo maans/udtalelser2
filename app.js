@@ -318,7 +318,7 @@ const DEFAULT_SCHOOL_TEXT =
 `På Himmerlands Ungdomsskole arbejder vi med både faglighed, fællesskab og personlig udvikling.
 Udtalelsen er skrevet med udgangspunkt i elevens hverdag og deltagelse gennem skoleåret.`;
 
-  const DEFAULT_TEMPLATE = "Udtalelse vedrørende {{ELEV_FULDE_NAVN}}\\n\\n{{ELEV_FORNAVN}} {{ELEV_EFTERNAVN}} har været elev på Himmerlands Ungdomsskole i perioden fra {{PERIODE_FRA}} til {{PERIODE_TIL}} i {{ELEV_KLASSE}}.\\n\\nHimmerlands Ungdomsskole er en traditionsrig efterskole, som prioriterer fællesskabet og faglig fordybelse højt. Elevernes hverdag er præget af frie rammer og mange muligheder. Vi møder eleverne med tillid, positive forventninger og faglige udfordringer. I løbet af et efterskoleår på Himmerlands Ungdomsskole er oplevelserne mange og udfordringerne ligeså. Det gælder i hverdagens almindelige undervisning, som fordeler sig over boglige fag, fællesfag og profilfag. Det gælder også alle de dage, hvor hverdagen ændres til fordel for temauger, studieture mm. \\n\\n{{ELEV_UDVIKLING_AFSNIT}}\n\n{{ELEVRAAD_AFSNIT}}\n\n{{ROLLE_AFSNIT}}\n\\n\\nSom en del af et efterskoleår på Himmerlands Ungdomsskole deltager eleverne ugentligt i fællessang og fællesgymnastik. Begge fag udgør en del af efterskolelivet, hvor eleverne oplever nye sider af sig selv, flytter grænser og oplever, at deres bidrag til fællesskabet har betydning. I løbet af året optræder eleverne med fælleskor og gymnastikopvisninger.\\n\\n{{SANG_GYM_AFSNIT}}\\n\\nPå en efterskole er der mange praktiske opgaver.\\n\\n{{PRAKTISK_AFSNIT}}\\n\\n{{ELEV_FORNAVN}} har på Himmerlands Ungdomsskole været en del af en kontaktgruppe på {{KONTAKTGRUPPE_ANTAL}} elever. I kontaktgruppen kender vi {{HAM_HENDE}} som {{KONTAKTGRUPPE_BESKRIVELSE}}.\\n\\nVi har været rigtig glade for at have {{ELEV_FORNAVN}} som elev på skolen og ønsker {{HAM_HENDE}} held og lykke fremover.\\n\\n{{KONTAKTLÆRER_1_NAVN}} & {{KONTAKTLÆRER_2_NAVN}}\\n\\nKontaktgruppelærere\\n\\n{{FORSTANDER_NAVN}}\\n\\nForstander";
+  const DEFAULT_TEMPLATE = "Udtalelse vedrørende {{ELEV_FULDE_NAVN}}\n\n{{ELEV_FORNAVN}} {{ELEV_EFTERNAVN}} har været elev på Himmerlands Ungdomsskole i perioden fra {{PERIODE_FRA}} til {{PERIODE_TIL}} i {{ELEV_KLASSE}}.\n\nHimmerlands Ungdomsskole er en traditionsrig efterskole, som prioriterer fællesskabet og faglig fordybelse højt. Elevernes hverdag er præget af frie rammer og mange muligheder. Vi møder eleverne med tillid, positive forventninger og faglige udfordringer. I løbet af et efterskoleår på Himmerlands Ungdomsskole er oplevelserne mange og udfordringerne ligeså. Det gælder i hverdagens almindelige undervisning, som fordeler sig over boglige fag, fællesfag og profilfag. Det gælder også alle de dage, hvor hverdagen ændres til fordel for temauger, studieture mm. \n\n{{ELEV_UDVIKLING_AFSNIT}}\n\n{{ELEVRAAD_AFSNIT}}\n\n{{ROLLE_AFSNIT}}\n\n\nSom en del af et efterskoleår på Himmerlands Ungdomsskole deltager eleverne ugentligt i fællessang og fællesgymnastik. Begge fag udgør en del af efterskolelivet, hvor eleverne oplever nye sider af sig selv, flytter grænser og oplever, at deres bidrag til fællesskabet har betydning. I løbet af året optræder eleverne med fælleskor og gymnastikopvisninger.\n\n{{SANG_GYM_AFSNIT}}\n\nPå en efterskole er der mange praktiske opgaver. {{PRAKTISK_AFSNIT}}\n\n{{ELEV_FORNAVN}} har på Himmerlands Ungdomsskole været en del af en kontaktgruppe på {{KONTAKTGRUPPE_ANTAL}} elever. I kontaktgruppen kender vi {{HAM_HENDE}} som {{KONTAKTGRUPPE_BESKRIVELSE}}.\n\nVi har været rigtig glade for at have {{ELEV_FORNAVN}} som elev på skolen og ønsker {{HAM_HENDE}} held og lykke fremover.\n\n{{KONTAKTLÆRER_1_NAVN}} & {{KONTAKTLÆRER_2_NAVN}}     {{FORSTANDER_NAVN}}\n\nKontaktlærere                                                           Forstander\n";
 
   // ---------- storage ----------
   function lsGet(key, fallback) {
@@ -659,129 +659,66 @@ function openPrintWindowForStudents(students, settings, title) {
   //   Forstander
   //   <forstandernavn>
   function parseSignatureBlock(statementText) {
-    const text = String(statementText || '');
-    const lines = text.split(/\r?\n/);
-    const norm = (s) => (s || '').trim();
+    const raw = String(statementText || '');
+    let text = raw.replace(/\r/g, '');
+    // Normalize excessive blank lines
+    text = text.replace(/\n{3,}/g, '\n\n').trimEnd();
 
-    // Accept both "Kontaktlærere" and "Kontaktgruppelærere"
-    const reKontakt = /^\s*Kontakt(?:gruppe)?lærere\s*$/i;
-    const reForst   = /^\s*Forstander\s*$/i;
+    const out = {
+      title: '',
+      bodyText: text,
+      contactNames: '',
+      principalName: '',
+      leftRole: '',
+      rightRole: ''
+    };
 
-    const out = { mainText: text, titleLine: '', ct1: '', ct2: '', principal: '' };
-
-    // Find the first non-empty line (often "Udtalelse vedrørende ...")
-    const firstNonEmptyIdx = lines.findIndex(l => norm(l));
-    if (firstNonEmptyIdx !== -1) {
-      const first = norm(lines[firstNonEmptyIdx]);
-      if (/^Udtalelse\s+vedrørende\b/i.test(first)) {
-        out.titleLine = first;
-        // Remove title line from the main text later (after signature extraction) so indices stay stable.
+    // Title: first non-empty line
+    {
+      const lines = text.split('\n');
+      let i = 0;
+      while (i < lines.length && !lines[i].trim()) i++;
+      if (i < lines.length) {
+        out.title = lines[i].trim();
+        let j = i + 1;
+        while (j < lines.length && !lines[j].trim()) j++;
+        out.bodyText = lines.slice(j).join('\n').trimEnd();
       }
     }
 
-    const idxKontakt = lines.findIndex(l => reKontakt.test(norm(l)));
-    const idxForst   = lines.findIndex(l => reForst.test(norm(l)));
+    // Signature extraction from bottom (template style)
+    {
+      const lines = out.bodyText.split('\n');
+      const nonEmptyIdx = [];
+      for (let i = 0; i < lines.length; i++) if (lines[i].trim()) nonEmptyIdx.push(i);
+      if (nonEmptyIdx.length >= 2) {
+        const idxRoles = nonEmptyIdx[nonEmptyIdx.length - 1];
+        const idxNames = nonEmptyIdx[nonEmptyIdx.length - 2];
+        const rolesLine = lines[idxRoles].trim();
 
-    if (idxKontakt !== -1 && idxForst !== -1 && idxForst > idxKontakt) {
-      const before = lines.slice(0, idxKontakt);
-      const between = lines.slice(idxKontakt + 1, idxForst).map(norm).filter(Boolean);
-      const after = lines.slice(idxForst + 1).map(norm).filter(Boolean);
+        const hasForstander = /forstander/i.test(rolesLine);
+        const hasKontakt = /(kontaktlærere|kontaktgruppelærere)/i.test(rolesLine);
 
-      // Some templates place the contact-teacher line *before* the "Kontaktlærere/Kontaktgruppelærere" label.
-      // If so, capture the last non-empty line before the label and remove it from the main text.
-      let contactLineFromBefore = '';
-      if (!between.length) {
-        for (let i = before.length - 1; i >= 0; i--) {
-          const t = norm(before[i]);
-          if (!t) continue;
-          contactLineFromBefore = t;
-          // Remove it from "before" so it doesn't stay in mainText.
-          before.splice(i, 1);
-          break;
-        }
-      }
+        if (hasForstander && hasKontakt) {
+          const roleParts = rolesLine.split(/\s{2,}|\t+/).map(s => s.trim()).filter(Boolean);
+          out.leftRole = roleParts[0] || 'Kontaktlærere';
+          out.rightRole = roleParts[1] || 'Forstander';
 
-      out.ct1 = between[0] || contactLineFromBefore || '';
-      out.ct2 = between[1] || '';
-      out.principal = after[0] || '';
-
-      // Rebuild mainText without the signature block
-      let rebuilt = before.join('\n');
-
-      // If the first non-empty line is the title, remove it (and following blank line) from rebuilt
-      if (out.titleLine) {
-        const rLines = rebuilt.split(/\r?\n/);
-        const i = rLines.findIndex(l => norm(l) && norm(l) === out.titleLine);
-        if (i !== -1) {
-          rLines.splice(i, 1);
-          if (i < rLines.length && !norm(rLines[i])) rLines.splice(i, 1);
-          rebuilt = rLines.join('\n');
-        }
-      }
-
-      out.mainText = rebuilt.replace(/\n{3,}/g, '\n\n').trimEnd();
-    } else {
-      // Fallback: signature labels may be AFTER the names (old templates)
-      // Pattern at end (non-empty):
-      //   <ct1>
-      //   <ct2?> 
-      //   Kontakt(lærere|gruppelærere)
-      //   <principal>
-      //   Forstander
-      const normLines = lines.map(norm);
-      const lastForst = (() => {
-        for (let i = normLines.length - 1; i >= 0; i--) if (reForst.test(normLines[i])) return i;
-        return -1;
-      })();
-      if (lastForst !== -1) {
-        // principal is the nearest non-empty line above "Forstander"
-        let pIdx = lastForst - 1;
-        while (pIdx >= 0 && !normLines[pIdx]) pIdx--;
-        // find last "Kontakt..." before principal
-        let kIdx = pIdx - 1;
-        while (kIdx >= 0 && !reKontakt.test(normLines[kIdx])) kIdx--;
-        if (pIdx >= 0 && kIdx >= 0) {
-          out.principal = normLines[pIdx] || '';
-          // contact names are up to two nearest non-empty lines above kIdx
-          let c2 = kIdx - 1;
-          while (c2 >= 0 && !normLines[c2]) c2--;
-          let c1 = c2 - 1;
-          while (c1 >= 0 && !normLines[c1]) c1--;
-          // Assign in order (ct1 first)
-          out.ct1 = (c1 >= 0 ? normLines[c1] : '') || (c2 >= 0 ? normLines[c2] : '');
-          out.ct2 = (c1 >= 0 && c2 >= 0) ? normLines[c2] : '';
-          // Remove tail block from main text
-          const cut = Math.min(c1 >= 0 ? c1 : c2 >= 0 ? c2 : kIdx, kIdx);
-          const before = lines.slice(0, cut);
-          let rebuilt = before.join('\n');
-          // Strip title line if present
-          if (out.titleLine) {
-            const rLines = rebuilt.split(/\r?\n/);
-            const i = rLines.findIndex(l => norm(l) && norm(l) === out.titleLine);
-            if (i !== -1) {
-              rLines.splice(i, 1);
-              if (i < rLines.length && !norm(rLines[i])) rLines.splice(i, 1);
-              rebuilt = rLines.join('\n');
-            }
+          const namesLine = lines[idxNames].trim();
+          const nameParts = namesLine.split(/\s{2,}|\t+/).map(s => s.trim()).filter(Boolean);
+          if (nameParts.length >= 2) {
+            out.contactNames = nameParts[0];
+            out.principalName = nameParts.slice(1).join(' ');
+          } else {
+            out.contactNames = namesLine;
+            out.principalName = '';
           }
-          out.mainText = rebuilt.replace(/\n{3,}/g, '\n\n').trimEnd();
-          return out;
-        }
-      }
 
-      // No recognizable signature block — still normalize excessive blank lines and strip title if present
-      let normalized = text.replace(/\n{3,}/g, '\n\n').trimEnd();
-      if (out.titleLine) {
-        const rLines = normalized.split(/\r?\n/);
-        const i = rLines.findIndex(l => norm(l) && norm(l) === out.titleLine);
-        if (i !== -1) {
-          rLines.splice(i, 1);
-          if (i < rLines.length && !norm(rLines[i])) rLines.splice(i, 1);
-          normalized = rLines.join('\n');
+          out.bodyText = lines.slice(0, idxNames).join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
         }
       }
-      out.mainText = normalized;
     }
+
     return out;
   }
 
@@ -804,29 +741,21 @@ function openPrintWindowForStudents(students, settings, title) {
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
     const sig = parseSignatureBlock(txt);
-    const ctLine = [sig.ct1, sig.ct2].filter(Boolean).join(' & ');
     return `
       <div class="studentDoc">
         <div class="content">
           <div class="printHeaderTop"><div class="printHeaderDate">${escapeHtml(headerDateText)}</div></div>
           <div class="printHeaderLogo"><img src="${PRINT_HEADER_LOGO_DATAURL}" alt="Himmerlands Ungdomsskole" /></div>
-          ${sig.titleLine ? `<div class="statementTitle">${escapeHtml(sig.titleLine)}</div>` : ``}
-          <pre class="statementBody">${escapeHtml(sig.mainText)}</pre>
-          <table class="signature-table">
-  <tr>
-    <td class="sig-name">{{CONTACT_TEACHERS}}</td>
-    <td class="sig-name">{{PRINCIPAL_NAME}}</td>
-  </tr>
-  <tr>
-    <td class="sig-role">Kontaktgruppelærere</td>
-    <td class="sig-role">Forstander</td>
-  </tr>
-</table>
-            <div class="cell value">${escapeHtml(sig.principal)}</div>
-            <div class="cell label">Kontaktgruppelærere</div>
-            <div class="cell label">Forstander</div>
+          <div class="statementTitle">${escapeHtml(sig.title)}</div>\n          <pre class="statement">${escapeHtml(sig.bodyText)}</pre>
+          <div class="signatureBlock">
+            <div class="sigName">${escapeHtml(sig.contactNames)}</div>
+            <div class="sigName">${escapeHtml(sig.principalName || settings.forstanderNavn || '')}</div>
+            <div class="sigRole">${escapeHtml(sig.leftRole || 'Kontaktlærere')}</div>
+            <div class="sigRole">${escapeHtml(sig.rightRole || 'Forstander')}</div>
+          </div><div class="label">Forstander</div>
+            <div class="value">${escapeHtml(sig.ct1)}</div><div class="value">${escapeHtml(sig.principal)}</div>
+            <div class="value">${escapeHtml(sig.ct2)}</div><div class="value"></div>
           </div>
-        </div>
         </div>
       </div>`;
   }).join('');
@@ -859,39 +788,20 @@ function openPrintWindowForStudents(students, settings, title) {
       box-sizing: border-box;
       padding: 0;
     }
-    .statementBody {
+    .statement {
       margin: 0;
       white-space: pre-wrap;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       font-size: 12pt;
-      line-height: 1.35;
+      line-height: 1.45;
       transform: none;
       transform-origin: top left;
     }
   
-    .statementTitle{
-      text-align: center;
-      font-weight: 700;
-      font-size: 14pt;
-      margin: 0 0 6mm 0;
-    }
-    .signatureBlock{
-      display:grid;
-      grid-template-columns: max-content max-content;
-      grid-template-rows: auto auto;
-      column-gap: 26mm;
-      row-gap: 2mm;
-      justify-content:center;
-      justify-items:start;
-      align-items:start;
-      margin-top: 10mm;
-      font-size: 12pt; /* match body text */
-    }
-    .signatureBlock .label{ font-size: 11.5pt; font-weight: 600; }
     /* iOS/iPadOS Safari: disable scaling transforms to avoid alternating blank pages */
     @supports (-webkit-touch-callout: none) {
       .page { --s: 1 !important; }
-      .statementBody { transform: none !important; width: auto !important; }
+      .statement { transform: none !important; width: auto !important; }
     }
 
     /* Header logo */
@@ -911,7 +821,7 @@ function openPrintWindowForStudents(students, settings, title) {
     /* Header: date (top-right) + logo (center) */
     .printHeaderTop{
   position: relative;
-  height: 8mm;
+  height: 12mm;
 }
 .printHeaderDate{
   position:absolute;
@@ -924,7 +834,7 @@ function openPrintWindowForStudents(students, settings, title) {
   display:flex;
   justify-content:center;
   align-items:center;
-  margin: 0mm 0 6mm 0;
+  margin: 2mm 0 8mm 0;
 }
 .printHeaderLogo img{
   height: 26mm;
@@ -941,18 +851,6 @@ function openPrintWindowForStudents(students, settings, title) {
     /* Footer page numbers (if supported by the browser/print driver) */
     @page{ margin: 12mm 14mm 12mm 14mm; }
 
-    .studentDoc{
-      width: 210mm;
-      box-sizing: border-box;
-      padding: 12mm 14mm;
-      break-after: page;
-      page-break-after: always;
-    }
-    .studentDoc:first-child{
-      break-before: auto;
-      page-break-before: auto;
-    }
-
     @media print{
   .studentDoc{break-before:page;page-break-before:always;break-after:page;page-break-after:always;}
   .studentDoc:first-child{break-before:auto;page-break-before:auto;}
@@ -968,33 +866,12 @@ function openPrintWindowForStudents(students, settings, title) {
       }
     }
 
-    .signatureBlock .cell{ text-align:center; white-space:nowrap; line-height:1.15; }
-    .signatureBlock .label{ font-weight:600; }
-    .signatureBlock .value{ font-weight:400; }
-
-.signature-table {
-  width: auto;
-  margin: 10mm auto 0 auto;
-  border-collapse: collapse;
-}
-.signature-table td {
-  padding: 0 18mm 0 0;
-  text-align: left;
-  vertical-align: top;
-  white-space: nowrap;
-}
-.signature-table td:last-child {
-  padding-right: 0;
-}
-.signature-table .sig-name {
-  font-size: 12pt;
-  font-weight: 400;
-}
-.signature-table .sig-role {
-  font-size: 11pt;
-  font-weight: 600;
-}
-
+    .statementTitle{
+      text-align: center;
+      font-weight: 700;
+      font-size: 14pt;
+      margin: 0 0 6mm 0;
+    }
 </style>
 </head>
 <body>
@@ -1007,7 +884,7 @@ ${pagesHtml}
   function fitAll(){
     const pages = document.querySelectorAll('.page');
     pages.forEach(p => {
-      const c = p.querySelector('.statementBody');
+      const c = p.querySelector('.statement');
       if(!c) return;
 
       // Reset
@@ -1127,31 +1004,7 @@ async function printAllKGroups() {
         transform-origin: top left;
         width: calc(100% / var(--s, 1));
       }
-    
-.signature-table {
-  width: auto;
-  margin: 10mm auto 0 auto;
-  border-collapse: collapse;
-}
-.signature-table td {
-  padding: 0 18mm 0 0;
-  text-align: left;
-  vertical-align: top;
-  white-space: nowrap;
-}
-.signature-table td:last-child {
-  padding-right: 0;
-}
-.signature-table .sig-name {
-  font-size: 12pt;
-  font-weight: 400;
-}
-.signature-table .sig-role {
-  font-size: 11pt;
-  font-weight: 600;
-}
-
-</style>
+    </style>
   `;
   const body = all.map(st => {
     const txt = buildStatement(st, getSettings());
