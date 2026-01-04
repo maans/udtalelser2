@@ -1709,7 +1709,7 @@ function rebuildAliasMapFromStudents(studs){
 
 function setStudents(studs){ lsSet(KEYS.students, studs); rebuildAliasMapFromStudents(studs); window.__ALL_STUDENTS__ = studs || []; rebuildAliasMapFromStudents(studs); }
   function getMarks(kindKey){ return lsGet(kindKey, {}); }
-  function setMarks(kindKey, m){ lsSet(kindKey, m); }
+  function setMarks(kindKey, m){ lsSet(kindKey, m); try{ updateImportStatsUI(); }catch(_){} }
   function getTextFor(unilogin){
     return lsGet(KEYS.textPrefix + unilogin, { elevudvikling:'', praktisk:'', kgruppe:'', lastSavedTs:null, studentInputMeta:null });
   }
@@ -2249,7 +2249,132 @@ function updateTabLabels(){
     $('statusText').textContent = studs.length ? `Elever: ${studs.length}` : `Ingen elevliste indlæst`;
 }
 
-  function renderSettings() {
+  
+function updateImportStatsUI() {
+  const statsCard = document.getElementById('importStatsCard');
+  if (!statsCard) return;
+
+  const s = getSettings();
+  const studs = getStudents();
+  const meNorm = normalizeName((s.meResolved || s.me || '').toString());
+
+  // Determine active K-gruppe students (by initials match)
+  const total = (studs.length && meNorm)
+    ? studs.filter(st =>
+        normalizeName(toInitials(st.kontaktlaerer1_ini)) === meNorm ||
+        normalizeName(toInitials(st.kontaktlaerer2_ini)) === meNorm
+      )
+    : [];
+
+  const nTot = total.length;
+
+  const setVal = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  const setList = (id, arr) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!arr.length) { el.innerHTML = '<span class="muted">Ingen</span>'; return; }
+    el.innerHTML = arr.map(escapeHtml).join('<span class="muted">, </span>');
+  };
+
+  // Compute "done" and missing lists (per student: any mark in that category?)
+  const missing = { sang: [], gym: [], elevraad: [] };
+
+  const marksS = getMarks(KEYS.marksSang);
+  const marksG = getMarks(KEYS.marksGym);
+  const marksE = getMarks(KEYS.marksElev);
+
+  let doneS = 0, doneG = 0, doneE = 0;
+
+  total.forEach(st => {
+    const u = st.unilogin;
+    const full = `${st.fornavn||''} ${st.efternavn||''}`.trim() || (u||'');
+    const sM = marksS[u] || {};
+    const gM = marksG[u] || {};
+    const eM = marksE[u] || {};
+
+    const hasS = !!(sM.sang_variant || sM.S1 || sM.S2 || sM.S3 || sM.sang || sM.variant);
+    const hasG = !!(gM.gym_variant || gM.G1 || gM.G2 || gM.G3 || gM.gym || gM.variant ||
+                    Object.keys(gM||{}).some(k => (k||'').toUpperCase().startsWith('R') && !!gM[k]));
+    const hasE = !!(eM.elevraad === true || eM.elevraad === 1 || eM.E1 || eM.YES);
+
+    if (hasS) doneS++; else missing.sang.push(full);
+    if (hasG) doneG++; else missing.gym.push(full);
+    if (hasE) doneE++; else missing.elevraad.push(full);
+  });
+
+  // Hint
+  const hint = document.getElementById('importStatsHint');
+  if (hint) {
+    if (!meNorm || !studs.length) hint.textContent = 'Vælg K-lærer og indlæs elevliste for at se status.';
+    else hint.textContent = `Status for aktiv K-gruppe (${nTot} elev${nTot===1?'':'er'}):`;
+  }
+
+  // Values + "mangler" hint
+  setVal('importStatsSang', `${doneS}/${nTot}`);
+  setVal('importStatsGym', `${doneG}/${nTot}`);
+  setVal('importStatsElevraad', `${doneE}/${nTot}`);
+  setVal('importMissSang', nTot ? `(mangler ${missing.sang.length})` : '');
+  setVal('importMissGym',  nTot ? `(mangler ${missing.gym.length})` : '');
+  setVal('importMissER',   nTot ? `(mangler ${missing.elevraad.length})` : '');
+
+  setList('importMissingSang', missing.sang);
+  setList('importMissingGym',  missing.gym);
+  setList('importMissingElevraad', missing.elevraad);
+
+  // Colored dots (ok/warn/bad)
+  const dotClass = (done, tot) => {
+    if (!tot) return 'dotNone';
+    if (done === 0) return 'dotBad';
+    const pct = done / tot;
+    if (pct >= 0.9) return 'dotOk';
+    return 'dotWarn';
+  };
+  const setDot = (id, cls) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('dotOk','dotWarn','dotBad','dotNone');
+    el.classList.add(cls);
+  };
+  setDot('dotSang', dotClass(doneS, nTot));
+  setDot('dotGym',  dotClass(doneG, nTot));
+  setDot('dotER',   dotClass(doneE, nTot));
+
+  // Wire toggles once (Sang/Gym)
+  const wireToggle = (btnId, boxId) => {
+    const btn = document.getElementById(btnId);
+    const box = document.getElementById(boxId);
+    if (!btn || !box) return;
+    if (btn.dataset.wired === '1') return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => {
+      const isHidden = box.style.display === 'none';
+      box.style.display = isHidden ? 'block' : 'none';
+      btn.textContent = isHidden ? 'Skjul manglende' : 'Vis manglende';
+    });
+  };
+  wireToggle('btnToggleMissingSang', 'importMissingSang');
+  wireToggle('btnToggleMissingGym',  'importMissingGym');
+
+  // Refresh button (recomputes without full app reload)
+  const btnR = document.getElementById('btnRefreshImportStats');
+  if (btnR && btnR.dataset.wired !== '1') {
+    btnR.dataset.wired = '1';
+    btnR.addEventListener('click', () => updateImportStatsUI());
+  }
+
+  // Disable controls if no data
+  const setDisabled = (btnId) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = !nTot;
+    btn.style.opacity = nTot ? '1' : '.5';
+  };
+  setDisabled('btnToggleMissingSang');
+  setDisabled('btnToggleMissingGym');
+  setDisabled('btnRefreshImportStats');
+}
+
+function renderSettings() {
     const s = getSettings();
     const t = getTemplates();
     const studs = getStudents();
@@ -2318,114 +2443,10 @@ function updateTabLabels(){
       if (s0.contactGroupCount) { s0.contactGroupCount = ''; setSettings(s0); }
     }
 
-    // ---- Import-status for faglærer-vurderinger (Sang/Gymnastik/Elevråd) ----
-    // Viser om der findes vurderinger for eleverne i den aktive K-gruppe.
-    const statsCard = document.getElementById('importStatsCard');
-    if (statsCard) {
-      const total = (studs.length && meNorm)
-        ? studs.filter(st => normalizeName(toInitials(st.kontaktlaerer1_ini)) === meNorm || normalizeName(toInitials(st.kontaktlaerer2_ini)) === meNorm)
-        : [];
+        // ---- Import-status for faglærer-vurderinger (Sang/Gymnastik/Elevråd) ----
+    updateImportStatsUI();
 
-      const marksSang = getMarks(KEYS.marksSang) || {};
-      const marksGym  = getMarks(KEYS.marksGym)  || {};
-      const marksER   = getMarks(KEYS.marksElev) || {};
-
-      const mkName = (st) => {
-        const n = ((st.fornavn||'') + ' ' + (st.efternavn||'')).trim();
-        return n || (st.navn||'') || (st.fulde_navn||'') || (st.unilogin||'');
-      };
-
-      const missing = { sang: [], gym: [], elevraad: [] };
-      let doneS=0, doneG=0, doneE=0;
-      for (const st of total) {
-        const u = st.unilogin || '';
-        const sM = marksSang[u] || {};
-        const gM = marksGym[u]  || {};
-        const eM = marksER[u]   || {};
-
-        const hasS = !!(sM.sang_variant && String(sM.sang_variant).trim());
-        const hasG = !!(gM.gym_variant && String(gM.gym_variant).trim());
-        const hasE = !!(eM.elevraad_variant && String(eM.elevraad_variant).trim());
-
-        if (hasS) doneS++; else missing.sang.push(mkName(st));
-        if (hasG) doneG++; else missing.gym.push(mkName(st));
-        if (hasE) doneE++; else missing.elevraad.push(mkName(st));
-      }
-
-      const nTot = total.length;
-      const setVal = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
-      const setList = (id, arr) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (!arr.length) { el.innerHTML = '<span class="muted">Ingen</span>'; return; }
-        el.innerHTML = arr.map(escapeHtml).join('<span class="muted">, </span>');
-      };
-
-      // Hint
-      const hint = document.getElementById('importStatsHint');
-      if (hint) {
-        if (!meNorm || !studs.length) hint.textContent = 'Vælg K-lærer og indlæs elevliste for at se status.';
-        else hint.textContent = `Status for aktiv K-gruppe (${nTot} elev${nTot===1?'':'er'}):`;
-      }
-
-      // Values + "mangler" hint
-      setVal('importStatsSang', `${doneS}/${nTot}`);
-      setVal('importStatsGym', `${doneG}/${nTot}`);
-      setVal('importStatsElevraad', `${doneE}/${nTot}`);
-      setVal('importMissSang', nTot ? `(mangler ${missing.sang.length})` : '');
-      setVal('importMissGym',  nTot ? `(mangler ${missing.gym.length})` : '');
-      setVal('importMissER',   nTot ? `(mangler ${missing.elevraad.length})` : '');
-
-      setList('importMissingSang', missing.sang);
-      setList('importMissingGym',  missing.gym);
-      setList('importMissingElevraad', missing.elevraad);
-
-      // Colored dots (ok/warn/bad)
-      const setDot = (dotId, done) => {
-        const el = document.getElementById(dotId);
-        if (!el) return;
-        el.classList.remove('ok','warn','bad');
-        if (!nTot) return;
-        const r = done / nTot;
-        if (done === 0) el.classList.add('bad');
-        else if (r >= 0.9) el.classList.add('ok');
-        else el.classList.add('warn');
-      };
-      setDot('dotSang', doneS);
-      setDot('dotGym', doneG);
-      setDot('dotER', doneE);
-
-      // Wire toggle buttons once
-      const wireToggle = (btnId, boxId) => {
-        const btn = document.getElementById(btnId);
-        const box = document.getElementById(boxId);
-        if (!btn || !box || btn.__wired) return;
-        btn.__wired = true;
-        // ensure hidden by default
-        if (!box.style.display) box.style.display = 'none';
-        btn.addEventListener('click', () => {
-          const isHidden = box.style.display === 'none';
-          box.style.display = isHidden ? 'block' : 'none';
-          btn.textContent = isHidden ? 'Skjul manglende' : 'Vis manglende';
-        });
-      };
-      wireToggle('btnToggleMissingSang', 'importMissingSang');
-      wireToggle('btnToggleMissingGym',  'importMissingGym');
-      wireToggle('btnToggleMissingElevraad', 'importMissingElevraad');
-
-      // Disable toggles if no data
-      const dis = (btnId) => {
-        const btn = document.getElementById(btnId);
-        if (!btn) return;
-        btn.disabled = !nTot;
-        btn.style.opacity = nTot ? '1' : '.5';
-      };
-      dis('btnToggleMissingSang');
-      dis('btnToggleMissingGym');
-      dis('btnToggleMissingElevraad');
-    }
-
-    renderSnippetsEditor();
+renderSnippetsEditor();
     renderMarksTable();
   }
 
