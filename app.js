@@ -841,6 +841,14 @@ function importOverridePackage(expectedScope, obj) {
   return input
     .toString()
     .trim()
+    // Handle common mojibake when a UTF-8 CSV has been decoded as latin1/Win-1252
+    // (e.g. "KontaktlÃ¦rer" instead of "Kontaktlærer").
+    .replace(/Ã¦/g, 'æ')
+    .replace(/Ã¸/g, 'ø')
+    .replace(/Ã¥/g, 'å')
+    .replace(/Ã†/g, 'Æ')
+    .replace(/Ã˜/g, 'Ø')
+    .replace(/Ã…/g, 'Å')
     .toLowerCase()
     .replace(/\./g, " ")
     // Danish letters are not decomposed by NFD, so transliterate explicitly
