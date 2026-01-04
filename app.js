@@ -790,6 +790,7 @@ function openPrintWindowForStudents(students, settings, title) {
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
     const sig = parseSignatureBlock(txt);
+    const ctLine = [sig.ct1, sig.ct2].filter(Boolean).join(' & ');
     return `
       <div class="studentDoc">
         <div class="content">
@@ -798,13 +799,12 @@ function openPrintWindowForStudents(students, settings, title) {
           ${sig.titleLine ? `<div class="statementTitle">${escapeHtml(sig.titleLine)}</div>` : ``}
           <pre class="statementBody">${escapeHtml(sig.mainText)}</pre>
           <div class="signatureBlock">
+            <div class="cell value">${escapeHtml(ctLine)}</div>
+            <div class="cell value">${escapeHtml(sig.principal)}</div>
             <div class="cell label">Kontaktgruppelærere</div>
             <div class="cell label">Forstander</div>
-            <div class="cell value">${escapeHtml(sig.ct1)}</div>
-            <div class="cell value">${escapeHtml(sig.principal)}</div>
-            <div class="cell value">${escapeHtml(sig.ct2)}</div>
-            <div class="cell value"></div>
           </div>
+        </div>
         </div>
       </div>`;
   }).join('');
@@ -854,15 +854,15 @@ function openPrintWindowForStudents(students, settings, title) {
       margin: 0 0 6mm 0;
     }
     .signatureBlock{
-      margin-top: 6mm;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-auto-rows: auto;
-      column-gap: 18mm;
+      display:grid;
+      grid-template-columns: max-content max-content;
+      grid-template-rows: auto auto;
+      column-gap: 26mm;
       row-gap: 2mm;
-      text-align: center;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 10.5pt;
+      justify-content:center;
+      align-items:start;
+      margin-top: 10mm;
+      font-size: 10pt;
     }
     .signatureBlock .label{
       font-size: 9pt;
@@ -947,6 +947,10 @@ function openPrintWindowForStudents(students, settings, title) {
         page-break-before: auto;
       }
     }
+
+    .signatureBlock .cell{ text-align:center; white-space:nowrap; line-height:1.15; }
+    .signatureBlock .label{ font-weight:600; }
+    .signatureBlock .value{ font-weight:400; }
 </style>
 </head>
 <body>
