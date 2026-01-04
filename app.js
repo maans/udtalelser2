@@ -785,6 +785,7 @@ ${pagesHtml}
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
   const disableScale = true; // no transform scaling; we use font-size autofit instead
+    const MIN_PT = ${printMinPt};
   function fitAll(){
       const pages = Array.from(document.querySelectorAll('.page'));
       pages.forEach(page => {
@@ -794,7 +795,7 @@ ${pagesHtml}
 
         // Start at a reasonable base size; then shrink until it fits inside the page.
         let size = 11;              // pt
-        const minSize = 8.25;       // pt (readable floor)
+        const minSize = MIN_PT;     // pt (readable floor)
         const step = 0.25;          // pt
         statement.style.fontSize = size + 'pt';
         statement.style.lineHeight = '1.35';
@@ -1909,7 +1910,8 @@ function defaultSettings() {
       forstanderLocked: true,
       me: "",
       meResolved: "",
-      schoolYearEnd: new Date().getFullYear() + 1
+      schoolYearEnd: new Date().getFullYear() + 1,
+      printMinPt: 8.25
     };
   }
   function defaultTemplates() {
@@ -2802,6 +2804,7 @@ function renderSettings() {
       }
     } catch (_) {}
     $('schoolYearEnd').value = s.schoolYearEnd || '';
+    $('printMinPt').value = (s.printMinPt ?? 8.25);
 
     const p = computePeriod(s.schoolYearEnd);
     $('periodFrom').value = p.from;
@@ -4075,6 +4078,14 @@ on('schoolYearEnd','input', () => {
       renderSettings();
       if (state.tab === 'edit') renderEdit();
     });
+    on('printMinPt','input', () => {
+      const s = getSettings();
+      const v = parseFloat($('printMinPt').value);
+      s.printMinPt = (Number.isFinite(v) ? v : (s.printMinPt ?? 8.25));
+      setSettings(s);
+      renderAll();
+    });
+
 
     on('btnToggleSchoolText','click', () => {
       const t = getTemplates();
@@ -4967,4 +4978,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
-});
+})
+  // Minimum font size (pt) for one-page auto-fit (set in Indstillinger → Periode)
+  let printMinPt = 8.25;
+  try {
+    const pv = settings && (settings.printMinPt ?? settings.printMinPT);
+    const n = parseFloat(pv);
+    if (Number.isFinite(n)) printMinPt = Math.max(7.0, Math.min(12.0, n));
+  } catch(e) {}
+;
