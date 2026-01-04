@@ -854,18 +854,13 @@ body.udt-readonly main.app{
 
 
 @media print {
-  /* Flow printing: allow content to span pages without clipping */
+  /* Flow print: let content span pages naturally */
   .page, .content {
     height: auto !important;
     overflow: visible !important;
   }
 
-  /* Header only appears where placed (first page only) */
-  .printHeaderTop, .printHeaderLogo {
-    page-break-after: avoid;
-  }
-
-  /* Start each student on a new page */
+  /* Each student starts on a new page */
   .studentDoc {
     break-before: page;
     page-break-before: always;
@@ -874,9 +869,14 @@ body.udt-readonly main.app{
     break-before: auto;
     page-break-before: auto;
   }
+
+  /* Header only where placed (first page only) */
+  .printHeaderTop, .printHeaderLogo {
+    page-break-after: avoid;
+  }
 }
 
-/* Footer page numbers (browser-native counters) */
+/* Footer page numbers */
 @page {
   @bottom-center {
     content: "Side " counter(page) " / " counter(pages);

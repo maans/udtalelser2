@@ -651,6 +651,20 @@ function openPrintWindowForStudents(students, settings, title) {
   }[c]));
 
   const list = sortedStudents(Array.isArray(students) ? students : []);
+
+  // Header date (month + year) should match 'Dato måned/år (auto)' from Indstillinger → Periode
+  let headerDateText = '';
+  try {
+    if (typeof computePeriod === 'function') {
+      const p = computePeriod(settings && settings.schoolYearEnd);
+      headerDateText = (p && p.dateMonthYear) ? String(p.dateMonthYear) : '';
+    }
+  } catch(e) {}
+  if (!headerDateText) {
+    const _d = new Date();
+    const _monthYear = _d.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
+    headerDateText = _monthYear ? (_monthYear.charAt(0).toUpperCase() + _monthYear.slice(1)) : '';
+  }
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
     return `
@@ -664,13 +678,6 @@ function openPrintWindowForStudents(students, settings, title) {
   }).join('');
 
   const docTitle = escapeHtml(title || 'Print');
-
-  // Header date (month + year), Danish style with capitalized first letter
-  var headerDateText = '';
-  const _d = new Date();
-  const _monthYear = _d.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
-  headerDateText = _monthYear ? (_monthYear.charAt(0).toUpperCase() + _monthYear.slice(1)) : '';
-
 
   const html = `<!doctype html>
 <html>
@@ -696,7 +703,7 @@ function openPrintWindowForStudents(students, settings, title) {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       font-size: 12pt;
       line-height: 1.45;
-      transform: scale(var(--s));
+      transform: none;
       transform-origin: top left;
     }
   
@@ -742,6 +749,33 @@ function openPrintWindowForStudents(students, settings, title) {
       display:block;
     }
 
+
+    /* One-page requirement: each student on exactly one A4 page.
+       We'll auto-fit by adjusting font-size (NO transform scaling, to avoid iOS blank pages). */
+    .page{
+      box-sizing: border-box;
+      width: 210mm;
+      height: 297mm;
+      padding: 14mm 14mm 14mm 14mm;
+      break-after: page;
+      page-break-after: always;
+      overflow: hidden;
+    }
+    .page:last-child{
+      break-after: auto;
+      page-break-after: auto;
+    }
+    .content{
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    pre.statement{
+      white-space: pre-wrap;
+      margin: 0;
+      overflow: hidden;
+    }
+
 </style>
 </head>
 <body>
@@ -750,8 +784,11 @@ ${pagesHtml}
 (function(){
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
-  const disableScale = isIOS;
-  p.style.setProperty('--s', s.toFixed(4));
+  const disableScale = true; // no transform scaling; we use font-size autofit instead
+  statement.style.fontSize = size + 'pt';
+        }
+      });
+    }p.style.setProperty('--s', s.toFixed(4));
     });
   }
 
@@ -759,6 +796,7 @@ ${pagesHtml}
   try { window.focus(); } catch(e) {}
   setTimeout(() => { try { window.print(); } catch(e) {} }, 0);
 });
+    if(!disableScale) {
       // A tiny delay helps after font rasterization
       setTimeout(fitAll, 50);
     }
