@@ -658,69 +658,35 @@ function openPrintWindowForStudents(students, settings, title) {
   //
   //   Forstander
   //   <forstandernavn>
-  function parseSignatureBlock(statementText) {
+  
+  function parseStatementForPrint(statementText) {
     const raw = String(statementText || '');
-    let text = raw.replace(/\r/g, '');
-    // Normalize excessive blank lines
-    text = text.replace(/\n{3,}/g, '\n\n').trimEnd();
+    let text = raw.replace(//g, '');
+    // Normalize excessive blank lines (keep at most one blank line)
+    text = text.replace(/
+{3,}/g, '
 
-    const out = {
-      title: '',
-      bodyText: text,
-      contactNames: '',
-      principalName: '',
-      leftRole: '',
-      rightRole: ''
-    };
+').trimEnd();
 
+    const lines = text.split('
+');
     // Title: first non-empty line
-    {
-      const lines = text.split('\n');
-      let i = 0;
-      while (i < lines.length && !lines[i].trim()) i++;
-      if (i < lines.length) {
-        out.title = lines[i].trim();
-        let j = i + 1;
-        while (j < lines.length && !lines[j].trim()) j++;
-        out.bodyText = lines.slice(j).join('\n').trimEnd();
-      }
+    let title = '';
+    let firstIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim()) { title = lines[i].trim(); firstIdx = i; break; }
     }
 
-    // Signature extraction from bottom (template style)
-    {
-      const lines = out.bodyText.split('\n');
-      const nonEmptyIdx = [];
-      for (let i = 0; i < lines.length; i++) if (lines[i].trim()) nonEmptyIdx.push(i);
-      if (nonEmptyIdx.length >= 2) {
-        const idxRoles = nonEmptyIdx[nonEmptyIdx.length - 1];
-        const idxNames = nonEmptyIdx[nonEmptyIdx.length - 2];
-        const rolesLine = lines[idxRoles].trim();
+    // Body: everything after the title line (preserve spacing + any signature lines)
+    let bodyLines = (firstIdx >= 0) ? lines.slice(firstIdx + 1) : lines.slice();
+    // Remove leading blank lines in body
+    while (bodyLines.length && !bodyLines[0].trim()) bodyLines.shift();
+    const bodyText = bodyLines.join('
+').trimEnd();
 
-        const hasForstander = /forstander/i.test(rolesLine);
-        const hasKontakt = /(kontaktlærere|kontaktgruppelærere)/i.test(rolesLine);
-
-        if (hasForstander && hasKontakt) {
-          const roleParts = rolesLine.split(/\s{2,}|\t+/).map(s => s.trim()).filter(Boolean);
-          out.leftRole = roleParts[0] || 'Kontaktlærere';
-          out.rightRole = roleParts[1] || 'Forstander';
-
-          const namesLine = lines[idxNames].trim();
-          const nameParts = namesLine.split(/\s{2,}|\t+/).map(s => s.trim()).filter(Boolean);
-          if (nameParts.length >= 2) {
-            out.contactNames = nameParts[0];
-            out.principalName = nameParts.slice(1).join(' ');
-          } else {
-            out.contactNames = namesLine;
-            out.principalName = '';
-          }
-
-          out.bodyText = lines.slice(0, idxNames).join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
-        }
-      }
-    }
-
-    return out;
+    return { title, bodyText };
   }
+
 
 
   const list = sortedStudents(Array.isArray(students) ? students : []);
@@ -740,27 +706,18 @@ function openPrintWindowForStudents(students, settings, title) {
   }
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
-    const sig = parseSignatureBlock(txt);
+    const parts = parseStatementForPrint(txt);
     return `
       <div class="studentDoc">
         <div class="content">
           <div class="printHeaderTop"><div class="printHeaderDate">${escapeHtml(headerDateText)}</div></div>
           <div class="printHeaderLogo"><img src="${PRINT_HEADER_LOGO_DATAURL}" alt="Himmerlands Ungdomsskole" /></div>
-          <div class="statementTitle">${escapeHtml(sig.title)}</div>\n          <pre class="statement">${escapeHtml(sig.bodyText)}</pre>
-          <div class="signatureBlock">
-            <div class="sigName">${escapeHtml(sig.contactNames)}</div>
-            <div class="sigName">${escapeHtml(sig.principalName || settings.forstanderNavn || '')}</div>
-            <div class="sigRole">${escapeHtml(sig.leftRole || 'Kontaktlærere')}</div>
-            <div class="sigRole">${escapeHtml(sig.rightRole || 'Forstander')}</div>
-          </div><div class="label">Forstander</div>
-            <div class="value">${escapeHtml(sig.ct1)}</div><div class="value">${escapeHtml(sig.principal)}</div>
-            <div class="value">${escapeHtml(sig.ct2)}</div><div class="value"></div>
-          </div>
+          <div class="statementTitle">${escapeHtml(parts.title)}</div>
+          <pre class="statement">${escapeHtml(parts.bodyText)}</pre>
         </div>
       </div>`;
   }).join('');
-
-  const docTitle = escapeHtml(title || 'Print');
+const docTitle = escapeHtml(title || 'Print');
 
   const html = `<!doctype html>
 <html>
@@ -768,110 +725,43 @@ function openPrintWindowForStudents(students, settings, title) {
   <meta charset="utf-8">
   <title>${docTitle}</title>
   <style>
-    @page{
-  margin: 12mm 14mm 12mm 14mm;
-}
-    html, body { margin: 0; padding: 0; background: #fff; }
-    .page{
-      width: 210mm;
-      padding: 12mm 14mm;
-      box-sizing: border-box;
-      page-break-after: always;
-      overflow: hidden;
-      --s: 1;
-          /* no fixed height: allow flow across pages */
-      height: auto;
-      overflow: visible;
-    }
-    .content{
-      width: 100%;
-      box-sizing: border-box;
-      padding: 0;
-    }
-    .statement {
-      margin: 0;
-      white-space: pre-wrap;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: 12pt;
-      line-height: 1.45;
-      transform: none;
-      transform-origin: top left;
-    }
-  
-    /* iOS/iPadOS Safari: disable scaling transforms to avoid alternating blank pages */
-    @supports (-webkit-touch-callout: none) {
-      .page { --s: 1 !important; }
-      .statement { transform: none !important; width: auto !important; }
-    }
+  @page { margin: 12mm 14mm; }
 
-    /* Header logo */
-    .printHeader{
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      margin: 14mm 0 6mm 0;
-    }
-    .printHeader img{
-      height: 18mm;
-      width: auto;
-      display:block;
-    }
+  html, body { margin: 0; padding: 0; background: #fff; }
 
+  /* One student per printed page */
+  .studentDoc { page-break-after: always; }
+  .content {
+    width: 210mm;
+    min-height: 297mm;
+    box-sizing: border-box;
+    padding: 12mm 14mm;
+    font-family: Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.25;
+    color: #000;
+    position: relative;
+  }
 
-    /* Header: date (top-right) + logo (center) */
-    .printHeaderTop{
-  position: relative;
-  height: 12mm;
-}
-.printHeaderDate{
-  position:absolute;
-  top: 0;
-  right: 0;
-  font-size: 10pt;
-}
-    .printHeaderDate{ white-space: nowrap; }
-    .printHeaderLogo{
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  margin: 2mm 0 8mm 0;
-}
-.printHeaderLogo img{
-  height: 26mm;
-  width: auto;
-  transform: none;
-}
-    .printHeaderLogo img{
-      height: 18mm;
-      width: auto;
-      display:block;
-    }
+  /* Canonical header */
+  .printHeaderTop { position: absolute; top: 12mm; right: 14mm; left: 14mm; height: 0; }
+  .printHeaderDate { position: absolute; right: 0; top: 0; font-size: 10.5pt; }
+  .printHeaderLogo { margin-top: 0; text-align: center; padding-top: 0; }
+  .printHeaderLogo img { height: 18mm; width: auto; display: inline-block; margin-top: -1mm; }
 
-
-    /* Footer page numbers (if supported by the browser/print driver) */
-    @page{ margin: 12mm 14mm 12mm 14mm; }
-
-    @media print{
-  .studentDoc{break-before:page;page-break-before:always;break-after:page;page-break-after:always;}
-  .studentDoc:first-child{break-before:auto;page-break-before:auto;}
-
-      .studentDoc{
-      width: 210mm;
-      box-sizing: border-box;
-      padding: 0; /* padding handled by page margins */
-    }
-      .studentDoc:first-child{
-        break-before: auto;
-        page-break-before: auto;
-      }
-    }
-
-    .statementTitle{
-      text-align: center;
-      font-weight: 700;
-      font-size: 14pt;
-      margin: 0 0 6mm 0;
-    }
+  .statementTitle{
+    text-align: center;
+    font-weight: 700;
+    font-size: 14pt;
+    margin: 18mm 0 6mm 0; /* leaves room for date/logo */
+  }
+  .statement{
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0;
+  }
 </style>
 </head>
 <body>
