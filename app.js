@@ -2197,11 +2197,23 @@ function updateTabLabels(){
   const kBtn = $('tab-k');
   if(!kBtn) return;
   const span = kBtn.querySelector('span');
-  const title = (state.viewMode === 'ALL') ? 'Alle K-grupper' : 'K-elever';
-  if (span) span.textContent = title;
-  kBtn.title = title;
+
+  // Tab label (kort) og stor titel (mere informativ)
+  const tabTitle = (state.viewMode === 'ALL') ? 'Alle K-grupper' : 'K-elever';
+  if (span) span.textContent = tabTitle;
+  kBtn.title = tabTitle;
+
   const h = $('kTitle');
-  if (h) h.textContent = title;
+  if (h) {
+    if (state.viewMode === 'ALL') {
+      h.textContent = 'Alle K-grupper';
+    } else {
+      const s = getSettings();
+      const meRaw = ((s.me || '') + '').trim();
+      const meIni = toInitials(meRaw);
+      h.textContent = meIni ? `${meIni}'s K-elever` : 'K-elever';
+    }
+  }
 }
 
 
@@ -2801,6 +2813,16 @@ function formatTime(ts) {
     const navRow = $('editNavRow');
     const pill = $('editStudentPill');
     const bPrev = $('btnPrevStudent'); const bNext = $('btnNextStudent');
+    const editHeaderInfo = $('editHeaderInfo');
+    if (editHeaderInfo) {
+      const s = getSettings();
+      const fullName = ((s.meFullName || '') + '').trim();
+      const meResolvedConfirmed = ((s.meResolvedConfirmed || '') + '').trim();
+      const meRaw = ((s.me || '') + '').trim();
+      const meIni = toInitials(meRaw);
+      const who = (fullName || meResolvedConfirmed || meIni || meRaw || '—');
+      editHeaderInfo.textContent = who ? `✏️ ${who}` : '✏️ —';
+    }
 
     if (!studs.length) {
       if (navRow) navRow.style.display = 'none';
@@ -3308,6 +3330,7 @@ $('preview').textContent = buildStatement(st, getSettings());
   // ---------- events ----------
   function wireEvents() {
     on('tab-k','click', () => { if (state.tab === 'k') { state.viewMode = (state.viewMode === 'ALL') ? 'K' : 'ALL'; renderStatus(); renderKList(); updateTabLabels(); } else { setTab('k'); } });
+    on('kTitleBtn','click', () => { state.viewMode = (state.viewMode === 'ALL') ? 'K' : 'ALL'; updateTabLabels(); renderStatus(); renderKList(); });
     // Redigér-tab er skjult når ingen elev er valgt, men vær robust hvis nogen alligevel klikker.
   on('tab-edit','click', async () => {
     // Ensure latest overrides are loaded and applied (unless the user has local edits)
