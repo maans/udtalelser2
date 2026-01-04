@@ -741,7 +741,7 @@ function openPrintWindowForStudents(students, settings, title) {
       display:block;
     }
 
-\1
+</style>
 </head>
 <body>
 ${pagesHtml}
