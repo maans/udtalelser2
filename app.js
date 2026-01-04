@@ -12,6 +12,10 @@ function resolveFullName(row) {
 (() => {
   'use strict';
 
+  // Used for cache-busting verification in the UI.
+  // If a browser still shows an older build id, it's caching an old app.js.
+  const BUILD_ID = '2026-01-04_1';
+
   const LS_PREFIX = 'udt_';
   const KEYS = {
     settings: LS_PREFIX + 'settings',
@@ -2202,7 +2206,8 @@ function updateTabLabels(){
     if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
 
     const me = (s.me || '').trim() ? `· K-lærer: ${(s.me||'').trim().toUpperCase()}` : '';
-    $('statusText').textContent = studs.length ? `Elever: ${studs.length} ${me}` : `Ingen elevliste indlæst`;
+    const build = BUILD_ID ? `· build ${BUILD_ID}` : '';
+    $('statusText').textContent = studs.length ? `Elever: ${studs.length} ${me} ${build}`.replace(/\s+/g,' ').trim() : `Ingen elevliste indlæst ${build}`.trim();
   }
 
   function renderSettings() {
