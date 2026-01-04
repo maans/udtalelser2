@@ -2595,6 +2595,42 @@ function escapeHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+
+// ---------- Teacher shortcut (header) ----------
+function goToGeneralSettingsForTeacher(){
+  try {
+    setTab('set');
+    setSettingsSubtab('general');
+  } catch(_) {}
+  // Focus K-lærer input; focus opens the picker menu (input.onfocus -> openMenu)
+  setTimeout(() => {
+    const input = document.getElementById('meInput');
+    if (input) input.focus();
+  }, 0);
+}
+
+function renderTeacherShortcutButton(hostEl, who){
+  if (!hostEl) return;
+  const title = "Skift K-lærer (Indstillinger → Generelt)";
+  const label = (who || '—') + '';
+  hostEl.classList.add('teacherRightHost');
+  if (hostEl.parentElement) hostEl.parentElement.classList.add('teacherRightWrap');
+  hostEl.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'teacherShortcutBtn';
+  btn.title = title;
+  btn.setAttribute('aria-label', title);
+  btn.innerHTML = `<span class="teacherShortcutIcon">✏️</span><span class="teacherShortcutName">${escapeHtml(label)}</span>`;
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    goToGeneralSettingsForTeacher();
+  });
+  hostEl.appendChild(btn);
+}
+// ----------------------------------------------
+
+
 function commitSnippetsFromUI(scope) {
   const overrides = getSnippetImported();
 
@@ -2892,7 +2928,7 @@ const prog = mineList.reduce((acc, st) => {
       const ini = ((meResolvedConfirmed || meRaw || '') + '').trim();
       const who = (fullName || ini || '—');
       // Mindre dobbeltinfo: kun blyant + navn/initialer
-      kHeaderInfo.textContent = who ? `✏️ ${who}` : '✏️ —';
+      renderTeacherShortcutButton(kHeaderInfo, who);
     }
 
     if (kList) {
@@ -3068,7 +3104,7 @@ function formatTime(ts) {
       const meRaw = ((s.me || '') + '').trim();
       const meIni = toInitials(meRaw);
       const who = (fullName || meResolvedConfirmed || meIni || meRaw || '—');
-      editHeaderInfo.textContent = who ? `✏️ ${who}` : '✏️ —';
+      renderTeacherShortcutButton(editHeaderInfo, who);
     }
 
     if (!studs.length) {
