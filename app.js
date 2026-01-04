@@ -689,14 +689,14 @@ function openPrintWindowForStudents(students, settings, title) {
     html, body { margin: 0; padding: 0; background: #fff; }
     .page {
       width: 210mm;
-      height: 297mm;
-      padding: 12mm 14mm;
+      /* No fixed height: allow flow across pages */
+      padding: 14mm 14mm 14mm 14mm;
       box-sizing: border-box;
+      break-after: page;
       page-break-after: always;
-      overflow: hidden;
-      --s: 1;
+      overflow: visible;
     }
-    .content { width: 100%; height: 100%; overflow: hidden; }
+    .content { width: 100%; height: 100%; overflow: visible; }
     .statement {
       margin: 0;
       white-space: pre-wrap;
@@ -741,7 +741,7 @@ function openPrintWindowForStudents(students, settings, title) {
       display:flex;
       justify-content:center;
       align-items:center;
-      margin: 8mm 0 8mm 0;
+      margin: 0 0 8mm 0;
     }
     .printHeaderLogo img{
       height: 18mm;
@@ -759,7 +759,7 @@ function openPrintWindowForStudents(students, settings, title) {
       padding: 14mm 14mm 14mm 14mm;
       break-after: page;
       page-break-after: always;
-      overflow: hidden;
+      overflow: visible;
     }
     .page:last-child{
       break-after: auto;
@@ -767,15 +767,23 @@ function openPrintWindowForStudents(students, settings, title) {
     }
     .content{
       height: 100%;
-      overflow: hidden;
+      overflow: visible;
       position: relative;
     }
     pre.statement{
       white-space: pre-wrap;
       margin: 0;
-      overflow: hidden;
+      overflow: visible;
     }
 
+
+    /* Footer page numbers */
+    @page {
+      @bottom-center {
+        content: "Side " counter(page) " / " counter(pages);
+        font-size: 9pt;
+      }
+    }
 </style>
 </head>
 <body>
@@ -785,140 +793,9 @@ ${pagesHtml}
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
   const disableScale = true; // no transform scaling; we use font-size autofit instead
-  statement.style.fontSize = size + 'pt';
-        }
-      });
-    }p.style.setProperty('--s', s.toFixed(4));
-    });
-  }
+  function fitAll(){}
 
-  window.addEventListener('load', () => {
-  try { window.focus(); } catch(e) {}
-  setTimeout(() => { try { window.print(); } catch(e) {} }, 0);
-});
-    if(!disableScale) {
-      // A tiny delay helps after font rasterization
-      setTimeout(fitAll, 50);
-    }
-    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 120);
-  });
-})();
-</script>
-</body>
-</html>`;
-
-  const win = window.open('', '_blank');
-  if (!win) {
-    alert('Kunne ikke åbne print-vindue (pop-up blokeret).');
-    return;
-  }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-}
-
-async function printAllKStudents() {
-  // Keep overrides fresh for printing unless the user is actively editing templates.
-  try {
-    await loadRemoteOverrides();
-    applyTemplatesFromOverridesToLocal({ preserveLocks: true });
-  } catch (_) {}
-
-  const studs = getStudents();
-  const kGroups = buildKGroups(studs);
-
-  // K-mode: print "mine" K-elever
-  // ALL-mode: print den aktive K-gruppe (som UI'et viser)
-  const isAll = state.viewMode === 'ALL';
-  const list = isAll
-    ? ((kGroups[state.kGroupIndex] && kGroups[state.kGroupIndex].students) ? kGroups[state.kGroupIndex].students.slice() : [])
-    : getMyKStudents();
-
-  if (!list.length) {
-    alert(isAll
-      ? 'Der er ingen elever i denne K-gruppe at printe.'
-      : 'Der er ingen K-elever at printe (tjek elevliste og initialer).'
-    );
-    return;
-  }
-
-  const title = isAll ? 'Udtalelser v1.0 – print K-gruppe' : 'Udtalelser v1.0 – print K-elever';
-  const sorted = sortedStudents(list);
-  openPrintWindowForStudents(sorted, getSettings(), title);
-}
-
-async function printAllKGroups() {
-  // Keep overrides fresh for printing unless the user is actively editing templates.
-  try {
-    await loadRemoteOverrides();
-    applyTemplatesFromOverridesToLocal({ preserveLocks: true });
-  } catch(_) {}
-
-  const studs = getStudents();
-  if (!studs.length) {
-    alert('Der er ingen elevliste indlæst endnu.');
-    return;
-  }
-  const kGroups = buildKGroups(studs);
-  const all = [];
-
-  // Flatten i gruppe-rækkefølge (stabilt og forudsigeligt)
-  kGroups.forEach(g => {
-    (g.students || []).forEach(st => all.push(st));
-  });
-
-  if (!all.length) {
-    alert('Der var ingen elever i K-grupperne at printe.');
-    return;
-  }
-
-  const title = 'Udtalelser v1.0 – print alle K-grupper';
-  const styles = `
-    <style>
-      @page { size: A4; margin: 18mm 16mm; }
-      body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#000; background:#fff; }
-      .entry{ page-break-after: always; }
-      .page{ width: 178mm; height: 261mm; overflow:hidden; position:relative; }
-      pre.content{
-        white-space: pre-wrap;
-        font: 11pt/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        margin:0;
-        transform: scale(var(--s, 1));
-        transform-origin: top left;
-        width: calc(100% / var(--s, 1));
-      }
-    </style>
-  `;
-  const body = all.map(st => {
-    const txt = buildStatement(st, getSettings());
-    return `
-      <section class="entry">
-        <div class="page"><pre class="content">${escapeHtml(txt)}</pre></div>
-      </section>
-    `;
-  }).join('');
-
-  const w = window.open('', '_blank');
-  if (!w) {
-    alert('Pop-up blev blokeret. Tillad pop-ups for at printe.');
-    return;
-  }
-  w.document.open();
-  w.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>${title}</title>${styles}</head><body>${body}
-    <script>
-      (function(){
-        );
-        }
-        window.addEventListener('load', fitAll);
-        window.addEventListener('beforeprint', fitAll);
-      })();
-    </script>
-  </body></html>`);
-  w.document.close();
-  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
-}
-
-function importLocalBackup(file) {
+  function importLocalBackup(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {

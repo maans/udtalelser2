@@ -851,35 +851,3 @@ body.udt-readonly .udt-lock-banner{
 body.udt-readonly main.app{
   filter: saturate(0.85);
 }
-
-
-@media print {
-  /* Flow print: let content span pages naturally */
-  .page, .content {
-    height: auto !important;
-    overflow: visible !important;
-  }
-
-  /* Each student starts on a new page */
-  .studentDoc {
-    break-before: page;
-    page-break-before: always;
-  }
-  .studentDoc:first-child {
-    break-before: auto;
-    page-break-before: auto;
-  }
-
-  /* Header only where placed (first page only) */
-  .printHeaderTop, .printHeaderLogo {
-    page-break-after: avoid;
-  }
-}
-
-/* Footer page numbers */
-@page {
-  @bottom-center {
-    content: "Side " counter(page) " / " counter(pages);
-    font-size: 9pt;
-  }
-}
