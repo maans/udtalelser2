@@ -712,24 +712,18 @@ function openPrintWindowForStudents(students, settings, title) {
   <meta charset="utf-8">
   <title>${docTitle}</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: A4; margin: 12mm 14mm; }
     html, body { margin: 0; padding: 0; background: #fff; }
-    .page {
-      width: 210mm;
-      height: 297mm;
-      padding: 12mm 14mm;
-      box-sizing: border-box;
+    .page{
       page-break-after: always;
-      overflow: hidden;
-      --s: 1;
     }
-    .content { width: 100%; height: 100%; overflow: hidden; }
+    .content{ width: 100%; }
     .statement {
       margin: 0;
       white-space: pre-wrap;
       font-family: Arial, sans-serif;
       font-size: 10.5pt;
-      font-size: 12pt;
+      font-size: 10.5pt;
       line-height: 1.45;
       transform: none;
       transform-origin: top left;
@@ -786,17 +780,6 @@ function openPrintWindowForStudents(students, settings, title) {
     }
 
 
-    /* One-page requirement: each student on exactly one A4 page.
-       We'll auto-fit by adjusting font-size (NO transform scaling, to avoid iOS blank pages). */
-    .page{
-      box-sizing: border-box;
-      width: 210mm;
-      height: 297mm;
-      padding: 14mm 14mm 14mm 14mm;
-      break-after: page;
-      page-break-after: always;
-      overflow: hidden;
-    }
     .page:last-child{
       break-after: auto;
       page-break-after: auto;
@@ -819,47 +802,9 @@ ${pagesHtml}
 <script>
 (function(){
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
-  // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
-  const disableScale = true; // no transform scaling; we use font-size autofit instead
-  function fitAll(){
-      const pages = Array.from(document.querySelectorAll('.page'));
-      pages.forEach(page => {
-        const statement = page.querySelector('pre.statement');
-        const content = page.querySelector('.content');
-        if(!statement || !content) return;
-
-        // Start at a reasonable base size; then shrink until it fits inside the page.
-        let size = 11;              // pt
-        const minSize = 8.25;       // pt (readable floor)
-        const step = 0.25;          // pt
-        statement.style.fontSize = size + 'pt';
-        statement.style.lineHeight = '1.35';
-
-        // Give layout a tick
-        for(let i=0;i<60;i++){
-          const fits = statement.scrollHeight <= content.clientHeight;
-          if(fits) break;
-          size -= step;
-          if(size < minSize) {
-            // If still too long, keep minimum size; content may clip, but we tried.
-            size = minSize;
-            statement.style.fontSize = size + 'pt';
-            break;
-          }
-          statement.style.fontSize = size + 'pt';
-        }
-      });
-    }p.style.setProperty('--s', s.toFixed(4));
-    });
-  }
-
   window.addEventListener('load', () => {
-    fitAll();
-    if(!disableScale) {
-      // A tiny delay helps after font rasterization
-      setTimeout(fitAll, 50);
-    }
-    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 120);
+    // Give fonts/images a moment, then open print dialog.
+    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 250);
   });
 })();
 </script>
@@ -966,21 +911,10 @@ async function printAllKGroups() {
   w.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>${title}</title>${styles}</head><body>${body}
     <script>
       (function(){
-        function fitAll(){
-          const pages = Array.from(document.querySelectorAll('.page'));
-          pages.forEach(p=>{
-            const c = p.querySelector('.content');
-            if(!c) return;
-            p.style.setProperty('--s','1');
-            const avail = p.clientHeight;
-            const needed = c.scrollHeight;
-            let s = 1;
-            if (needed > avail && avail > 0) s = Math.max(0.10, Math.min(1, avail / needed));
-            p.style.setProperty('--s', String(s));
-          });
-        }
-        window.addEventListener('load', fitAll);
-        window.addEventListener('beforeprint', fitAll);
+        window.addEventListener('load', () => {
+          setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 250);
+        });
+window.addEventListener('beforeprint', fitAll);
       })();
     </script>
   </body></html>`);
