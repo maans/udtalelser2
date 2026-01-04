@@ -318,7 +318,7 @@ const DEFAULT_SCHOOL_TEXT =
 `På Himmerlands Ungdomsskole arbejder vi med både faglighed, fællesskab og personlig udvikling.
 Udtalelsen er skrevet med udgangspunkt i elevens hverdag og deltagelse gennem skoleåret.`;
 
-  const DEFAULT_TEMPLATE = "Udtalelse vedrørende {{ELEV_FULDE_NAVN}}\\n\\n{{ELEV_FORNAVN}} {{ELEV_EFTERNAVN}} har været elev på Himmerlands Ungdomsskole i perioden fra {{PERIODE_FRA}} til {{PERIODE_TIL}} i {{ELEV_KLASSE}}.\\n\\nHimmerlands Ungdomsskole er en traditionsrig efterskole, som prioriterer fællesskabet og faglig fordybelse højt. Elevernes hverdag er præget af frie rammer og mange muligheder. Vi møder eleverne med tillid, positive forventninger og faglige udfordringer. I løbet af et efterskoleår på Himmerlands Ungdomsskole er oplevelserne mange og udfordringerne ligeså. Det gælder i hverdagens almindelige undervisning, som fordeler sig over boglige fag, fællesfag og profilfag. Det gælder også alle de dage, hvor hverdagen ændres til fordel for temauger, studieture mm. \\n\\n{{ELEV_UDVIKLING_AFSNIT}}\n\n{{ELEVRAAD_AFSNIT}}\n\n{{ROLLE_AFSNIT}}\n\\n\\nSom en del af et efterskoleår på Himmerlands Ungdomsskole deltager eleverne ugentligt i fællessang og fællesgymnastik. Begge fag udgør en del af efterskolelivet, hvor eleverne oplever nye sider af sig selv, flytter grænser og oplever, at deres bidrag til fællesskabet har betydning. I løbet af året optræder eleverne med fælleskor og gymnastikopvisninger.\\n\\n{{SANG_GYM_AFSNIT}}\\n\\nPå en efterskole er der mange praktiske opgaver.\\n\\n{{PRAKTISK_AFSNIT}}\\n\\n{{ELEV_FORNAVN}} har på Himmerlands Ungdomsskole været en del af en kontaktgruppe på {{KONTAKTGRUPPE_ANTAL}} elever. I kontaktgruppen kender vi {{HAM_HENDE}} som {{KONTAKTGRUPPE_BESKRIVELSE}}.\\n\\nVi har været rigtig glade for at have {{ELEV_FORNAVN}} som elev på skolen og ønsker {{HAM_HENDE}} held og lykke fremover.\\n\\n{{KONTAKTLÆRER_1_NAVN}} & {{KONTAKTLÆRER_2_NAVN}}\\n\\nKontaktlærere\\n\\n{{FORSTANDER_NAVN}}\\n\\nForstander";
+  const DEFAULT_TEMPLATE = "Udtalelse vedrørende {{ELEV_FULDE_NAVN}}\\n\\n{{ELEV_FORNAVN}} {{ELEV_EFTERNAVN}} har været elev på Himmerlands Ungdomsskole i perioden fra {{PERIODE_FRA}} til {{PERIODE_TIL}} i {{ELEV_KLASSE}}.\\n\\nHimmerlands Ungdomsskole er en traditionsrig efterskole, som prioriterer fællesskabet og faglig fordybelse højt. Elevernes hverdag er præget af frie rammer og mange muligheder. Vi møder eleverne med tillid, positive forventninger og faglige udfordringer. I løbet af et efterskoleår på Himmerlands Ungdomsskole er oplevelserne mange og udfordringerne ligeså. Det gælder i hverdagens almindelige undervisning, som fordeler sig over boglige fag, fællesfag og profilfag. Det gælder også alle de dage, hvor hverdagen ændres til fordel for temauger, studieture mm. \\n\\n{{ELEV_UDVIKLING_AFSNIT}}\n\n{{ELEVRAAD_AFSNIT}}\n\n{{ROLLE_AFSNIT}}\n\\n\\nSom en del af et efterskoleår på Himmerlands Ungdomsskole deltager eleverne ugentligt i fællessang og fællesgymnastik. Begge fag udgør en del af efterskolelivet, hvor eleverne oplever nye sider af sig selv, flytter grænser og oplever, at deres bidrag til fællesskabet har betydning. I løbet af året optræder eleverne med fælleskor og gymnastikopvisninger.\\n\\n{{SANG_GYM_AFSNIT}}\\n\\nPå en efterskole er der mange praktiske opgaver.\\n\\n{{PRAKTISK_AFSNIT}}\\n\\n{{ELEV_FORNAVN}} har på Himmerlands Ungdomsskole været en del af en kontaktgruppe på {{KONTAKTGRUPPE_ANTAL}} elever. I kontaktgruppen kender vi {{HAM_HENDE}} som {{KONTAKTGRUPPE_BESKRIVELSE}}.\\n\\nVi har været rigtig glade for at have {{ELEV_FORNAVN}} som elev på skolen og ønsker {{HAM_HENDE}} held og lykke fremover.\\n\\n{{KONTAKTLÆRER_1_NAVN}} & {{KONTAKTLÆRER_2_NAVN}}\\n\\nKontaktgruppelærere\\n\\n{{FORSTANDER_NAVN}}\\n\\nForstander";
 
   // ---------- storage ----------
   function lsGet(key, fallback) {
@@ -652,7 +652,7 @@ function openPrintWindowForStudents(students, settings, title) {
 
   // Extract signature lines from the end of the statement and render them as a compact 2-column block.
   // Expected pattern near the end:
-  //   Kontaktlærere
+  //   Kontaktgruppelærere
   //   <k-lærer1>
   //   <k-lærer2?>
   //
@@ -664,7 +664,7 @@ function openPrintWindowForStudents(students, settings, title) {
     const norm = (s) => (s || '').trim();
     const out = { mainText: text, ct1: '', ct2: '', principal: '' };
 
-    const idxKontakt = lines.findIndex(l => /^\s*Kontaktlærere\s*$/i.test(norm(l)));
+    const idxKontakt = lines.findIndex(l => /^\s*Kontaktgruppelærere\s*$/i.test(norm(l)));
     const idxForst   = lines.findIndex(l => /^\s*Forstander\s*$/i.test(norm(l)));
 
     if (idxKontakt !== -1 && idxForst !== -1 && idxForst > idxKontakt) {
@@ -712,7 +712,7 @@ function openPrintWindowForStudents(students, settings, title) {
           <div class="printHeaderLogo"><img src="${PRINT_HEADER_LOGO_DATAURL}" alt="Himmerlands Ungdomsskole" /></div>
           <pre class="statement">${escapeHtml(sig.mainText)}</pre>
           <div class="signatureBlock">
-            <div class="label">Kontaktlærere</div><div class="label">Forstander</div>
+            <div class="label">Kontaktgruppelærere</div><div class="label">Forstander</div>
             <div class="value">${escapeHtml(sig.ct1)}</div><div class="value">${escapeHtml(sig.principal)}</div>
             <div class="value">${escapeHtml(sig.ct2)}</div><div class="value"></div>
           </div>
@@ -728,7 +728,9 @@ function openPrintWindowForStudents(students, settings, title) {
   <meta charset="utf-8">
   <title>${docTitle}</title>
   <style>
-    @page { size: A4; margin: 12mm 14mm; }
+    @page{
+  margin: 12mm 14mm 12mm 14mm;
+}
     html, body { margin: 0; padding: 0; background: #fff; }
     .page{
       width: 210mm;
@@ -778,19 +780,27 @@ function openPrintWindowForStudents(students, settings, title) {
 
     /* Header: date (top-right) + logo (center) */
     .printHeaderTop{
-      display:flex;
-      justify-content:flex-end;
-      align-items:flex-start;
-      margin: 2mm 0 0 0;
-      font-size: 10pt;
-      color: #222;
-    }
+  position: relative;
+  height: 12mm;
+}
+.printHeaderDate{
+  position:absolute;
+  top: 0;
+  right: 0;
+  font-size: 10pt;
+}
     .printHeaderDate{ white-space: nowrap; }
     .printHeaderLogo{
-      display:flex;
-      justify-content:center;
-      margin: 0 0 6mm 0;
-    }
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin: 2mm 0 8mm 0;
+}
+.printHeaderLogo img{
+  height: 26mm;
+  width: auto;
+  transform: none;
+}
     .printHeaderLogo img{
       height: 18mm;
       width: auto;
@@ -799,14 +809,12 @@ function openPrintWindowForStudents(students, settings, title) {
 
 
     /* Footer page numbers (if supported by the browser/print driver) */
-    @page {
-      @bottom-center {
-        content: "Side " counter(page) " / " counter(pages);
-        font-size: 9pt;
-      }
-    }
+    @page{ margin: 12mm 14mm 12mm 14mm; }
 
-    @media print {
+    @media print{
+  .studentDoc{break-before:page;page-break-before:always;break-after:page;page-break-after:always;}
+  .studentDoc:first-child{break-before:auto;page-break-before:auto;}
+
       .studentDoc{
       width: 210mm;
       box-sizing: border-box;
