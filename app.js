@@ -2368,16 +2368,32 @@ function updateTabLabels(){
         else hint.textContent = `Status for aktiv K-gruppe (${nTot} elev${nTot===1?'':'er'}):`;
       }
 
+      // Values + "mangler" hint
       setVal('importStatsSang', `${doneS}/${nTot}`);
       setVal('importStatsGym', `${doneG}/${nTot}`);
-      setVal('importStatsER', `${doneE}/${nTot}`);
-      setVal('importStatsSangMissingCount', `${missing.sang.length}`);
-      setVal('importStatsGymMissingCount', `${missing.gym.length}`);
-      setVal('importStatsERMissingCount', `${missing.elevraad.length}`);
+      setVal('importStatsElevraad', `${doneE}/${nTot}`);
+      setVal('importMissSang', nTot ? `(mangler ${missing.sang.length})` : '');
+      setVal('importMissGym',  nTot ? `(mangler ${missing.gym.length})` : '');
+      setVal('importMissER',   nTot ? `(mangler ${missing.elevraad.length})` : '');
 
-      setList('importStatsSangMissing', missing.sang);
-      setList('importStatsGymMissing', missing.gym);
-      setList('importStatsERMissing', missing.elevraad);
+      setList('importMissingSang', missing.sang);
+      setList('importMissingGym',  missing.gym);
+      setList('importMissingElevraad', missing.elevraad);
+
+      // Colored dots (ok/warn/bad)
+      const setDot = (dotId, done) => {
+        const el = document.getElementById(dotId);
+        if (!el) return;
+        el.classList.remove('ok','warn','bad');
+        if (!nTot) return;
+        const r = done / nTot;
+        if (done === 0) el.classList.add('bad');
+        else if (r >= 0.9) el.classList.add('ok');
+        else el.classList.add('warn');
+      };
+      setDot('dotSang', doneS);
+      setDot('dotGym', doneG);
+      setDot('dotER', doneE);
 
       // Wire toggle buttons once
       const wireToggle = (btnId, boxId) => {
@@ -2385,18 +2401,20 @@ function updateTabLabels(){
         const box = document.getElementById(boxId);
         if (!btn || !box || btn.__wired) return;
         btn.__wired = true;
+        // ensure hidden by default
+        if (!box.style.display) box.style.display = 'none';
         btn.addEventListener('click', () => {
-          const isOpen = box.style.display !== 'none';
-          box.style.display = isOpen ? 'none' : 'block';
-          btn.textContent = isOpen ? 'Vis manglende' : 'Skjul manglende';
+          const isHidden = box.style.display === 'none';
+          box.style.display = isHidden ? 'block' : 'none';
+          btn.textContent = isHidden ? 'Skjul manglende' : 'Vis manglende';
         });
       };
-      wireToggle('btnToggleMissingSang', 'importStatsSangMissingWrap');
-      wireToggle('btnToggleMissingGym',  'importStatsGymMissingWrap');
-      wireToggle('btnToggleMissingER',   'importStatsERMissingWrap');
+      wireToggle('btnToggleMissingSang', 'importMissingSang');
+      wireToggle('btnToggleMissingGym',  'importMissingGym');
+      wireToggle('btnToggleMissingElevraad', 'importMissingElevraad');
 
       // Disable toggles if no data
-      const dis = (btnId, count) => {
+      const dis = (btnId) => {
         const btn = document.getElementById(btnId);
         if (!btn) return;
         btn.disabled = !nTot;
@@ -2404,7 +2422,7 @@ function updateTabLabels(){
       };
       dis('btnToggleMissingSang');
       dis('btnToggleMissingGym');
-      dis('btnToggleMissingER');
+      dis('btnToggleMissingElevraad');
     }
 
     renderSnippetsEditor();
