@@ -650,6 +650,43 @@ function openPrintWindowForStudents(students, settings, title) {
     "'": '&#39;'
   }[c]));
 
+  // Extract signature lines from the end of the statement and render them as a compact 2-column block.
+  // Expected pattern near the end:
+  //   Kontaktlærere
+  //   <k-lærer1>
+  //   <k-lærer2?>
+  //
+  //   Forstander
+  //   <forstandernavn>
+  function parseSignatureBlock(statementText) {
+    const text = String(statementText || '');
+    const lines = text.split(/\r?\n/);
+    const norm = (s) => (s || '').trim();
+    const out = { mainText: text, ct1: '', ct2: '', principal: '' };
+
+    const idxKontakt = lines.findIndex(l => /^\s*Kontaktlærere\s*$/i.test(norm(l)));
+    const idxForst   = lines.findIndex(l => /^\s*Forstander\s*$/i.test(norm(l)));
+
+    if (idxKontakt !== -1 && idxForst !== -1 && idxForst > idxKontakt) {
+      const before = lines.slice(0, idxKontakt);
+      const between = lines.slice(idxKontakt + 1, idxForst).map(norm).filter(Boolean);
+      const after = lines.slice(idxForst + 1).map(norm).filter(Boolean);
+
+      out.ct1 = between[0] || '';
+      out.ct2 = between[1] || '';
+      out.principal = after[0] || '';
+
+      // Rebuild mainText without the signature block
+      const rebuilt = before.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd();
+      out.mainText = rebuilt;
+    } else {
+      // Still normalize excessive blank lines for print compactness
+      out.mainText = text.replace(/\n{3,}/g, '\n\n').trimEnd();
+    }
+    return out;
+  }
+
+
   const list = sortedStudents(Array.isArray(students) ? students : []);
 
   // Header date (month + year) should match 'Dato måned/år (auto)' from Indstillinger → Periode
@@ -667,12 +704,18 @@ function openPrintWindowForStudents(students, settings, title) {
   }
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
+    const sig = parseSignatureBlock(txt);
     return `
       <div class="studentDoc">
         <div class="content">
           <div class="printHeaderTop"><div class="printHeaderDate">${escapeHtml(headerDateText)}</div></div>
           <div class="printHeaderLogo"><img src="${PRINT_HEADER_LOGO_DATAURL}" alt="Himmerlands Ungdomsskole" /></div>
-          <pre class="statement">${escapeHtml(txt)}</pre>
+          <pre class="statement">${escapeHtml(sig.mainText)}</pre>
+          <div class="signatureBlock">
+            <div class="label">Kontaktlærere</div><div class="label">Forstander</div>
+            <div class="value">${escapeHtml(sig.ct1)}</div><div class="value">${escapeHtml(sig.principal)}</div>
+            <div class="value">${escapeHtml(sig.ct2)}</div><div class="value"></div>
+          </div>
         </div>
       </div>`;
   }).join('');
@@ -685,7 +728,7 @@ function openPrintWindowForStudents(students, settings, title) {
   <meta charset="utf-8">
   <title>${docTitle}</title>
   <style>
-    @page { size: A4; margin: 0; }
+    @page { size: A4; margin: 12mm 14mm; }
     html, body { margin: 0; padding: 0; background: #fff; }
     .page{
       width: 210mm;
@@ -698,8 +741,11 @@ function openPrintWindowForStudents(students, settings, title) {
       height: auto;
       overflow: visible;
     }
-    .content { width: 100%; height: 100%; overflow: visible;
-}
+    .content{
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0;
+    }
     .statement {
       margin: 0;
       white-space: pre-wrap;
@@ -743,9 +789,8 @@ function openPrintWindowForStudents(students, settings, title) {
     .printHeaderLogo{
       display:flex;
       justify-content:center;
-      align-items:center;
-      margin: 0 0 8mm 0;
-}
+      margin: 0 0 6mm 0;
+    }
     .printHeaderLogo img{
       height: 18mm;
       width: auto;
@@ -763,9 +808,10 @@ function openPrintWindowForStudents(students, settings, title) {
 
     @media print {
       .studentDoc{
-        break-before: page;
-        page-break-before: always;
-      }
+      width: 210mm;
+      box-sizing: border-box;
+      padding: 0; /* padding handled by page margins */
+    }
       .studentDoc:first-child{
         break-before: auto;
         page-break-before: auto;
