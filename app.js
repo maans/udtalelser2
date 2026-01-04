@@ -314,8 +314,7 @@ function resolveFullName(row) {
 
     const SNIPPETS_DEFAULT = JSON.parse(JSON.stringify(SNIPPETS));
 
-const DEFAULT_SCHOOL_TEXT =
-`På Himmerlands Ungdomsskole arbejder vi med både faglighed, fællesskab og personlig udvikling.
+const DEFAULT_SCHOOL_TEXT = `På Himmerlands Ungdomsskole arbejder vi med både faglighed, fællesskab og personlig udvikling.
 Udtalelsen er skrevet med udgangspunkt i elevens hverdag og deltagelse gennem skoleåret.`;
 
   const DEFAULT_TEMPLATE = "Udtalelse vedrørende {{ELEV_FULDE_NAVN}}\n\n{{ELEV_FORNAVN}} {{ELEV_EFTERNAVN}} har været elev på Himmerlands Ungdomsskole i perioden fra {{PERIODE_FRA}} til {{PERIODE_TIL}} i {{ELEV_KLASSE}}.\n\nHimmerlands Ungdomsskole er en traditionsrig efterskole, som prioriterer fællesskabet og faglig fordybelse højt. Elevernes hverdag er præget af frie rammer og mange muligheder. Vi møder eleverne med tillid, positive forventninger og faglige udfordringer. I løbet af et efterskoleår på Himmerlands Ungdomsskole er oplevelserne mange og udfordringerne ligeså. Det gælder i hverdagens almindelige undervisning, som fordeler sig over boglige fag, fællesfag og profilfag. Det gælder også alle de dage, hvor hverdagen ændres til fordel for temauger, studieture mm. \n\n{{ELEV_UDVIKLING_AFSNIT}}\n\n{{ELEVRAAD_AFSNIT}}\n\n{{ROLLE_AFSNIT}}\n\n\nSom en del af et efterskoleår på Himmerlands Ungdomsskole deltager eleverne ugentligt i fællessang og fællesgymnastik. Begge fag udgør en del af efterskolelivet, hvor eleverne oplever nye sider af sig selv, flytter grænser og oplever, at deres bidrag til fællesskabet har betydning. I løbet af året optræder eleverne med fælleskor og gymnastikopvisninger.\n\n{{SANG_GYM_AFSNIT}}\n\nPå en efterskole er der mange praktiske opgaver. {{PRAKTISK_AFSNIT}}\n\n{{ELEV_FORNAVN}} har på Himmerlands Ungdomsskole været en del af en kontaktgruppe på {{KONTAKTGRUPPE_ANTAL}} elever. I kontaktgruppen kender vi {{HAM_HENDE}} som {{KONTAKTGRUPPE_BESKRIVELSE}}.\n\nVi har været rigtig glade for at have {{ELEV_FORNAVN}} som elev på skolen og ønsker {{HAM_HENDE}} held og lykke fremover.\n\n{{KONTAKTLÆRER_1_NAVN}} & {{KONTAKTLÆRER_2_NAVN}}     {{FORSTANDER_NAVN}}\n\nKontaktlærere                                                           Forstander\n";
@@ -620,6 +619,20 @@ function applyOnePagePrintScale() {
   document.documentElement.style.setProperty('--printScale', '1');
   // Only relevant when preview has content
   const txt = (preview.textContent || '').trim();
+
+  // Title extraction (first line) — no regex
+  const rawPrint = String(txt || '').replaceAll('\r', '');
+  const nl = rawPrint.indexOf('\n');
+  let titleLine = '';
+  let bodyText = rawPrint;
+  if (nl >= 0) {
+    titleLine = rawPrint.slice(0, nl).trim();
+    bodyText = rawPrint.slice(nl + 1);
+    while (bodyText.startsWith('\n')) bodyText = bodyText.slice(1);
+  } else {
+    titleLine = rawPrint.trim();
+    bodyText = '';
+  }
   if (!txt) return;
 
   // Create a mm-to-px probe (hidden)
@@ -650,54 +663,6 @@ function openPrintWindowForStudents(students, settings, title) {
     "'": '&#39;'
   }[c]));
 
-  // Extract signature lines from the end of the statement and render them as a compact 2-column block.
-  // Expected pattern near the end:
-  //   Kontaktgruppelærere
-  //   <k-lærer1>
-  //   <k-lærer2?>
-  //
-  //   Forstander
-  //   <forstandernavn>
-  function parseStatementForPrint(statementText) {
-    const raw = String(statementText || '');
-    let text = raw.replace(//g, '');
-    // Normalize excessive blank lines (keep at most one blank line)
-    text = text.replace(/
-{3,}/g, '
-
-').trimEnd();
-
-    const lines = text.split('
-');
-    // Title: first non-empty line
-    let title = '';
-    let firstIdx = -1;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].trim()) { title = lines[i].trim(); firstIdx = i; break; }
-    }
-
-    // Body: everything after the title line (preserve spacing + any signature lines)
-    let bodyLines = (firstIdx >= 0) ? lines.slice(firstIdx + 1) : lines.slice();
-    // Remove leading blank lines in body
-    while (bodyLines.length && !bodyLines[0].trim()) bodyLines.shift();
-    const bodyText = bodyLines.join('
-').trimEnd();
-
-    return { title, bodyText };
-  }
-
-    // Body: everything after the title line (preserve spacing + any signature lines)
-    let bodyLines = (firstIdx >= 0) ? lines.slice(firstIdx + 1) : lines.slice();
-    // Remove leading blank lines in body
-    while (bodyLines.length && !bodyLines[0].trim()) bodyLines.shift();
-    const bodyText = bodyLines.join('
-').trimEnd();
-
-    return { title, bodyText };
-  }
-
-
-
   const list = sortedStudents(Array.isArray(students) ? students : []);
 
   // Header date (month + year) should match 'Dato måned/år (auto)' from Indstillinger → Periode
@@ -715,18 +680,18 @@ function openPrintWindowForStudents(students, settings, title) {
   }
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
-    const parts = parseStatementForPrint(txt);
     return `
-      <div class="studentDoc">
+      <div class="page">
         <div class="content">
           <div class="printHeaderTop"><div class="printHeaderDate">${escapeHtml(headerDateText)}</div></div>
           <div class="printHeaderLogo"><img src="${PRINT_HEADER_LOGO_DATAURL}" alt="Himmerlands Ungdomsskole" /></div>
-          <div class="statementTitle">${escapeHtml(parts.title)}</div>
-          <pre class="statement">${escapeHtml(parts.bodyText)}</pre>
+          <div class="printTitle">${escapeHtml(titleLine)}</div>
+          <pre class="statement">${escapeHtml(bodyText)}</pre>
         </div>
       </div>`;
   }).join('');
-const docTitle = escapeHtml(title || 'Print');
+
+  const docTitle = escapeHtml(title || 'Print');
 
   const html = `<!doctype html>
 <html>
@@ -734,43 +699,106 @@ const docTitle = escapeHtml(title || 'Print');
   <meta charset="utf-8">
   <title>${docTitle}</title>
   <style>
-  @page { margin: 12mm 14mm; }
+    @page { size: A4; margin: 0; }
+    html, body { margin: 0; padding: 0; background: #fff; }
+    .page {
+      width: 210mm;
+      height: 297mm;
+      padding: 12mm 14mm;
+      box-sizing: border-box;
+      page-break-after: always;
+      overflow: hidden;
+      --s: 1;
+    }
+    .content { width: 100%; height: 100%; overflow: hidden; }
+    .statement {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: Arial, sans-serif;
+      font-size: 10.5pt;
+      font-size: 12pt;
+      line-height: 1.45;
+      transform: none;
+      transform-origin: top left;
+    }
+  
+    /* iOS/iPadOS Safari: disable scaling transforms to avoid alternating blank pages */
+    @supports (-webkit-touch-callout: none) {
+      .page { --s: 1 !important; }
+      .statement { transform: none !important; width: auto !important; }
+    }
 
-  html, body { margin: 0; padding: 0; background: #fff; }
+    /* Header logo */
+    .printHeader{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      margin: 0mm 0 6mm 0;
+    }
+    .printTitle{
+      text-align: center;
+      font-family: Arial, sans-serif;
+      font-size: 12pt;
+      font-weight: 700;
+      margin: 0 0 6mm 0;
+    }
 
-  /* One student per printed page */
-  .studentDoc { page-break-after: always; }
-  .content {
-    width: 210mm;
-    min-height: 297mm;
-    box-sizing: border-box;
-    padding: 12mm 14mm;
-    font-family: Arial, sans-serif;
-    font-size: 10.5pt;
-    line-height: 1.25;
-    color: #000;
-    position: relative;
-  }
+    .printHeader img{
+      height: 22mm;
+      width: auto;
+      display:block;
+    }
 
-  /* Canonical header */
-  .printHeaderTop { position: absolute; top: 12mm; right: 14mm; left: 14mm; height: 0; }
-  .printHeaderDate { position: absolute; right: 0; top: 0; font-size: 10.5pt; }
-  .printHeaderLogo { margin-top: 0; text-align: center; padding-top: 0; }
-  .printHeaderLogo img { height: 18mm; width: auto; display: inline-block; margin-top: -1mm; }
 
-  .statementTitle{
-    text-align: center;
-    font-weight: 700;
-    font-size: 14pt;
-    margin: 18mm 0 6mm 0; /* leaves room for date/logo */
-  }
-  .statement{
-    white-space: pre-wrap;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: inherit;
-    margin: 0;
-  }
+    /* Header: date (top-right) + logo (center) */
+    .printHeaderTop{
+      display:flex;
+      justify-content:flex-end;
+      align-items:flex-start;
+      margin: 2mm 0 0 0;
+      font-size: 10pt;
+      color: #222;
+    }
+    .printHeaderDate{ white-space: nowrap; }
+    .printHeaderLogo{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      margin: 8mm 0 8mm 0;
+    }
+    .printHeaderLogo img{
+      height: 22mm;
+      width: auto;
+      display:block;
+    }
+
+
+    /* One-page requirement: each student on exactly one A4 page.
+       We'll auto-fit by adjusting font-size (NO transform scaling, to avoid iOS blank pages). */
+    .page{
+      box-sizing: border-box;
+      width: 210mm;
+      height: 297mm;
+      padding: 14mm 14mm 14mm 14mm;
+      break-after: page;
+      page-break-after: always;
+      overflow: hidden;
+    }
+    .page:last-child{
+      break-after: auto;
+      page-break-after: auto;
+    }
+    .content{
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    pre.statement{
+      white-space: pre-wrap;
+      margin: 0;
+      overflow: hidden;
+    }
+
 </style>
 </head>
 <body>
@@ -779,40 +807,42 @@ ${pagesHtml}
 (function(){
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
-  const disableScale = isIOS;
+  const disableScale = true; // no transform scaling; we use font-size autofit instead
   function fitAll(){
-    const pages = document.querySelectorAll('.page');
-    pages.forEach(p => {
-      const c = p.querySelector('.statement');
-      if(!c) return;
+      const pages = Array.from(document.querySelectorAll('.page'));
+      pages.forEach(page => {
+        const statement = page.querySelector('pre.statement');
+        const content = page.querySelector('.content');
+        if(!statement || !content) return;
 
-      // Reset
-      p.style.setProperty('--s', 1);
-      c.style.width = '';
+        // Start at a reasonable base size; then shrink until it fits inside the page.
+        let size = 11;              // pt
+        const minSize = 8.25;       // pt (readable floor)
+        const step = 0.25;          // pt
+        statement.style.fontSize = size + 'pt';
+        statement.style.lineHeight = '1.35';
 
-      const availH = p.clientHeight;
-      const availW = p.clientWidth;
-      let neededH = c.scrollHeight;
-      let neededW = c.scrollWidth;
-
-      let s = Math.min(1, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
-
-      // If we scale down, widen the element proportionally to preserve line wrapping
-      // and re-check height.
-      if (s < 1) {
-        c.style.width = (100 / s) + '%';
-        neededH = c.scrollHeight;
-        neededW = c.scrollWidth;
-        s = Math.min(s, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
-      }
-
-      p.style.setProperty('--s', s.toFixed(4));
+        // Give layout a tick
+        for(let i=0;i<60;i++){
+          const fits = statement.scrollHeight <= content.clientHeight;
+          if(fits) break;
+          size -= step;
+          if(size < minSize) {
+            // If still too long, keep minimum size; content may clip, but we tried.
+            size = minSize;
+            statement.style.fontSize = size + 'pt';
+            break;
+          }
+          statement.style.fontSize = size + 'pt';
+        }
+      });
+    }p.style.setProperty('--s', s.toFixed(4));
     });
   }
 
   window.addEventListener('load', () => {
+    fitAll();
     if(!disableScale) {
-      fitAll();
       // A tiny delay helps after font rasterization
       setTimeout(fitAll, 50);
     }
@@ -909,7 +939,7 @@ async function printAllKGroups() {
     const txt = buildStatement(st, getSettings());
     return `
       <section class="entry">
-        <div class="studentDoc"><pre class="content">${escapeHtml(txt)}</pre></div>
+        <div class="page"><pre class="content">${escapeHtml(txt)}</pre></div>
       </section>
     `;
   }).join('');
