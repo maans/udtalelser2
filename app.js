@@ -1059,7 +1059,10 @@ function updateTeacherDatalist() {
     Object.keys(alias || {}).forEach(k => {
       const I = (k || '').toString().trim().toUpperCase();
       const F = (alias[k] || '').toString().trim();
+      // aliasMap indeholder også navne-keys (fx "andreasbechpedersen").
+      // I pickeren vil vi KUN bruge rigtige initialer (1-4 bogstaver).
       if (!I || !F) return;
+      if (!isValidInitials(I)) return;
       if (!nameByIni.has(I)) nameByIni.set(I, F);
     });
   } catch(_) {}
