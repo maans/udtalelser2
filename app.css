@@ -132,6 +132,9 @@ code{font-family:var(--mono)}
 .viewHeader{margin-bottom:1rem}
 .viewTitleRow{display:grid; grid-template-columns: 1fr auto 1fr; align-items:center; column-gap:1rem}
 
+/* Center actions in title rows (used by Redigér) */
+#editTitleCenter{display:flex; align-items:center; justify-content:center; gap:.75rem;}
+
 #autosavePill{min-width:150px; text-align:center}
 h1{margin:.2rem 0 .2rem 0; font-size:1.4rem}
 p{margin:.25rem 0 .25rem 0; line-height:1.55}

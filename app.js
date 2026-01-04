@@ -2543,8 +2543,11 @@ try {
     btnPrint.textContent = `🖨️ Print ${key} · K-gruppe ${gi+1}/${totalGroups}`;
     btnPrint.title = 'Udskriv den aktive K-gruppe som én samlet udskrift';
   } else {
-    btnPrint.textContent = '🖨️ Print dine K-elever';
-    btnPrint.title = 'Udskriv dine K-elever som én samlet udskrift';
+	    const sNow = getSettings();
+	    const meIniNow = toInitials(((sNow.meResolvedConfirmed || sNow.meResolved || sNow.me || '') + '').trim()) || '—';
+	    const visibleCount = (typeof getVisibleKElevIds === 'function') ? (getVisibleKElevIds().length || 0) : 0;
+	    btnPrint.textContent = `🖨️ Print ${meIniNow}'s ${visibleCount} K-elever`;
+	    btnPrint.title = 'Udskriv dine K-elever som én samlet udskrift';
   }
   if (btnPrint.parentElement !== titleActions) titleActions.appendChild(btnPrint);
 } catch(_) {}
@@ -2860,6 +2863,14 @@ function formatTime(ts) {
     if (navRow) navRow.style.display = '';
     if (hint) hint.innerHTML = '';
     const full = `${st.fornavn} ${st.efternavn}`.trim();
+
+	    // Update "Print elev" button label to include the active student's first name.
+	    const btnPrintOne = $('btnPrint');
+	    if (btnPrintOne) {
+	      const fn = (st.fornavn || '').trim();
+	      btnPrintOne.textContent = fn ? `🖨️ Print ${fn}` : '🖨️ Print elev';
+	      btnPrintOne.title = fn ? `Udskriv udtalelsen for ${fn}` : 'Udskriv udtalelsen for den aktive elev';
+	    }
     // Move the full active student name into the nav row center (bigger), to free vertical space.
     if (pill) { pill.style.display = 'none'; }
     const centerSlot = navRow ? navRow.querySelector('.navSlot.center') : null;
