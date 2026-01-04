@@ -1963,6 +1963,76 @@ const klasse = get('klasse');
     return { fornavn, efternavn, navn, unilogin, koen, klasse, kontaktlaerer1: kontakt1_navn, kontaktlaerer2: kontakt2_navn, kontaktlaerer1_ini: k1, kontaktlaerer2_ini: k2 };
   }
 
+  // ---------- Canonicalize K-lærer initials across dataset ----------
+  // In nogle CSV'er kan samme kontaktlærer optræde med både auto-initialer
+  // (fx Andreas Bech Pedersen -> AP) og et eksplicit override (fx AB).
+  // Vi ønsker én entydig initial pr. fulde navn i hele datasættet.
+  // Heuristik:
+  //   - Hvis et fulde navn har mindst én initial som afviger fra autoInitials(fullName),
+  //     betragtes den/de som overrides, og den mest hyppige override vælges som canonical.
+  //   - Ellers vælges den mest hyppige initial (typisk auto).
+  // Resultat: alle elever får samme *_ini for samme fulde navn.
+  function canonicalizeTeacherInitials(students){
+    const studs = Array.isArray(students) ? students : [];
+    if (!studs.length) return studs;
+
+    // Collect stats per full name
+    const statsByName = new Map(); // normName -> { fullName, auto, counts: Map(ini->count) }
+    const bump = (fullNameRaw, iniRaw) => {
+      const full = (fullNameRaw || '').toString().trim();
+      if (!full) return;
+      const norm = normalizeName(full);
+      if (!norm) return;
+      const ini = (iniRaw || '').toString().trim().toUpperCase();
+      if (!ini) return;
+      if (!statsByName.has(norm)) statsByName.set(norm, { fullName: full, auto: toInitials(full), counts: new Map() });
+      const s = statsByName.get(norm);
+      // keep prettiest full name (longest) if variations exist
+      if (full.length > (s.fullName||'').length) s.fullName = full;
+      s.counts.set(ini, (s.counts.get(ini) || 0) + 1);
+    };
+
+    for (const st of studs){
+      if (!st) continue;
+      bump(st.kontaktlaerer1, st.kontaktlaerer1_ini);
+      bump(st.kontaktlaerer2, st.kontaktlaerer2_ini);
+    }
+
+    // Choose canonical initials per name
+    const canonicalByName = new Map(); // normName -> canonicalIni
+    for (const [norm, info] of statsByName.entries()){
+      const auto = (info.auto || '').toUpperCase();
+      let best = '';
+      let bestCount = -1;
+
+      // Prefer overrides that differ from auto
+      for (const [ini, cnt] of info.counts.entries()){
+        if (auto && ini === auto) continue;
+        if (cnt > bestCount){ best = ini; bestCount = cnt; }
+      }
+
+      // If no differing overrides, fall back to most frequent overall
+      if (!best){
+        for (const [ini, cnt] of info.counts.entries()){
+          if (cnt > bestCount){ best = ini; bestCount = cnt; }
+        }
+      }
+
+      if (best) canonicalByName.set(norm, best);
+    }
+
+    // Apply canonical initials
+    for (const st of studs){
+      if (!st) continue;
+      const n1 = normalizeName((st.kontaktlaerer1 || '').toString().trim());
+      const n2 = normalizeName((st.kontaktlaerer2 || '').toString().trim());
+      if (n1 && canonicalByName.has(n1)) st.kontaktlaerer1_ini = canonicalByName.get(n1);
+      if (n2 && canonicalByName.has(n2)) st.kontaktlaerer2_ini = canonicalByName.get(n2);
+    }
+
+    return studs;
+  }
+
   // ---------- UI rendering ----------
   function setTab(tab) {
     let students = getStudents();
@@ -3116,7 +3186,8 @@ async function loadDemoStudentsCsv() {
     return;
   }
 
-  const students = parsed.rows.map(r => normalizeStudentRow(r, map));
+  const studentsRaw = parsed.rows.map(r => normalizeStudentRow(r, map));
+  const students = canonicalizeTeacherInitials(studentsRaw);
   setStudents(students);
 
   renderSettings(); renderStatus();
@@ -3395,7 +3466,8 @@ if (document.getElementById('btnDownloadElevraad')) {
       const ok = required.every(r => map[r]);
       if (!ok) { alert('Kunne ikke finde de nødvendige kolonner (fornavn, efternavn, klasse).'); return; }
 
-      const students = parsed.rows.map(r => normalizeStudentRow(r, map));
+      const studentsRaw = parsed.rows.map(r => normalizeStudentRow(r, map));
+      const students = canonicalizeTeacherInitials(studentsRaw);
       setStudents(students);
 
       renderSettings(); renderStatus();
