@@ -979,7 +979,10 @@ function computeMissingKTeacher(students) {
 }
 
 function updateTeacherDatalist() {
-  // v1.0: Identitet-listen bygges udelukkende ud fra elevlisten (initialer), ingen hardcodede lærere.
+  // K-lærer-pickeren bygges primært ud fra elevlisten:
+  // - Initialer findes i kontaktlærer1/2_ini
+  // - Fulde navne (hvis til stede) findes i kontaktlærer1/2
+  // Derudover kan brugerens aliasMap supplere med fulde navne.
   const input = document.getElementById('meInput');
   const menu  = document.getElementById('teacherPickerMenu');
   const btn   = document.getElementById('teacherPickerBtn');
@@ -995,22 +998,76 @@ function updateTeacherDatalist() {
     if (clear) clear.hidden = true;
     menu.innerHTML = `<div class="pickerEmpty">Indlæs elevliste først (students.csv).</div>`;
     wrap.classList.remove('open');
+    menu.hidden = true;
     return;
   }
 
   input.disabled = false;
   btn.disabled = false;
 
-  const set = new Set();
+  // Build initials -> full name map (prefer names seen in students.csv)
+  const nameByIni = new Map();          // ini -> bestName
+  const freqByIni = new Map();          // ini -> Map(name->count)
+  const bump = (ini, full) => {
+    const I = (ini || '').toString().trim().toUpperCase();
+    const F = (full || '').toString().trim();
+    if (!I) return;
+    if (!freqByIni.has(I)) freqByIni.set(I, new Map());
+    if (F) {
+      const m = freqByIni.get(I);
+      m.set(F, (m.get(F) || 0) + 1);
+    }
+  };
+
   for (const st of studs) {
-    const a = (st.kontaktlaerer1_ini || '').toString().trim().toUpperCase();
-    const b = (st.kontaktlaerer2_ini || '').toString().trim().toUpperCase();
-    if (a) set.add(a);
-    if (b) set.add(b);
+    bump(st.kontaktlaerer1_ini, st.kontaktlaerer1);
+    bump(st.kontaktlaerer2_ini, st.kontaktlaerer2);
   }
-  const items = Array.from(set).sort((x,y)=>x.localeCompare(y,'da'));
+
+  // Choose most frequent name per initials
+  for (const [ini, m] of freqByIni.entries()) {
+    let best = '';
+    let bestN = 0;
+    for (const [nm, n] of m.entries()) {
+      if (n > bestN) { bestN = n; best = nm; }
+    }
+    if (best) nameByIni.set(ini, best);
+  }
+
+  // Merge aliasMap (ini -> full name)
+  try {
+    const s = getSettings();
+    const alias = { ...(s.aliasMap || {}), ...(DEFAULT_ALIAS_MAP || {}) };
+    Object.keys(alias || {}).forEach(k => {
+      const I = (k || '').toString().trim().toUpperCase();
+      const F = (alias[k] || '').toString().trim();
+      if (!I || !F) return;
+      if (!nameByIni.has(I)) nameByIni.set(I, F);
+    });
+  } catch(_) {}
+
+  // Build items
+  const coll = new Intl.Collator('da', { sensitivity: 'base' });
+  const allInitials = Array.from(new Set([
+    ...Array.from(freqByIni.keys()),
+    ...Array.from(nameByIni.keys())
+  ])).sort((a,b)=>coll.compare(a,b));
+
+  const items = allInitials.map(ini => {
+    const full = nameByIni.get(ini) || '';
+    const first = (full.split(/\s+/).filter(Boolean)[0] || '').toLowerCase();
+    const last  = (full.split(/\s+/).filter(Boolean).slice(-1)[0] || '').toLowerCase();
+    return {
+      ini,
+      full,
+      first,
+      last,
+      label: full ? `${ini} · ${full}` : ini
+    };
+  });
 
   let activeIndex = 0;
+  let filteredItems = items.slice();
 
   function setActive(idx){
     const opts = Array.from(menu.querySelectorAll('[role="option"]'));
@@ -1019,25 +1076,61 @@ function updateTeacherDatalist() {
     opts.forEach((el,i)=>el.classList.toggle('active', i===activeIndex));
     const el = opts[activeIndex];
     if (el) el.scrollIntoView({ block: 'nearest' });
+    // aria-activedescendant (optional)
+    try { input.setAttribute('aria-activedescendant', el.id || ''); } catch(_) {}
+  }
+
+  function norm(s){ return normalizeName((s||'').toString()); }
+
+  function matches(it, qRaw){
+    const q = (qRaw || '').toString().trim();
+    if (!q) return true;
+
+    const qUpper = q.toUpperCase();
+    const qNorm  = norm(q);
+    const iniOk = it.ini.startsWith(qUpper);
+
+    // If user types a short token (often initials), prioritize initials and name-begins.
+    const parts = qNorm.split(/\s+/).filter(Boolean);
+    const fullNorm = norm(it.full || '');
+    const firstOk = it.first && it.first.startsWith(parts[0] || '');
+    const lastOk  = it.last  && it.last.startsWith(parts[0] || '');
+
+    if (parts.length === 1) {
+      // Accept:
+      // - initials prefix
+      // - first or last name prefix
+      // - or full name contains token (fallback)
+      return iniOk || firstOk || lastOk || (fullNorm && fullNorm.includes(parts[0]));
+    }
+
+    // Multiple tokens: require all tokens to be present in full name OR initials prefix for first token
+    if (iniOk) return true;
+    if (!fullNorm) return false;
+    return parts.every(t => fullNorm.includes(t));
   }
 
   function renderMenu(){
-    const q = (input.value || '').toString().trim().toUpperCase();
-    const filtered = !q ? items : items.filter(x => x.includes(q));
+    const q = (input.value || '');
+    filteredItems = items.filter(it => matches(it, q));
+
     menu.innerHTML = '';
-    if (!filtered.length){
+    if (!filteredItems.length){
       menu.innerHTML = `<div class="pickerEmpty">Ingen match</div>`;
       return;
     }
-    filtered.slice(0, 24).forEach((code, i) => {
+
+    filteredItems.slice(0, 40).forEach((it, i) => {
       const row = document.createElement('div');
       row.className = 'tpRow';
       row.setAttribute('role','option');
-      row.dataset.value = code;
-      row.textContent = code;
+      row.dataset.value = it.ini;
+      row.dataset.full = it.full || '';
+      row.textContent = it.label;
       row.addEventListener('mousedown', (e) => {
+        // mousedown so selection happens before blur
         e.preventDefault();
-        commit(code);
+        commit(it);
         closeMenu();
       });
       menu.appendChild(row);
@@ -1047,7 +1140,7 @@ function updateTeacherDatalist() {
 
   function openMenu(){
     menu.hidden = false;
-    if (!wrap.classList.contains('open')) wrap.classList.add('open');
+    wrap.classList.add('open');
     renderMenu();
   }
   function closeMenu(){
@@ -1055,15 +1148,20 @@ function updateTeacherDatalist() {
     menu.hidden = true;
   }
 
-  function commit(code){
-    const ini = (code || '').toString().trim().toUpperCase();
+  function commit(it){
+    const ini = (it && it.ini) ? it.ini : ((it||'')+'').trim().toUpperCase();
+    if (!ini) return;
     const s2 = getSettings();
     s2.me = ini;
-    // keep aliasMap if user already has it in storage, but we do not ship defaults
+    s2.meResolved = ini;
+    s2.meResolvedConfirmed = ini;
     setSettings(s2);
-    input.value = ini;
+
+    input.value = ini; // keep field minimal; list shows full names
+    if (clear) clear.hidden = false;
     renderStatus();
-    if (clear) clear.hidden = !ini;
+
+    // Send user directly to K-elever (som ønsket)
     try { state.viewMode = 'K'; setTab('k'); } catch(_) {}
   }
 
@@ -1075,7 +1173,7 @@ function updateTeacherDatalist() {
   if (clear) {
     clear.onclick = (e) => {
       e.preventDefault();
-      const s2 = getSettings(); s2.me = ''; s2.meResolved = ''; setSettings(s2);
+      const s2 = getSettings(); s2.me = ''; s2.meResolved = ''; s2.meResolvedConfirmed = ''; setSettings(s2);
       input.value = '';
       clear.hidden = true;
       closeMenu();
@@ -1088,25 +1186,32 @@ function updateTeacherDatalist() {
     if (!wrap.contains(e.target)) closeMenu();
   });
 
-
   const handlePickerKeydown = (e) => {
-    // Arrow/Enter should work even if fokus ender på dropdown-knappen eller menuen.
     if (e.key === 'Escape') { closeMenu(); return; }
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Down' || e.key === 'Up') || (e.keyCode === 40 || e.keyCode === 38)) {
+    if (e.key === 'ArrowDown' || e.key === 'Down' || e.keyCode === 40) {
       if (!wrap.classList.contains('open')) openMenu();
       e.preventDefault();
-      setActive(activeIndex + ((e.key === 'ArrowDown' || e.key === 'Down' || e.keyCode === 40) ? 1 : -1));
+      setActive(activeIndex + 1);
+      return;
+    }
+    if (e.key === 'ArrowUp' || e.key === 'Up' || e.keyCode === 38) {
+      if (!wrap.classList.contains('open')) openMenu();
+      e.preventDefault();
+      setActive(activeIndex - 1);
       return;
     }
     if (e.key === 'Enter') {
       const el = menu.querySelectorAll('[role="option"]')[activeIndex];
       if (el && el.dataset.value) {
         e.preventDefault();
-        commit(el.dataset.value);
+        const ini = el.dataset.value;
+        const full = el.dataset.full || '';
+        commit({ ini, full });
         closeMenu();
       }
     }
   };
+
   input.addEventListener('keydown', handlePickerKeydown, true);
   btn.addEventListener('keydown', handlePickerKeydown, true);
   menu.addEventListener('keydown', handlePickerKeydown, true);
@@ -3704,68 +3809,6 @@ try {
 }
   init().catch(console.error);
 })();
-(function teacherPickerKeyboardNavigation() {
-  const input = document.getElementById("meInput");
-  const picker = document.getElementById("teacherPicker");
-
-  if (!input || !picker) {
-    console.warn("TeacherPicker: input eller picker ikke fundet");
-    return;
-  }
-
-  let index = -1;
-
-  function getOptions() {
-    return Array.from(
-      picker.querySelectorAll("[data-value], .option, div, li")
-    ).filter(el => el !== input && el.textContent.trim() !== "");
-  }
-
-  function highlight(i) {
-    const options = getOptions();
-    options.forEach((el, idx) => {
-      el.classList.toggle("active", idx === i);
-      el.style.background = idx === i ? "rgba(255,255,255,0.08)" : "";
-    });
-
-    if (options[i]) {
-      options[i].scrollIntoView({ block: "nearest" });
-    }
-  }
-
-  input.addEventListener("keydown", e => {
-    const options = getOptions();
-    if (!options.length) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      index = (index + 1) % options.length;
-      highlight(index);
-    }
-
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      index = (index - 1 + options.length) % options.length;
-      highlight(index);
-    }
-
-    if (e.key === "Enter" && index >= 0) {
-      e.preventDefault();
-      options[index].click();
-      index = -1;
-    }
-
-    if (e.key === "Escape") {
-      index = -1;
-      highlight(-1);
-    }
-  });
-
-  input.addEventListener("focus", () => {
-    index = -1;
-  });
-})();
-
 function updateCsvButton(count) {
   const btn = document.getElementById('btnImportStudents');
   if (!btn) return;
