@@ -663,7 +663,8 @@ function openPrintWindowForStudents(students, settings, title) {
     "'": '&#39;'
   }[c]));
 
-  const list = sortedStudents(Array.isArray(students) ? students : []);
+  const opts = arguments.length > 3 ? (arguments[3] || {}) : {};
+  const list = opts.preserveOrder ? (Array.isArray(students) ? students : []) : sortedStudents(Array.isArray(students) ? students : []);
 
   // Header date (month + year) should match 'Dato måned/år (auto)' from Indstillinger → Periode
   let headerDateText = '';
@@ -863,12 +864,13 @@ async function printAllKGroups() {
     alert('Der er ingen elevliste indlæst endnu.');
     return;
   }
+
   const kGroups = buildKGroups(studs);
   const all = [];
 
   // Flatten i gruppe-rækkefølge (stabilt og forudsigeligt)
   kGroups.forEach(g => {
-    (g.students || []).forEach(st => all.push(st));
+    (g.students || []).forEach(s => all.push(s));
   });
 
   if (!all.length) {
@@ -877,49 +879,9 @@ async function printAllKGroups() {
   }
 
   const title = 'Udtalelser v1.0 – print alle K-grupper';
-  const styles = `
-    <style>
-      @page { size: A4; margin: 18mm 16mm; }
-      body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:#000; background:#fff; }
-      .entry{ page-break-after: always; }
-      .page{ width: 178mm; height: 261mm; overflow:hidden; position:relative; }
-      pre.content{
-        white-space: pre-wrap;
-        font: 11pt/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        margin:0;
-        transform: scale(var(--s, 1));
-        transform-origin: top left;
-        width: calc(100% / var(--s, 1));
-      }
-    </style>
-  `;
-  const body = all.map(st => {
-    const txt = buildStatement(st, getSettings());
-    return `
-      <section class="entry">
-        <div class="page"><pre class="content">${escapeHtml(txt)}</pre></div>
-      </section>
-    `;
-  }).join('');
-
-  const w = window.open('', '_blank');
-  if (!w) {
-    alert('Pop-up blev blokeret. Tillad pop-ups for at printe.');
-    return;
-  }
-  w.document.open();
-  w.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>${title}</title>${styles}</head><body>${body}
-    <script>
-      (function(){
-        window.addEventListener('load', () => {
-          setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 250);
-        });
-window.addEventListener('beforeprint', fitAll);
-      })();
-    </script>
-  </body></html>`);
-  w.document.close();
-  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
+  // Brug samme printmotor som enkelt-elev / k-gruppe, så header (logo + dato) altid kommer med.
+  // preserveOrder=true så vi ikke mister gruppe-ordenen ved intern sortering.
+  openPrintWindowForStudents(all, getSettings(), title, { preserveOrder: true });
 }
 
 function importLocalBackup(file) {
