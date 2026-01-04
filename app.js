@@ -122,7 +122,148 @@ Udtalelsen er skrevet med udgangspunkt i elevens hverdag og deltagelse gennem sk
       return fallback;
     }
   }
-  function lsSet(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+  // ===== Multi-tab safety (single-writer lock) =====
+  const TAB_ID = (() => {
+    try { return (crypto && crypto.randomUUID) ? crypto.randomUUID() : null; } catch(_) { return null; }
+  })() || (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10));
+
+  const TAB_LOCK_KEY = "udt_single_writer_lock_v1";
+  const TAB_LOCK_TTL_MS = 7000; // consider lock stale after this
+  const TAB_LOCK_BEAT_MS = 2000;
+
+  let READ_ONLY = false;
+  let __lockBeat = null;
+  let __readOnlyWarned = false;
+
+  function readTabLock() {
+    try { return JSON.parse(localStorage.getItem(TAB_LOCK_KEY) || "null"); } catch(_) { return null; }
+  }
+  function writeTabLock(obj) {
+    try { localStorage.setItem(TAB_LOCK_KEY, JSON.stringify(obj)); } catch(_) {}
+  }
+  function clearTabLock() {
+    try { localStorage.removeItem(TAB_LOCK_KEY); } catch(_) {}
+  }
+  function isTabLockStale(lock) {
+    if (!lock || !lock.ts) return true;
+    return (Date.now() - Number(lock.ts || 0)) > TAB_LOCK_TTL_MS;
+  }
+  function isOwnerLock(lock) {
+    return lock && lock.id === TAB_ID;
+  }
+
+  function ensureLockBanner(owner) {
+    let el = document.getElementById("tabLockBanner");
+    if (el) return el;
+
+    el = document.createElement("div");
+    el.id = "tabLockBanner";
+    el.innerHTML = `
+      <div class="tabLockInner">
+        <div class="tabLockTitle">Appen er åben i en anden fane</div>
+        <div class="tabLockText">
+          Denne fane er <b>kun til visning</b> for at undgå at to faner overskriver hinanden.
+          <span class="tabLockOwner">${owner ? ("Aktiv fane: " + owner) : ""}</span>
+        </div>
+        <div class="tabLockActions">
+          <button class="btn tabLockTakeover" id="btnTakeoverLock">Overtag redigering</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(el);
+
+    const btn = document.getElementById("btnTakeoverLock");
+    if (btn) btn.addEventListener("click", () => {
+      acquireSingleWriterLock(true);
+    });
+
+    return el;
+  }
+
+  function removeLockBanner() {
+    const el = document.getElementById("tabLockBanner");
+    if (el) el.remove();
+  }
+
+  function setReadOnly(on, ownerLabel) {
+    READ_ONLY = !!on;
+    document.body.classList.toggle("readOnly", READ_ONLY);
+    if (READ_ONLY) ensureLockBanner(ownerLabel || "");
+    else removeLockBanner();
+  }
+
+  function startLockHeartbeat() {
+    if (__lockBeat) return;
+    __lockBeat = setInterval(() => {
+      const lock = readTabLock();
+      if (!isOwnerLock(lock)) return;
+      lock.ts = Date.now();
+      writeTabLock(lock);
+    }, TAB_LOCK_BEAT_MS);
+  }
+
+  function stopLockHeartbeat() {
+    if (__lockBeat) { clearInterval(__lockBeat); __lockBeat = null; }
+  }
+
+  function acquireSingleWriterLock(force=false) {
+    const lock = readTabLock();
+    if (!lock || isTabLockStale(lock) || force) {
+      writeTabLock({ id: TAB_ID, ts: Date.now() });
+      setReadOnly(false);
+      startLockHeartbeat();
+      try { renderAll(); } catch(_) {}
+      return true;
+    }
+    if (isOwnerLock(lock)) {
+      setReadOnly(false);
+      startLockHeartbeat();
+      return true;
+    }
+    // someone else owns lock
+    setReadOnly(true, lock.id);
+    stopLockHeartbeat();
+    return false;
+  }
+
+  function requireWritable() {
+    if (!READ_ONLY) return true;
+    if (!__readOnlyWarned) {
+      __readOnlyWarned = true;
+      console.warn("Read-only: another tab owns the lock.");
+      const el = document.getElementById("tabLockBanner");
+      if (el) { el.classList.add("tabLockPulse"); setTimeout(()=>el.classList.remove("tabLockPulse"), 650); }
+    }
+    return false;
+  }
+
+  // Listen for lock changes from other tabs
+  window.addEventListener("storage", (e) => {
+    if (e.key !== TAB_LOCK_KEY) return;
+    const lock = readTabLock();
+    if (!lock || isTabLockStale(lock)) {
+      acquireSingleWriterLock(false);
+      return;
+    }
+    if (isOwnerLock(lock)) {
+      setReadOnly(false);
+      startLockHeartbeat();
+      return;
+    }
+    setReadOnly(true, lock.id);
+    stopLockHeartbeat();
+  });
+
+  window.addEventListener("beforeunload", () => {
+    const lock = readTabLock();
+    if (isOwnerLock(lock)) clearTabLock();
+    stopLockHeartbeat();
+  });
+  // ================================================
+
+  function lsSet(key, value) { if (!requireWritable()) return; localStorage.setItem(key, JSON.stringify(value)); }
+
+  function rawLsSet(key, rawValue) { if (!requireWritable()) return; localStorage.setItem(key, rawValue); }
 
   // Compatibility alias used by some UI handlers
   function saveLS(key, value) { return lsSet(key, value); }
@@ -679,7 +820,7 @@ function importLocalBackup(file) {
         if (k.startsWith(textKeyPrefix)) {
           const existingRaw = localStorage.getItem(k);
           if (!existingRaw) {
-            localStorage.setItem(k, incomingRaw);
+            rawLsSet(k, incomingRaw);
             addedText++;
             return;
           }
@@ -700,7 +841,7 @@ function importLocalBackup(file) {
               changed = true;
             }
             if (changed) {
-              localStorage.setItem(k, JSON.stringify(ex));
+              rawLsSet(k, JSON.stringify(ex));
               mergedText++;
             } else {
               skippedText++;
@@ -714,7 +855,7 @@ function importLocalBackup(file) {
 
         // Non-text keys: import only if missing, to avoid clobbering your setup.
         if (localStorage.getItem(k) == null) {
-          localStorage.setItem(k, incomingRaw);
+          rawLsSet(k, incomingRaw);
           addedOther++;
         } else {
           skippedOther++;
@@ -4249,6 +4390,9 @@ if (document.getElementById('btnDownloadElevraad')) {
 }
 
   async function init() {
+
+    // Multi-tab: single-writer lock
+    acquireSingleWriterLock(false);
 
 // Demo: load demo_students.csv if requested (after wipe)
 try {

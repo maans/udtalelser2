@@ -6,6 +6,26 @@ En lille, statisk browser-app til at skrive elevudtalelser.
 - **Gemmer lokalt** i browserens `localStorage` (pr. enhed/browser).
 - Importér en elevliste (`students.csv`) og skriv udtalelser / markeringer / print.
 
+
+## Hvad kan appen nu?
+
+- **K‑lærer vælger** med søg + piletaster/enter (viser *initialer (fulde navn)*).
+- **K‑elever**: viser kun den aktive K‑lærers kontaktgruppe.
+- **Alle K‑grupper**: visning/print pr. K‑gruppe.
+- **Redigér**: skriv udtalelser pr. elev + print.
+- **Faglærer‑CSV import** (Sang/Gymnastik/Elevråd) med status/“mangler”‑visning og badges på elevkort.
+- **Backup/restore** via JSON (flet/merge som før).
+
+## Multi‑tab (vigtig)
+
+Hvis du åbner appen i **to browserfaner**, kan de ellers overskrive hinandens `localStorage`.
+Derfor bruger appen nu et **single‑writer lock**:
+
+- Den første fane får lov at redigere.
+- Andre faner går i **visning‑tilstand** og viser en gul banner.
+- Du kan vælge **“Overtag redigering”** i banneret (f.eks. hvis den anden fane er “død”).
+
+
 ## Start
 
 ### Lokalt
