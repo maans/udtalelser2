@@ -668,7 +668,7 @@ function openPrintWindowForStudents(students, settings, title) {
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
     return `
-      <div class="page">
+      <div class="studentDoc">
         <div class="content">
           <div class="printHeaderTop"><div class="printHeaderDate">${escapeHtml(headerDateText)}</div></div>
           <div class="printHeaderLogo"><img src="${PRINT_HEADER_LOGO_DATAURL}" alt="Himmerlands Ungdomsskole" /></div>
@@ -687,13 +687,18 @@ function openPrintWindowForStudents(students, settings, title) {
   <style>
     @page { size: A4; margin: 0; }
     html, body { margin: 0; padding: 0; background: #fff; }
-    .page {
-      width: 210mm;padding: 12mm 14mm;
+    .page{
+      width: 210mm;
+      padding: 12mm 14mm;
       box-sizing: border-box;
-      page-break-after: always;overflow: visible;
---s: 1;
+      page-break-after: always;
+      overflow: hidden;
+      --s: 1;
+          /* no fixed height: allow flow across pages */
+      height: auto;
+      overflow: visible;
     }
-    .content { width: 100%;height: auto;overflow: visible;
+    .content { width: 100%; height: 100%; overflow: visible;
 }
     .statement {
       margin: 0;
@@ -748,32 +753,22 @@ function openPrintWindowForStudents(students, settings, title) {
     }
 
 
-    /* One-page requirement: each student on exactly one A4 page.
-       We'll auto-fit by adjusting font-size (NO transform scaling, to avoid iOS blank pages). */
-    .page{
-      box-sizing: border-box;
-      width: 210mm;padding: 14mm 14mm 14mm 14mm;
-      break-after: page;
-      page-break-after: always;overflow: visible;
-}
-    .page:last-child{
-      break-after: auto;
-      page-break-after: auto;
-    }
-    .content{height: auto;overflow: visible;
-position: relative;
-    }
-    pre.statement{
-      white-space: pre-wrap;
-      margin: 0;overflow: visible;
-}
-
-
-    /* Footer page numbers */
+    /* Footer page numbers (if supported by the browser/print driver) */
     @page {
       @bottom-center {
         content: "Side " counter(page) " / " counter(pages);
         font-size: 9pt;
+      }
+    }
+
+    @media print {
+      .studentDoc{
+        break-before: page;
+        page-break-before: always;
+      }
+      .studentDoc:first-child{
+        break-before: auto;
+        page-break-before: auto;
       }
     }
 </style>
@@ -784,40 +779,43 @@ ${pagesHtml}
 (function(){
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
-  const disableScale = true; // no transform scaling; we use font-size autofit instead
+  const disableScale = isIOS;
   function fitAll(){
-      const pages = Array.from(document.querySelectorAll('.page'));
-      pages.forEach(page => {
-        const statement = page.querySelector('pre.statement');
-        const content = page.querySelector('.content');
-        if(!statement || !content) return;
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(p => {
+      const c = p.querySelector('.statement');
+      if(!c) return;
 
-        // Start at a reasonable base size; then shrink until it fits inside the page.
-        let size = 11;              // pt
-        const minSize = 8.25;       // pt (readable floor)
-        const step = 0.25;          // pt
-        statement.style.fontSize = size + 'pt';
-        statement.style.lineHeight = '1.35';
+      // Reset
+      p.style.setProperty('--s', 1);
+      c.style.width = '';
 
-        // Give layout a tick
-        for(let i=0;i<60;i++){
-          const fits = statement.scrollHeight <= content.clientHeight;
-          if(fits) break;
-          size -= step;
-          if(size < minSize) {
-            // If still too long, keep minimum size; content may clip, but we tried.
-            size = minSize;
-            statement.style.fontSize = size + 'pt';
-            break;
-          }
-          statement.style.fontSize = size + 'pt';
-        }
-      });
-    }p.style.setProperty('--s', s.toFixed(4));
+      const availH = p.clientHeight;
+      const availW = p.clientWidth;
+      let neededH = c.scrollHeight;
+      let neededW = c.scrollWidth;
+
+      let s = Math.min(1, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
+
+      // If we scale down, widen the element proportionally to preserve line wrapping
+      // and re-check height.
+      if (s < 1) {
+        c.style.width = (100 / s) + '%';
+        neededH = c.scrollHeight;
+        neededW = c.scrollWidth;
+        s = Math.min(s, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
+      }
+
+      p.style.setProperty('--s', s.toFixed(4));
     });
   }
 
   window.addEventListener('load', () => {
+    if(!disableScale) {
+      fitAll();
+      // A tiny delay helps after font rasterization
+      setTimeout(fitAll, 50);
+    }
     setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 120);
   });
 })();
@@ -911,7 +909,7 @@ async function printAllKGroups() {
     const txt = buildStatement(st, getSettings());
     return `
       <section class="entry">
-        <div class="page"><pre class="content">${escapeHtml(txt)}</pre></div>
+        <div class="studentDoc"><pre class="content">${escapeHtml(txt)}</pre></div>
       </section>
     `;
   }).join('');
