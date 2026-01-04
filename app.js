@@ -703,7 +703,7 @@ function openPrintWindowForStudents(students, settings, title) {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       font-size: 12pt;
       line-height: 1.45;
-      transform: scale(var(--s));
+      transform: none;
       transform-origin: top left;
     }
   
@@ -749,6 +749,33 @@ function openPrintWindowForStudents(students, settings, title) {
       display:block;
     }
 
+
+    /* One-page requirement: each student on exactly one A4 page.
+       We'll auto-fit by adjusting font-size (NO transform scaling, to avoid iOS blank pages). */
+    .page{
+      box-sizing: border-box;
+      width: 210mm;
+      height: 297mm;
+      padding: 14mm 14mm 14mm 14mm;
+      break-after: page;
+      page-break-after: always;
+      overflow: hidden;
+    }
+    .page:last-child{
+      break-after: auto;
+      page-break-after: auto;
+    }
+    .content{
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    pre.statement{
+      white-space: pre-wrap;
+      margin: 0;
+      overflow: hidden;
+    }
+
 </style>
 </head>
 <body>
@@ -757,40 +784,42 @@ ${pagesHtml}
 (function(){
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
   // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
-  const disableScale = isIOS;
+  const disableScale = true; // no transform scaling; we use font-size autofit instead
   function fitAll(){
-    const pages = document.querySelectorAll('.page');
-    pages.forEach(p => {
-      const c = p.querySelector('.statement');
-      if(!c) return;
+      const pages = Array.from(document.querySelectorAll('.page'));
+      pages.forEach(page => {
+        const statement = page.querySelector('pre.statement');
+        const content = page.querySelector('.content');
+        if(!statement || !content) return;
 
-      // Reset
-      p.style.setProperty('--s', 1);
-      c.style.width = '';
+        // Start at a reasonable base size; then shrink until it fits inside the page.
+        let size = 11;              // pt
+        const minSize = 8.25;       // pt (readable floor)
+        const step = 0.25;          // pt
+        statement.style.fontSize = size + 'pt';
+        statement.style.lineHeight = '1.35';
 
-      const availH = p.clientHeight;
-      const availW = p.clientWidth;
-      let neededH = c.scrollHeight;
-      let neededW = c.scrollWidth;
-
-      let s = Math.min(1, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
-
-      // If we scale down, widen the element proportionally to preserve line wrapping
-      // and re-check height.
-      if (s < 1) {
-        c.style.width = (100 / s) + '%';
-        neededH = c.scrollHeight;
-        neededW = c.scrollWidth;
-        s = Math.min(s, availH / Math.max(1, neededH), availW / Math.max(1, neededW));
-      }
-
-      p.style.setProperty('--s', s.toFixed(4));
+        // Give layout a tick
+        for(let i=0;i<60;i++){
+          const fits = statement.scrollHeight <= content.clientHeight;
+          if(fits) break;
+          size -= step;
+          if(size < minSize) {
+            // If still too long, keep minimum size; content may clip, but we tried.
+            size = minSize;
+            statement.style.fontSize = size + 'pt';
+            break;
+          }
+          statement.style.fontSize = size + 'pt';
+        }
+      });
+    }p.style.setProperty('--s', s.toFixed(4));
     });
   }
 
   window.addEventListener('load', () => {
+    fitAll();
     if(!disableScale) {
-      fitAll();
       // A tiny delay helps after font rasterization
       setTimeout(fitAll, 50);
     }
