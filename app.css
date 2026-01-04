@@ -724,4 +724,32 @@ button.success{background:#2e7d32;border-color:#2e7d32;color:#fff}
 
 #marksTableWrap thead th{ padding-top:.45rem; padding-bottom:.45rem; }
 
+#marksTableWrap th.sortTh{ padding:.35rem .45rem; }
+#marksTableWrap th.sortTh .sortBtn{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.4rem;
+  padding:.35rem .55rem;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.03);
+  color: inherit;
+  cursor:pointer;
+  font-weight:600;
+}
+#marksTableWrap th.sortTh .sortBtn:hover{ background: rgba(255,255,255,.06); }
+#marksTableWrap th.sortTh .sortIcon{
+  min-width: 14px;
+  text-align:right;
+  opacity:.75;
+  font-size: 12px;
+}
+
 .tabs.centered{ justify-content:center; flex:0 0 auto; width:100%; flex-wrap:wrap; }
+
+@media (max-width: 560px){
+  .tab{ padding:.78rem 1.05rem; font-size:1.05rem; }
+  .tabs{ flex-wrap: wrap; }
+}

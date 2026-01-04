@@ -14,7 +14,7 @@ function resolveFullName(row) {
 
   // Used for cache-busting verification in the UI.
   // If a browser still shows an older build id, it's caching an old app.js.
-  const BUILD_ID = '2026-01-04_1';
+  const BUILD_ID = '';
 
   const LS_PREFIX = 'udt_';
   const KEYS = {
@@ -1193,19 +1193,25 @@ function updateTeacherDatalist() {
   function commit(it){
     const ini = (it && it.ini) ? it.ini : ((it||'')+'').trim().toUpperCase();
     if (!ini) return;
+
     const s2 = getSettings();
+    // Gem altid initialer som "me" (bruges til match mod elevernes k-lærer1/2-initialer)
     s2.me = ini;
     s2.meResolved = ini;
     s2.meResolvedConfirmed = ini;
+
+    // Gem fulde navn separat (bruges kun til visning i UI)
+    s2.meFullName = (it && it.full) ? (it.full + '').trim() : '';
     setSettings(s2);
 
-    input.value = ini; // keep field minimal; list shows full names
+    input.value = ini; // feltet holdes kort; listen viser fulde navne
     if (clear) clear.hidden = false;
     renderStatus();
 
-    // Send user directly to K-elever (som ønsket)
+    // Send user direkte til K-elever (som ønsket)
     try { state.viewMode = 'K'; setTab('k'); } catch(_) {}
   }
+
 
   // Button / clear
   btn.onclick = (e) => { e.preventDefault(); wrap.classList.contains('open') ? closeMenu() : openMenu(); input.focus(); };
@@ -1215,7 +1221,7 @@ function updateTeacherDatalist() {
   if (clear) {
     clear.onclick = (e) => {
       e.preventDefault();
-      const s2 = getSettings(); s2.me = ''; s2.meResolved = ''; s2.meResolvedConfirmed = ''; setSettings(s2);
+      const s2 = getSettings(); s2.me = ''; s2.meResolved = ''; s2.meResolvedConfirmed = ''; s2.meFullName = ''; setSettings(s2);
       input.value = '';
       clear.hidden = true;
       closeMenu();
@@ -2205,10 +2211,10 @@ function updateTabLabels(){
     if (state.kGroupIndex < 0) state.kGroupIndex = 0;
     if (state.kGroupIndex > Math.max(0, kGroups.length-1)) state.kGroupIndex = Math.max(0, kGroups.length-1);
 
-    const me = (s.me || '').trim() ? `· K-lærer: ${(s.me||'').trim().toUpperCase()}` : '';
-    const build = BUILD_ID ? `· build ${BUILD_ID}` : '';
-    $('statusText').textContent = studs.length ? `Elever: ${studs.length} ${me} ${build}`.replace(/\s+/g,' ').trim() : `Ingen elevliste indlæst ${build}`.trim();
-  }
+    const me = '';
+    const build = '';
+    $('statusText').textContent = studs.length ? `Elever: ${studs.length}` : `Ingen elevliste indlæst`;
+}
 
   function renderSettings() {
     const s = getSettings();
@@ -2613,8 +2619,11 @@ const prog = mineList.reduce((acc, st) => {
     const statusEl = $("kStatusLine");
     if (statusEl) statusEl.textContent = "";
     if (kHeaderInfo) {
-      const who = (meResolvedConfirmed || meRaw || "").trim();
-      kHeaderInfo.textContent = who ? `✏️ Redigeres nu af: ${who}` : `✏️ Redigeres nu af: —`;
+      const fullName = ((s.meFullName || '') + '').trim();
+      const ini = ((meResolvedConfirmed || meRaw || '') + '').trim();
+      const who = (fullName || ini || '—');
+      // Mindre dobbeltinfo: kun blyant + navn/initialer
+      kHeaderInfo.textContent = who ? `✏️ ${who}` : '✏️ —';
     }
 
     if (kList) {
@@ -2977,7 +2986,7 @@ $('preview').textContent = buildStatement(st, getSettings());
 
 
 
-    const list = sortedStudents(studs).filter(st => {
+    let list = sortedStudents(studs).filter(st => {
       if (!q) return true;
       const fn = normalizeName(st.fornavn || '');
       const en = normalizeName(st.efternavn || '');
@@ -2986,12 +2995,45 @@ $('preview').textContent = buildStatement(st, getSettings());
       return fn.startsWith(q) || en.startsWith(q) || full.startsWith(q);
     });
 
+    // --- Sortering (3-state) på K-grp / Klasse ---
+    if (!state.marksSort) state.marksSort = { key: null, dir: 0 };
+
     const kgrpLabel = (st) => {
       // Always show initials-based group key (e.g. AB/EB), even if CSV stores full teacher names.
       const a = (st.kontaktlaerer1_ini || '').toString().trim();
       const b = (st.kontaktlaerer2_ini || '').toString().trim();
       return groupKeyFromTeachers(a, b);
     };
+
+    function klasseSortKey(v){
+      const s = (v || '').toString().trim().toUpperCase();
+      const m = s.match(/^(\d+)\s*([A-ZÆØÅ]*)$/);
+      if (!m) return { t: 1, s };
+      return { t: 0, n: parseInt(m[1],10) || 0, suf: m[2] || '' };
+    }
+
+    // Anvend sortering hvis aktiv
+    if (state.marksSort && state.marksSort.key && state.marksSort.dir) {
+      const dir = state.marksSort.dir;
+      const key = state.marksSort.key;
+      const cmp = (a,b) => {
+        if (key === 'kgrp') {
+          return kgrpLabel(a).localeCompare(kgrpLabel(b), 'da');
+        }
+        if (key === 'klasse') {
+          const ka = klasseSortKey(a.klasse);
+          const kb = klasseSortKey(b.klasse);
+          if (ka.t !== kb.t) return ka.t - kb.t;
+          if (ka.t === 0) {
+            if (ka.n !== kb.n) return ka.n - kb.n;
+            return (ka.suf || '').localeCompare((kb.suf || ''), 'da');
+          }
+          return (ka.s || '').localeCompare((kb.s || ''), 'da');
+        }
+        return 0;
+      };
+      list = [...list].sort((a,b) => dir * cmp(a,b));
+    }
 
     function renderTick(unilogin, key, on){
       const pressed = on ? 'true' : 'false';
@@ -3046,6 +3088,28 @@ $('preview').textContent = buildStatement(st, getSettings());
       }
     }
 
+
+    function attachMarksSortButtons(){
+      const btnK = document.getElementById('marksSortKgrp');
+      const btnC = document.getElementById('marksSortKlasse');
+      const toggle = (key) => {
+        if (!state.marksSort) state.marksSort = { key: null, dir: 0 };
+        if (state.marksSort.key !== key) {
+          state.marksSort.key = key;
+          state.marksSort.dir = 1;
+        } else {
+          // cycle: none -> asc -> desc -> none
+          if (!state.marksSort.dir) state.marksSort.dir = 1;
+          else if (state.marksSort.dir === 1) state.marksSort.dir = -1;
+          else state.marksSort.dir = 0;
+        }
+        renderMarksTable();
+      };
+      if (btnK) btnK.onclick = (e) => { e.preventDefault(); toggle('kgrp'); };
+      if (btnC) btnC.onclick = (e) => { e.preventDefault(); toggle('klasse'); };
+    }
+
+
     const nameTh = `
       <th class="nameTh">
         <div class="thName compact">
@@ -3056,6 +3120,14 @@ $('preview').textContent = buildStatement(st, getSettings());
         </div>
       </th>`;
 
+    const sortIcon = (key) => {
+      if (!state.marksSort) state.marksSort = { key: null, dir: 0 };
+      if (state.marksSort.key !== key || !state.marksSort.dir) return '';
+      return state.marksSort.dir === 1 ? '↑' : '↓';
+    };
+    const thKgrp = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKgrp">K-grp<span class="sortIcon">${sortIcon('kgrp')}</span></button></th>`;
+    const thKlasse = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKlasse">Klasse<span class="sortIcon">${sortIcon('klasse')}</span></button></th>`;
+
     if (type === 'sang') {
       const marks = getMarks(KEYS.marksSang);
       $('marksLegend').textContent = '';
@@ -3065,7 +3137,7 @@ $('preview').textContent = buildStatement(st, getSettings());
         <table>
           <thead>
             <tr>
-              ${nameTh}<th>K-grp</th><th>Klasse</th>
+              ${nameTh}${thKgrp}${thKlasse}
               ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.sang[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.sang[c].title||'')}</span></th>`).join('')}
             </tr>
           </thead>
@@ -3084,6 +3156,7 @@ $('preview').textContent = buildStatement(st, getSettings());
         </table>
       `;
       attachInlineMarksSearch();
+      attachMarksSortButtons();
       return;
     }
 
@@ -3097,7 +3170,7 @@ $('preview').textContent = buildStatement(st, getSettings());
         <table>
           <thead>
             <tr>
-              ${nameTh}<th>K-grp</th><th>Klasse</th>
+              ${nameTh}${thKgrp}${thKlasse}
               ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.gym[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.gym[c].title||'')}</span></th>`).join('')}
               ${roleCodes.map(r => `<th class="cb" title="${escapeAttr((SNIPPETS.roller[r]||{}).hint||'')}"><span class="muted small">${escapeHtml((SNIPPETS.roller[r]||{}).title||r)}</span></th>`).join('')}
             </tr>
@@ -3118,6 +3191,7 @@ $('preview').textContent = buildStatement(st, getSettings());
         </table>
       `;
       attachInlineMarksSearch();
+      attachMarksSortButtons();
       return;
     }
 
@@ -3130,7 +3204,7 @@ $('preview').textContent = buildStatement(st, getSettings());
       <table>
         <thead>
           <tr>
-            ${nameTh}<th>K-grp</th><th>Klasse</th>
+            ${nameTh}${thKgrp}${thKlasse}
             ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.elevraad[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.elevraad[c].title||'')}</span></th>`).join('')}
           </tr>
         </thead>
@@ -3149,6 +3223,7 @@ $('preview').textContent = buildStatement(st, getSettings());
       </table>
     `;
     attachInlineMarksSearch();
+    attachMarksSortButtons();
 }
 
   async function importMarksFile(e, kind) {
