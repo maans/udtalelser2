@@ -853,4 +853,33 @@ body.udt-readonly main.app{
 }
 
 
-.helpTiny{ font-size: 12px; opacity: .78; margin-top: .25rem; line-height: 1.25; }
+@media print {
+  /* Flow printing: allow content to span pages without clipping */
+  .page, .content {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Header only appears where placed (first page only) */
+  .printHeaderTop, .printHeaderLogo {
+    page-break-after: avoid;
+  }
+
+  /* Start each student on a new page */
+  .studentDoc {
+    break-before: page;
+    page-break-before: always;
+  }
+  .studentDoc:first-child {
+    break-before: auto;
+    page-break-before: auto;
+  }
+}
+
+/* Footer page numbers (browser-native counters) */
+@page {
+  @bottom-center {
+    content: "Side " counter(page) " / " counter(pages);
+    font-size: 9pt;
+  }
+}

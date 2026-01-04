@@ -651,20 +651,6 @@ function openPrintWindowForStudents(students, settings, title) {
   }[c]));
 
   const list = sortedStudents(Array.isArray(students) ? students : []);
-
-  // Header date (month + year) should match 'Dato måned/år (auto)' from Indstillinger → Periode
-  let headerDateText = '';
-  try {
-    if (typeof computePeriod === 'function') {
-      const p = computePeriod(settings && settings.schoolYearEnd);
-      headerDateText = (p && p.dateMonthYear) ? String(p.dateMonthYear) : '';
-    }
-  } catch(e) {}
-  if (!headerDateText) {
-    const _d = new Date();
-    const _monthYear = _d.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
-    headerDateText = _monthYear ? (_monthYear.charAt(0).toUpperCase() + _monthYear.slice(1)) : '';
-  }
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
     return `
@@ -678,7 +664,12 @@ function openPrintWindowForStudents(students, settings, title) {
   }).join('');
 
   const docTitle = escapeHtml(title || 'Print');
-  const printMinPt = Number((settings && settings.printMinPt) ?? 8.25) || 8.25;
+
+  // Header date (month + year), Danish style with capitalized first letter
+  var headerDateText = '';
+  const _d = new Date();
+  const _monthYear = _d.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
+  headerDateText = _monthYear ? (_monthYear.charAt(0).toUpperCase() + _monthYear.slice(1)) : '';
 
 
   const html = `<!doctype html>
@@ -705,7 +696,7 @@ function openPrintWindowForStudents(students, settings, title) {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
       font-size: 12pt;
       line-height: 1.45;
-      transform: none;
+      transform: scale(var(--s));
       transform-origin: top left;
     }
   
@@ -751,103 +742,27 @@ function openPrintWindowForStudents(students, settings, title) {
       display:block;
     }
 
-
-    /* One-page requirement: each student on exactly one A4 page.
-       We'll auto-fit by adjusting font-size (NO transform scaling, to avoid iOS blank pages). */
-    .page{
-      box-sizing: border-box;
-      width: 210mm;
-      height: 297mm;
-      padding: 14mm 14mm 14mm 14mm;
-      break-after: page;
-      page-break-after: always;
-      overflow: hidden;
-    }
-    .page:last-child{
-      break-after: auto;
-      page-break-after: auto;
-    }
-    .content{
-      height: 100%;
-      overflow: hidden;
-      position: relative;
-    }
-    pre.statement{
-      white-space: pre-wrap;
-      margin: 0;
-      overflow: hidden;
-    }
-
 </style>
 </head>
 <body>
 ${pagesHtml}
 <script>
 (function(){
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-  const MIN_PT = ${printMinPt}; // from Indstillinger
-  
-function fitAll(){
-  const pages = Array.from(document.querySelectorAll('.page'));
-  pages.forEach(page => {
-    const statement = page.querySelector('pre.statement');
-    const content = page.querySelector('.content');
-    const headerLogo = page.querySelector('.printHeaderLogo');
-    const headerTop  = page.querySelector('.printHeaderTop');
-    if(!statement || !content) return;
-
-    let size = 10.5;          // start where it usually fits
-    const minSize = PRINT_MIN_PT || 8.25;
-    let lineHeight = 1.38;
-
-    statement.style.fontSize = size + 'pt';
-    statement.style.lineHeight = lineHeight;
-
-    function fits(){
-      return statement.scrollHeight <= content.clientHeight;
-    }
-
-    // 1) First try tightening header spacing (no font change)
-    if(headerTop) headerTop.style.marginBottom = '4mm';
-    if(headerLogo) headerLogo.style.marginBottom = '6mm';
-    if(fits()) return;
-
-    // 2) Tighten line-height a bit before shrinking font
-    for(let lh=1.38; lh>=1.28; lh-=0.02){
-      statement.style.lineHeight = lh;
-      if(fits()) return;
-    }
-
-    // 3) Now reduce font-size gradually
-    for(let i=0;i<80;i++){
-      size -= 0.25;
-      if(size < minSize){
-        size = minSize;
-        statement.style.fontSize = size + 'pt';
-        break;
-      }
-      statement.style.fontSize = size + 'pt';
-      if(fits()) return;
-    }
-  });
-}
-statement.style.fontSize = size + 'pt';
-      }
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
+  const disableScale = isIOS;
+  p.style.setProperty('--s', s.toFixed(4));
     });
   }
 
   window.addEventListener('load', () => {
-  try { if (typeof fitAll === 'function') fitAll(); } catch(e) { console.warn('fitAll failed', e); }
-
-    // Always run autofit; no transform scaling (avoids iOS blank pages + clipping bugs)
-    fitAll();
-    setTimeout(fitAll, 80);
-
-    // Give iOS a bit more time before invoking print
-    const delay = isIOS ? 350 : 180;
-    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, delay);
+  try { window.focus(); } catch(e) {}
+  setTimeout(() => { try { window.print(); } catch(e) {} }, 0);
+});
+      // A tiny delay helps after font rasterization
+      setTimeout(fitAll, 50);
+    }
+    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 120);
   });
 })();
 </script>
@@ -954,18 +869,7 @@ async function printAllKGroups() {
   w.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>${title}</title>${styles}</head><body>${body}
     <script>
       (function(){
-        function fitAll(){
-          const pages = Array.from(document.querySelectorAll('.page'));
-          pages.forEach(p=>{
-            const c = p.querySelector('.content');
-            if(!c) return;
-            p.style.setProperty('--s','1');
-            const avail = p.clientHeight;
-            const needed = c.scrollHeight;
-            let s = 1;
-            if (needed > avail && avail > 0) s = Math.max(0.10, Math.min(1, avail / needed));
-            p.style.setProperty('--s', String(s));
-          });
+        );
         }
         window.addEventListener('load', fitAll);
         window.addEventListener('beforeprint', fitAll);
@@ -1933,8 +1837,7 @@ function defaultSettings() {
       forstanderLocked: true,
       me: "",
       meResolved: "",
-      schoolYearEnd: new Date().getFullYear() + 1,
-      printMinPt: 8.25
+      schoolYearEnd: new Date().getFullYear() + 1
     };
   }
   function defaultTemplates() {
@@ -2827,7 +2730,6 @@ function renderSettings() {
       }
     } catch (_) {}
     $('schoolYearEnd').value = s.schoolYearEnd || '';
-    $('printMinPt').value = (s.printMinPt ?? 8.25);
 
     const p = computePeriod(s.schoolYearEnd);
     $('periodFrom').value = p.from;
@@ -4101,14 +4003,6 @@ on('schoolYearEnd','input', () => {
       renderSettings();
       if (state.tab === 'edit') renderEdit();
     });
-    on('printMinPt','input', () => {
-      const s = getSettings();
-      const v = parseFloat($('printMinPt').value);
-      s.printMinPt = (Number.isFinite(v) ? v : (s.printMinPt ?? 8.25));
-      setSettings(s);
-      renderAll();
-    });
-
 
     on('btnToggleSchoolText','click', () => {
       const t = getTemplates();
@@ -5001,12 +4895,4 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
-})
-  // Minimum font size (pt) for one-page auto-fit (set in Indstillinger → Periode)
-  let printMinPt = 8.25;
-  try {
-    const pv = settings && (settings.printMinPt ?? settings.printMinPT);
-    const n = parseFloat(pv);
-    if (Number.isFinite(n)) printMinPt = Math.max(7.0, Math.min(12.0, n));
-  } catch(e) {}
-;
+});
