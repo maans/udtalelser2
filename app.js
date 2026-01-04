@@ -1968,7 +1968,44 @@ if (chosen && erObj[chosen]) {
 
     return mapped;
   }
-  function normalizeStudentRow(row, map) {
+
+  function buildTeacherOverrideMap(rows, map){
+    // Build canonical teacher overrides from CSV columns:
+    // - Kontaktlærer1 paired with "Initialer for k-lærer1"
+    // - Kontaktlærer2 paired with "Initialer for k-lærer2"
+    // Any valid override (1-4 letters after cleaning) wins for that full name, regardless of later position.
+    const out = new Map(); // normFullName -> cleanedInitials
+    const add = (fullRaw, iniRaw) => {
+      const full = (fullRaw ?? '').toString().trim();
+      if (!full) return;
+      const norm = normalizeName(full);
+      if (!norm) return;
+      const cleaned = cleanInitials(iniRaw);
+      if (!isValidInitials(cleaned)) return;
+      // Keep first seen override unless a later one differs; if differs, prefer the shorter/cleaner one.
+      if (!out.has(norm)) out.set(norm, cleaned);
+      else {
+        const prev = out.get(norm);
+        if (prev !== cleaned) {
+          // Prefer the one that looks more like typical initials (2-3 letters), else keep existing.
+          const score = (s) => (s.length===2?3:(s.length===3?2:(s.length===1?1:0)));
+          if (score(cleaned) > score(prev)) out.set(norm, cleaned);
+        }
+      }
+    };
+
+    for (const row of (rows || [])){
+      if (!row) continue;
+      const k1 = (row[map.kontakt1] ?? '').toString().trim();
+      const i1 = (row[map.ini1] ?? '').toString().trim();
+      add(k1, i1);
+      const k2 = (row[map.kontakt2] ?? '').toString().trim();
+      const i2 = (row[map.ini2] ?? '').toString().trim();
+      add(k2, i2);
+    }
+    return out;
+  }
+  function normalizeStudentRow(row, map, teacherOverrides) {
     const get = (field) => (row[map[field]] ?? '').trim();
 
     // Rens fornavn-felt: nogle elever har et "ekstra efternavn" i fornavn-kolonnen.
@@ -2000,9 +2037,9 @@ const klasse = get('klasse');
     // - Hvis "Initialer for k-lærerX" er udfyldt og ligner rigtige initialer (1-4 bogstaver), brug dem.
     // - Ellers dannes initialer automatisk ud fra kontaktlærerens navn.
     // Tomme felter ignoreres senere i UI.
-    const k1 = normalizedInitials(ini1, kontakt1_navn);
-    const k2 = normalizedInitials(ini2, kontakt2_navn);
-    const navn = `${fornavn} ${efternavn}`.trim();
+    const ov1 = teacherOverrides && kontakt1_navn ? teacherOverrides.get(normalizeName(kontakt1_navn)) : '';
+    const ov2 = teacherOverrides && kontakt2_navn ? teacherOverrides.get(normalizeName(kontakt2_navn)) : '';
+    const k2 = ov2 ? ov2 : normalizedInitials(ini2, kontakt2_navn);
     return { fornavn, efternavn, navn, unilogin, koen, klasse, kontaktlaerer1: kontakt1_navn, kontaktlaerer2: kontakt2_navn, kontaktlaerer1_ini: k1, kontaktlaerer2_ini: k2 };
   }
 
@@ -3229,7 +3266,8 @@ async function loadDemoStudentsCsv() {
     return;
   }
 
-  const studentsRaw = parsed.rows.map(r => normalizeStudentRow(r, map));
+      const teacherOverrides = buildTeacherOverrideMap(parsed.rows, map);
+  const studentsRaw = parsed.rows.map(r => normalizeStudentRow(r, map, teacherOverrides));
   const students = canonicalizeTeacherInitials(studentsRaw);
   setStudents(students);
 
