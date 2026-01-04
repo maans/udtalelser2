@@ -666,9 +666,10 @@ function openPrintWindowForStudents(students, settings, title) {
   const docTitle = escapeHtml(title || 'Print');
 
   // Header date (month + year), Danish style with capitalized first letter
+  var headerDateText = '';
   const _d = new Date();
   const _monthYear = _d.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
-  const headerDateText = _monthYear ? (_monthYear.charAt(0).toUpperCase() + _monthYear.slice(1)) : '';
+  headerDateText = _monthYear ? (_monthYear.charAt(0).toUpperCase() + _monthYear.slice(1)) : '';
 
 
   const html = `<!doctype html>
