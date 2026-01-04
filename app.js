@@ -903,7 +903,6 @@ const all = [];
 kGroups.forEach(g => {
   (g.students || []).forEach(s => all.push(s));
 });
-  });
 
   if (!all.length) {
     alert('Der var ingen elever i K-grupperne at printe.');
