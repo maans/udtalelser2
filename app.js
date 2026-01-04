@@ -111,8 +111,10 @@ function resolveFullName(row) {
     }
 
     el.querySelector('#udtTakeoverBtn')?.addEventListener('click', () => {
+      // Take over lock, then sync latest state from localStorage before enabling edits
       writeLock(true);
       evaluateTabLock(true);
+      try { syncFromLocalStorageAndRender(); } catch(_) {}
     });
 
     return el;
@@ -167,6 +169,14 @@ function resolveFullName(row) {
     }
   };
 
+
+  const syncFromLocalStorageAndRender = () => {
+    // Ensure any derived/cached structures are rebuilt from latest localStorage,
+    // then re-render UI. This avoids stale in-memory state after "Overtag redigering".
+    try { rebuildAliasMapFromStudents(getStudents()); } catch(_) {}
+    try { renderAll(); } catch(_) {}
+  };
+
   const evaluateTabLock = (fromTakeover = false) => {
     const lock = readLock();
     const stale = !lock || (Date.now() - lock.ts) > LOCK_TTL_MS;
@@ -181,15 +191,22 @@ function resolveFullName(row) {
     applyWriterState(false);
   };
 
-  // Listen for other tabs taking over
+  // Listen for other tabs: lock changes + data changes
   window.addEventListener('storage', (e) => {
-    if (!e) return;
-    if (String(e.key) === LOCK_KEY){
+    if (!e || !e.key) return;
+    const k = String(e.key);
+
+    if (k === LOCK_KEY){
       evaluateTabLock(false);
+      return;
+    }
+
+    // Keep view-only tabs in sync with latest data written by the writer tab
+    if (!isWriterTab && k.startsWith(LS_PREFIX)){
+      try { syncFromLocalStorageAndRender(); } catch(_) {}
     }
   });
-
-  // Acquire lock ASAP (before first render)
+// Acquire lock ASAP (before first render)
   evaluateTabLock(false);
 
   // Release lock on close (best-effort)
