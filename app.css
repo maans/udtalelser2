@@ -595,21 +595,6 @@ tr:hover td{background: rgba(255,255,255,.02)}
 .titleCenter{justify-self:center;}
 .titleRight{justify-self:end; display:flex; align-items:center; gap:.5rem;}
 
-/* Right-side pencil/name should behave like a big, forgiving button */
-.titleRightBtn{
-  display:block;
-  width:100%;
-  background:transparent;
-  border:0;
-  padding:0;
-  margin:0;
-  text-align:right;
-  cursor:pointer;
-}
-.titleRightBtn .muted{transition:opacity .15s ease;}
-.titleRightBtn:hover .muted{opacity:1;}
-.titleRightBtn:focus-visible{outline:2px solid rgba(120,180,255,.55); outline-offset:3px; border-radius:10px;}
-
 @media (max-width: 720px){
   .viewTitleRow{grid-template-columns:1fr; row-gap:.5rem;}
   .titleCenter{justify-self:start;}
@@ -817,59 +802,3 @@ button.success{background:#2e7d32;border-color:#2e7d32;color:#fff}
 .h1btn h1{display:inline-block;}
 .h1btn:hover h1{text-decoration:underline;text-underline-offset:6px;}
 .h1btn:focus-visible{outline:2px solid rgba(140,200,255,.45);outline-offset:6px;border-radius:12px;}
-
-/* ===== Multi-tab safety banner ===== */
-#tabLockBanner{
-  position: fixed;
-  top: 70px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  width: min(720px, calc(100vw - 24px));
-  pointer-events: auto;
-}
-#tabLockBanner .tabLockInner{
-  background: rgba(20,24,30,0.92);
-  border: 1px solid rgba(255, 180, 80, 0.35);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.45);
-  border-radius: 14px;
-  padding: 12px 14px;
-  backdrop-filter: blur(10px);
-}
-#tabLockBanner .tabLockTitle{
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-#tabLockBanner .tabLockText{
-  font-size: 13px;
-  opacity: 0.92;
-  line-height: 1.35;
-}
-#tabLockBanner .tabLockOwner{
-  display: inline-block;
-  margin-left: 8px;
-  opacity: 0.7;
-  font-size: 12px;
-}
-#tabLockBanner .tabLockActions{
-  margin-top: 10px;
-  display: flex;
-  justify-content: flex-end;
-}
-#tabLockBanner .tabLockTakeover{
-  border-color: rgba(255, 180, 80, 0.45) !important;
-}
-#tabLockBanner.tabLockPulse .tabLockInner{
-  animation: tabLockPulse 0.6s ease-in-out;
-}
-@keyframes tabLockPulse{
-  0%{ transform: translateY(0); }
-  30%{ transform: translateY(-2px); }
-  100%{ transform: translateY(0); }
-}
-
-/* Optional subtle cue */
-body.readOnly .btnPrimary,
-body.readOnly .btnDanger{
-  /* keep style, but the banner indicates read-only */
-}

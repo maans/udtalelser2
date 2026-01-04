@@ -36,9 +36,7 @@
             <button class="btn small no-print" id="btnPrintAllK" type="button" title="Print alle dine K-elever som én samlet udskrift">🖨️ Print dine K-elever</button>
           </div>
           <div id="kTitleRight" class="titleRight no-print">
-            <button class="titleRightBtn" id="btnGoGeneralFromK" type="button" title="Skift K-lærer (Indstillinger → Generelt)">
-              <div class="muted small" id="kHeaderInfo"></div>
-            </button>
+            <div class="muted small" id="kHeaderInfo"></div>
           </div>
         </div>
       </div>
@@ -68,11 +66,7 @@
     <div class="pill muted" id="autosavePill"></div>
     <button class="btn no-print" id="btnPrint">🖨️ Print elev</button>
   </div>
-  <div class="titleRight no-print">
-    <button class="titleRightBtn" id="btnGoGeneralFromEdit" type="button" title="Skift K-lærer (Indstillinger → Generelt)">
-      <div class="muted small" id="editHeaderInfo"></div>
-    </button>
-  </div>
+  <div class="titleRight no-print"><div class="muted small" id="editHeaderInfo"></div></div>
 </div>
 <div class="row gap wrap">
   <div class="pill" id="editStudentPill">Ingen elev valgt</div>
@@ -152,6 +146,9 @@
               ▾
             </button>
             <div class="tpMenu" id="teacherPickerMenu" role="listbox" aria-label="Vælg K-lærer" hidden></div>
+          </div>
+          <div class="muted small" id="teacherInfoAfterImport" style="display:none; margin-top:6px;">
+            Vælg K-lærer for at se K-elever
           </div>
           <div class="muted small">Fortolkes via alias-map og bruges til filter af K-elever.</div>
         </div>
