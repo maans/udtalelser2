@@ -13,6 +13,30 @@
   --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
+/* ---------- Scrollbars (match dark UI) ---------- */
+:root{
+  --scrollbar-track: rgba(255,255,255,.05);
+  --scrollbar-thumb: rgba(255,255,255,.16);
+  --scrollbar-thumb-hover: rgba(255,255,255,.26);
+}
+*{
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+*::-webkit-scrollbar{ width: 10px; height: 10px; }
+*::-webkit-scrollbar-track{
+  background: var(--scrollbar-track);
+  border-radius: 10px;
+}
+*::-webkit-scrollbar-thumb{
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+  border: 2px solid rgba(15,17,21,.55);
+}
+*::-webkit-scrollbar-thumb:hover{
+  background: var(--scrollbar-thumb-hover);
+}
+
 *{box-sizing:border-box}
 html,body{height:100%}
 body{

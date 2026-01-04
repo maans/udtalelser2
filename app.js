@@ -3645,9 +3645,41 @@ if (document.getElementById('btnDownloadElevraad')) {
       // for that full name across the entire dataset.
       const teacherOverrides = buildTeacherOverrideMap(parsed.rows, map);
 
-      const studentsRaw = parsed.rows.map(r => normalizeStudentRow(r, map, teacherOverrides));
+      // Skip completely empty rows (no student name). Count skipped for feedback.
+      let skippedEmpty = 0;
+      let missingTeachers = 0;
+      const missingTeacherNames = [];
+      const validRows = [];
+      for (const r of parsed.rows) {
+        const fn = (r[map.fornavn] ?? '').toString().trim();
+        const en = (r[map.efternavn] ?? '').toString().trim();
+        if (!fn && !en) { skippedEmpty++; continue; }
+
+        const k1 = (map.kontaktlaerer1 ? (r[map.kontaktlaerer1] ?? '') : '').toString().trim();
+        const k2 = (map.kontaktlaerer2 ? (r[map.kontaktlaerer2] ?? '') : '').toString().trim();
+        if (!k1 && !k2) {
+          missingTeachers++;
+          const nm = `${fn} ${en}`.trim() || '(ukendt elev)';
+          if (missingTeacherNames.length < 12) missingTeacherNames.push(nm);
+        }
+        validRows.push(r);
+      }
+
+      const studentsRaw = validRows.map(r => normalizeStudentRow(r, map, teacherOverrides));
       const students = canonicalizeTeacherInitials(studentsRaw);
       setStudents(students);
+      // Feedback in Import tab
+      const statusEl = $('importStatus');
+      if (statusEl) {
+        const parts = [];
+        if (skippedEmpty) parts.push(`Sprunget over ${skippedEmpty} tomme rækker.`);
+        if (missingTeachers) {
+          const list = missingTeacherNames.length ? ` (fx: ${missingTeacherNames.join(', ')})` : '';
+          parts.push(`⚠️ ${missingTeachers} elever mangler kontaktlærer${list}.`);
+        }
+        statusEl.textContent = parts.length ? `✅ Elevliste indlæst. ${parts.join(' ')}` : '✅ Elevliste indlæst.';
+      }
+
 
       renderSettings(); renderStatus();
       if (state.tab === 'k') renderKList();
