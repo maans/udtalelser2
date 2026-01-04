@@ -707,6 +707,54 @@ function openPrintWindowForStudents(students, settings, title) {
 
       out.mainText = rebuilt.replace(/\n{3,}/g, '\n\n').trimEnd();
     } else {
+      // Fallback: signature labels may be AFTER the names (old templates)
+      // Pattern at end (non-empty):
+      //   <ct1>
+      //   <ct2?> 
+      //   Kontakt(lærere|gruppelærere)
+      //   <principal>
+      //   Forstander
+      const normLines = lines.map(norm);
+      const lastForst = (() => {
+        for (let i = normLines.length - 1; i >= 0; i--) if (reForst.test(normLines[i])) return i;
+        return -1;
+      })();
+      if (lastForst !== -1) {
+        // principal is the nearest non-empty line above "Forstander"
+        let pIdx = lastForst - 1;
+        while (pIdx >= 0 && !normLines[pIdx]) pIdx--;
+        // find last "Kontakt..." before principal
+        let kIdx = pIdx - 1;
+        while (kIdx >= 0 && !reKontakt.test(normLines[kIdx])) kIdx--;
+        if (pIdx >= 0 && kIdx >= 0) {
+          out.principal = normLines[pIdx] || '';
+          // contact names are up to two nearest non-empty lines above kIdx
+          let c2 = kIdx - 1;
+          while (c2 >= 0 && !normLines[c2]) c2--;
+          let c1 = c2 - 1;
+          while (c1 >= 0 && !normLines[c1]) c1--;
+          // Assign in order (ct1 first)
+          out.ct1 = (c1 >= 0 ? normLines[c1] : '') || (c2 >= 0 ? normLines[c2] : '');
+          out.ct2 = (c1 >= 0 && c2 >= 0) ? normLines[c2] : '';
+          // Remove tail block from main text
+          const cut = Math.min(c1 >= 0 ? c1 : c2 >= 0 ? c2 : kIdx, kIdx);
+          const before = lines.slice(0, cut);
+          let rebuilt = before.join('\n');
+          // Strip title line if present
+          if (out.titleLine) {
+            const rLines = rebuilt.split(/\r?\n/);
+            const i = rLines.findIndex(l => norm(l) && norm(l) === out.titleLine);
+            if (i !== -1) {
+              rLines.splice(i, 1);
+              if (i < rLines.length && !norm(rLines[i])) rLines.splice(i, 1);
+              rebuilt = rLines.join('\n');
+            }
+          }
+          out.mainText = rebuilt.replace(/\n{3,}/g, '\n\n').trimEnd();
+          return out;
+        }
+      }
+
       // No recognizable signature block — still normalize excessive blank lines and strip title if present
       let normalized = text.replace(/\n{3,}/g, '\n\n').trimEnd();
       if (out.titleLine) {
@@ -750,12 +798,12 @@ function openPrintWindowForStudents(students, settings, title) {
           ${sig.titleLine ? `<div class="statementTitle">${escapeHtml(sig.titleLine)}</div>` : ``}
           <pre class="statementBody">${escapeHtml(sig.mainText)}</pre>
           <div class="signatureBlock">
+            <div class="cell label">Kontaktgruppelærere</div>
+            <div class="cell label">Forstander</div>
             <div class="cell value">${escapeHtml(sig.ct1)}</div>
             <div class="cell value">${escapeHtml(sig.principal)}</div>
             <div class="cell value">${escapeHtml(sig.ct2)}</div>
             <div class="cell value"></div>
-            <div class="cell label">Kontaktgruppelærere</div>
-            <div class="cell label">Forstander</div>
           </div>
         </div>
       </div>`;
