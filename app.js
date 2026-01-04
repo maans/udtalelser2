@@ -678,6 +678,8 @@ function openPrintWindowForStudents(students, settings, title) {
   }).join('');
 
   const docTitle = escapeHtml(title || 'Print');
+  const printMinPt = Number((settings && settings.printMinPt) ?? 8.25) || 8.25;
+
 
   const html = `<!doctype html>
 <html>
@@ -782,49 +784,68 @@ function openPrintWindowForStudents(students, settings, title) {
 ${pagesHtml}
 <script>
 (function(){
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
-  // iOS/iPadOS Safari often prints every-other blank page when content is scaled/transformed.
-  const disableScale = true; // no transform scaling; we use font-size autofit instead
-    const MIN_PT = ${printMinPt};
-  function fitAll(){
-      const pages = Array.from(document.querySelectorAll('.page'));
-      pages.forEach(page => {
-        const statement = page.querySelector('pre.statement');
-        const content = page.querySelector('.content');
-        if(!statement || !content) return;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-        // Start at a reasonable base size; then shrink until it fits inside the page.
-        let size = 11;              // pt
-        const minSize = MIN_PT;     // pt (readable floor)
-        const step = 0.25;          // pt
+  const MIN_PT = ${printMinPt}; // from Indstillinger
+  
+function fitAll(){
+  const pages = Array.from(document.querySelectorAll('.page'));
+  pages.forEach(page => {
+    const statement = page.querySelector('pre.statement');
+    const content = page.querySelector('.content');
+    const headerLogo = page.querySelector('.printHeaderLogo');
+    const headerTop  = page.querySelector('.printHeaderTop');
+    if(!statement || !content) return;
+
+    let size = 10.5;          // start where it usually fits
+    const minSize = PRINT_MIN_PT || 8.25;
+    let lineHeight = 1.38;
+
+    statement.style.fontSize = size + 'pt';
+    statement.style.lineHeight = lineHeight;
+
+    function fits(){
+      return statement.scrollHeight <= content.clientHeight;
+    }
+
+    // 1) First try tightening header spacing (no font change)
+    if(headerTop) headerTop.style.marginBottom = '4mm';
+    if(headerLogo) headerLogo.style.marginBottom = '6mm';
+    if(fits()) return;
+
+    // 2) Tighten line-height a bit before shrinking font
+    for(let lh=1.38; lh>=1.28; lh-=0.02){
+      statement.style.lineHeight = lh;
+      if(fits()) return;
+    }
+
+    // 3) Now reduce font-size gradually
+    for(let i=0;i<80;i++){
+      size -= 0.25;
+      if(size < minSize){
+        size = minSize;
         statement.style.fontSize = size + 'pt';
-        statement.style.lineHeight = '1.35';
-
-        // Give layout a tick
-        for(let i=0;i<60;i++){
-          const fits = statement.scrollHeight <= content.clientHeight;
-          if(fits) break;
-          size -= step;
-          if(size < minSize) {
-            // If still too long, keep minimum size; content may clip, but we tried.
-            size = minSize;
-            statement.style.fontSize = size + 'pt';
-            break;
-          }
-          statement.style.fontSize = size + 'pt';
-        }
-      });
-    }p.style.setProperty('--s', s.toFixed(4));
+        break;
+      }
+      statement.style.fontSize = size + 'pt';
+      if(fits()) return;
+    }
+  });
+}
+statement.style.fontSize = size + 'pt';
+      }
     });
   }
 
   window.addEventListener('load', () => {
+    // Always run autofit; no transform scaling (avoids iOS blank pages + clipping bugs)
     fitAll();
-    if(!disableScale) {
-      // A tiny delay helps after font rasterization
-      setTimeout(fitAll, 50);
-    }
-    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 120);
+    setTimeout(fitAll, 80);
+
+    // Give iOS a bit more time before invoking print
+    const delay = isIOS ? 350 : 180;
+    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, delay);
   });
 })();
 </script>
