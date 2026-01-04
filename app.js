@@ -1021,8 +1021,10 @@ function updateTeacherDatalist() {
   };
 
   for (const st of studs) {
-    bump(st.kontaktlaerer1_ini, st.kontaktlaerer1);
-    bump(st.kontaktlaerer2_ini, st.kontaktlaerer2);
+    // Vær defensiv: hvis der ligger ældre/fejl-importerede values i localStorage,
+    // så normaliserer vi altid til rigtige initialer her.
+    bump(toInitials(st.kontaktlaerer1_ini), st.kontaktlaerer1);
+    bump(toInitials(st.kontaktlaerer2_ini), st.kontaktlaerer2);
   }
 
   // Choose most frequent name per initials
@@ -1922,8 +1924,11 @@ if (chosen && erObj[chosen]) {
 const klasse = get('klasse');
     const ini1 = (get('ini1') || '').trim();
     const ini2 = (get('ini2') || '').trim();
-    const k1 = ini1 ? ini1.toUpperCase() : toInitials(get('kontakt1'));
-    const k2 = ini2 ? ini2.toUpperCase() : toInitials(get('kontakt2'));
+    // Robusthed: nogle CSV'er har "initialer"-kolonner der (ved fejl/eksport) indeholder
+    // fulde navne eller andre strenge. Vi tvinger derfor altid værdien gennem toInitials(),
+    // så k-lærer-initialer ender som 1-4 bogstaver (typisk 2), uanset input.
+    const k1 = ini1 ? toInitials(ini1) : toInitials(get('kontakt1'));
+    const k2 = ini2 ? toInitials(ini2) : toInitials(get('kontakt2'));
     const kontakt1_navn = get('kontakt1');
     const kontakt2_navn = get('kontakt2');
     const navn = `${fornavn} ${efternavn}`.trim();
