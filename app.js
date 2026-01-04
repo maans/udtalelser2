@@ -2256,6 +2256,8 @@ function updateImportStatsUI() {
 
   const s = getSettings();
   const studs = getStudents();
+  const meRaw = (s.me || '').toString().trim();
+  const meIni = toInitials(meRaw);
   const meNorm = normalizeName((s.meResolved || s.me || '').toString());
 
   // Determine active K-gruppe students (by initials match)
@@ -2278,6 +2280,19 @@ function updateImportStatsUI() {
 
   // Compute "done" and missing lists (per student: any mark in that category?)
   const missing = { sang: [], gym: [], elevraad: [] };
+  const markedER = [];
+
+  const isTruthy = (v) => {
+    if (v === true) return true;
+    if (v === 1) return true;
+    if (typeof v === 'string') return v.trim().length > 0;
+    if (typeof v === 'number') return v !== 0 && !Number.isNaN(v);
+    return false;
+  };
+  const hasAnyTruthyValue = (obj) => {
+    if (!obj || typeof obj !== 'object') return false;
+    return Object.keys(obj).some(k => isTruthy(obj[k]));
+  };
 
   const marksS = getMarks(KEYS.marksSang);
   const marksG = getMarks(KEYS.marksGym);
@@ -2292,21 +2307,29 @@ function updateImportStatsUI() {
     const gM = marksG[u] || {};
     const eM = marksE[u] || {};
 
-    const hasS = !!(sM.sang_variant || sM.S1 || sM.S2 || sM.S3 || sM.sang || sM.variant);
-    const hasG = !!(gM.gym_variant || gM.G1 || gM.G2 || gM.G3 || gM.gym || gM.variant ||
-                    Object.keys(gM||{}).some(k => (k||'').toUpperCase().startsWith('R') && !!gM[k]));
-    const hasE = !!(eM.elevraad === true || eM.elevraad === 1 || eM.E1 || eM.YES);
+    const hasS = !!(sM.sang_variant || sM.variant || sM.sang || sM.S1 || sM.S2 || sM.S3 || hasAnyTruthyValue(sM));
+    const hasG = !!(gM.gym_variant || gM.variant || gM.gym || gM.G1 || gM.G2 || gM.G3 ||
+                    Object.keys(gM||{}).some(k => (k||'').toUpperCase().startsWith('R') && isTruthy(gM[k])) ||
+                    hasAnyTruthyValue(gM));
+    // Elevråd kan være bool/variant/streng – og kan importeres under forskellige nøgler.
+    const hasE = !!(eM.elevraad_variant || eM.variant || eM.elevraad || eM.E1 || eM.YES || hasAnyTruthyValue(eM));
 
     if (hasS) doneS++; else missing.sang.push(full);
     if (hasG) doneG++; else missing.gym.push(full);
-    if (hasE) doneE++; else missing.elevraad.push(full);
+    if (hasE) { doneE++; markedER.push(full); } else missing.elevraad.push(full);
   });
 
   // Hint
   const hint = document.getElementById('importStatsHint');
   if (hint) {
     if (!meNorm || !studs.length) hint.textContent = 'Vælg K-lærer og indlæs elevliste for at se status.';
-    else hint.textContent = `Status for aktiv K-gruppe (${nTot} elev${nTot===1?'':'er'}):`;
+    else hint.textContent = `Status for ${meIni || 'aktiv'}'s K-gruppe (${nTot} elev${nTot===1?'':'er'}):`;
+  }
+
+  // Markerede elevrådsrepræsentanter (typisk få)
+  const erMarkedEl = document.getElementById('importERMarked');
+  if (erMarkedEl) {
+    erMarkedEl.textContent = markedER.length ? `Markeret: ${markedER.join(', ')}` : 'Ingen markeret';
   }
 
   // Values + "mangler" hint
@@ -2323,16 +2346,16 @@ function updateImportStatsUI() {
 
   // Colored dots (ok/warn/bad)
   const dotClass = (done, tot) => {
-    if (!tot) return 'dotNone';
-    if (done === 0) return 'dotBad';
+    if (!tot) return 'none';
+    if (done === 0) return 'bad';
     const pct = done / tot;
-    if (pct >= 0.9) return 'dotOk';
-    return 'dotWarn';
+    if (pct >= 0.9) return 'ok';
+    return 'warn';
   };
   const setDot = (id, cls) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.classList.remove('dotOk','dotWarn','dotBad','dotNone');
+    el.classList.remove('ok','warn','bad','none');
     el.classList.add(cls);
   };
   setDot('dotSang', dotClass(doneS, nTot));
@@ -2355,12 +2378,6 @@ function updateImportStatsUI() {
   wireToggle('btnToggleMissingSang', 'importMissingSang');
   wireToggle('btnToggleMissingGym',  'importMissingGym');
 
-  // Refresh button (recomputes without full app reload)
-  const btnR = document.getElementById('btnRefreshImportStats');
-  if (btnR && btnR.dataset.wired !== '1') {
-    btnR.dataset.wired = '1';
-    btnR.addEventListener('click', () => updateImportStatsUI());
-  }
 
   // Disable controls if no data
   const setDisabled = (btnId) => {
@@ -2371,7 +2388,7 @@ function updateImportStatsUI() {
   };
   setDisabled('btnToggleMissingSang');
   setDisabled('btnToggleMissingGym');
-  setDisabled('btnRefreshImportStats');
+  // (Elevråd har ingen "vis manglende" knap i UI – men hold logikken robust)
 }
 
 function renderSettings() {
@@ -2552,6 +2569,20 @@ function commitSnippetsFromUI(scope) {
 function renderKList() {
     const s = getSettings();
     const studs = getStudents();
+    // Faglærer-markeringer (til små indikatorer på elevkort)
+    const marksS = getMarks(KEYS.marksSang);
+    const marksG = getMarks(KEYS.marksGym);
+    const marksE = getMarks(KEYS.marksElev);
+    const isTruthy = (v) => {
+      if (v === true) return true;
+      if (v === 1) return true;
+      if (typeof v === 'string') return v.trim().length > 0;
+      return false;
+    };
+    const hasAnyTruthyValue = (obj) => {
+      if (!obj || typeof obj !== 'object') return false;
+      return Object.values(obj).some(isTruthy);
+    };
     const isAll = state.viewMode === 'ALL';
     // Build k-grupper (teacher pairs) once; later UI uses this.
     const kGroups = buildKGroups(studs);
@@ -2807,13 +2838,24 @@ const prog = mineList.reduce((acc, st) => {
           ? `${letters}${lastBy ? ` → ${escapeHtml(lastBy)}` : ''}`
           : '';
 
+        // Indikér om der ER importeret/markeret Sang/Gym/Elevråd for eleven
+        const u = st.unilogin || '';
+        const mS = marksS[u] || {};
+        const mG = marksG[u] || {};
+        const mE = marksE[u] || {};
+        const hasS = isTruthy(mS.sang_variant) || isTruthy(mS.variant) || mS.S1 === true || mS.S2 === true || mS.S3 === true || hasAnyTruthyValue(mS);
+        const hasG = isTruthy(mG.gym_variant) || (Array.isArray(mG.gym_roles) && mG.gym_roles.length > 0) || hasAnyTruthyValue(mG);
+        const hasE = isTruthy(mE.elevraad_variant) || isTruthy(mE.variant) || isTruthy(mE.elevraad) || hasAnyTruthyValue(mE);
+        const markLabels = [hasS ? 'Sang' : '', hasG ? 'Gym' : '', hasE ? 'Elevråd' : ''].filter(Boolean);
+        const marksLine = markLabels.length ? ` · ${markLabels.join(' · ')}` : '';
+
         return `
           <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
               <div class="cardFlags muted small">${statusRight}</div>
             </div>
-            <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || ''))}</div>
+            <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || '') + marksLine)}</div>
           </div>
         `;
       }).join('');
@@ -4094,6 +4136,9 @@ if (document.getElementById('btnDownloadElevraad')) {
         }
 
         setMarks(storageKey, marks);
+        // Live opdater status-boksen og evt. K-elever-kort
+        try { updateImportStatsUI(); } catch (err) {}
+        if (state.tab === 'k') { try { renderKList(); } catch (err) {} }
         renderMarksTable();
       });
     }
@@ -4127,6 +4172,8 @@ if (document.getElementById('btnDownloadElevraad')) {
         }
 
         setMarks(storageKey, marks);
+        try { updateImportStatsUI(); } catch (err) {}
+        if (state.tab === 'k') { try { renderKList(); } catch (err) {} }
         renderMarksTable();
       });
     }
