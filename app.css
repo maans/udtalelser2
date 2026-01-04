@@ -595,6 +595,21 @@ tr:hover td{background: rgba(255,255,255,.02)}
 .titleCenter{justify-self:center;}
 .titleRight{justify-self:end; display:flex; align-items:center; gap:.5rem;}
 
+/* Right-side pencil/name should behave like a big, forgiving button */
+.titleRightBtn{
+  display:block;
+  width:100%;
+  background:transparent;
+  border:0;
+  padding:0;
+  margin:0;
+  text-align:right;
+  cursor:pointer;
+}
+.titleRightBtn .muted{transition:opacity .15s ease;}
+.titleRightBtn:hover .muted{opacity:1;}
+.titleRightBtn:focus-visible{outline:2px solid rgba(120,180,255,.55); outline-offset:3px; border-radius:10px;}
+
 @media (max-width: 720px){
   .viewTitleRow{grid-template-columns:1fr; row-gap:.5rem;}
   .titleCenter{justify-self:start;}

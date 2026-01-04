@@ -3688,6 +3688,22 @@ $('preview').textContent = buildStatement(st, getSettings());
 
     on('btnReload','click', () => location.reload());
 
+    // Quick access: clicking the pencil/name area jumps to Indstillinger → Generelt (K-lærer valg)
+    const goToTeacherPicker = () => {
+      try {
+        setTab('set');
+        const btnGen = document.getElementById('settingsTab-general');
+        if (btnGen) btnGen.click();
+        // Focus the teacher input (picker)
+        const me = document.getElementById('meInput');
+        if (me) me.focus();
+      } catch (e) {
+        console.warn('Kunne ikke navigere til Generelt:', e);
+      }
+    };
+    on('btnGoGeneralFromK','click', goToTeacherPicker);
+    on('btnGoGeneralFromEdit','click', goToTeacherPicker);
+
     on('btnReset','click', () => {
       if (!confirm('Ryd alle lokale data i denne browser?')) return;
       lsDelPrefix(LS_PREFIX);
