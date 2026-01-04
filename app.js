@@ -922,6 +922,20 @@ function toInitials(raw) {
   return (first + last).toUpperCase();
 }
 
+function isValidInitials(raw){
+  const s = (raw ?? '').toString().trim().toUpperCase();
+  return /^[A-ZÆØÅ]{1,4}$/.test(s);
+}
+
+function normalizedInitials(overrideRaw, fullNameRaw){
+  // Rules (per "Accepterede kolonner"):
+  // - If Initialer for k-lærer1/2 is provided AND looks like real initials (1-4 letters), use it.
+  // - Otherwise auto-generate from the full name.
+  const o = (overrideRaw ?? '').toString().trim();
+  if (isValidInitials(o)) return o.toUpperCase();
+  return toInitials(fullNameRaw);
+}
+
 
 function reverseResolveTeacherInitials(nameOrInitials) {
   // Try to map full name -> initials based on known alias map (if present in settings).
@@ -1022,9 +1036,10 @@ function updateTeacherDatalist() {
 
   for (const st of studs) {
     // Vær defensiv: hvis der ligger ældre/fejl-importerede values i localStorage,
-    // så normaliserer vi altid til rigtige initialer her.
-    bump(toInitials(st.kontaktlaerer1_ini), st.kontaktlaerer1);
-    bump(toInitials(st.kontaktlaerer2_ini), st.kontaktlaerer2);
+    // så genberegner vi initialer ud fra fulde navne, med mindre der ligger en
+    // gyldig override (1-4 bogstaver).
+    bump(normalizedInitials(st.kontaktlaerer1_ini, st.kontaktlaerer1), st.kontaktlaerer1);
+    bump(normalizedInitials(st.kontaktlaerer2_ini, st.kontaktlaerer2), st.kontaktlaerer2);
   }
 
   // Choose most frequent name per initials
@@ -1924,13 +1939,15 @@ if (chosen && erObj[chosen]) {
 const klasse = get('klasse');
     const ini1 = (get('ini1') || '').trim();
     const ini2 = (get('ini2') || '').trim();
-    // Robusthed: nogle CSV'er har "initialer"-kolonner der (ved fejl/eksport) indeholder
-    // fulde navne eller andre strenge. Vi tvinger derfor altid værdien gennem toInitials(),
-    // så k-lærer-initialer ender som 1-4 bogstaver (typisk 2), uanset input.
-    const k1 = ini1 ? toInitials(ini1) : toInitials(get('kontakt1'));
-    const k2 = ini2 ? toInitials(ini2) : toInitials(get('kontakt2'));
     const kontakt1_navn = get('kontakt1');
     const kontakt2_navn = get('kontakt2');
+
+    // Initialer-regel (per "Accepterede kolonner"):
+    // - Hvis "Initialer for k-lærerX" er udfyldt og ligner rigtige initialer (1-4 bogstaver), brug dem.
+    // - Ellers dannes initialer automatisk ud fra kontaktlærerens navn.
+    // Tomme felter ignoreres senere i UI.
+    const k1 = normalizedInitials(ini1, kontakt1_navn);
+    const k2 = normalizedInitials(ini2, kontakt2_navn);
     const navn = `${fornavn} ${efternavn}`.trim();
     return { fornavn, efternavn, navn, unilogin, koen, klasse, kontaktlaerer1: kontakt1_navn, kontaktlaerer2: kontakt2_navn, kontaktlaerer1_ini: k1, kontaktlaerer2_ini: k2 };
   }
