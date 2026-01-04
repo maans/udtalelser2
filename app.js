@@ -680,6 +680,19 @@ function openPrintWindowForStudents(students, settings, title) {
   }
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
+    // Title extraction (first line) — no regex
+    const rawPrint = String(txt || '').replaceAll('\r', '');
+    const nl = rawPrint.indexOf('\n');
+    let titleLine = '';
+    let bodyText = rawPrint;
+    if (nl >= 0) {
+      titleLine = rawPrint.slice(0, nl).trim();
+      bodyText = rawPrint.slice(nl + 1);
+      while (bodyText.startsWith('\n')) bodyText = bodyText.slice(1);
+    } else {
+      titleLine = rawPrint.trim();
+      bodyText = '';
+    }
     return `
       <div class="page">
         <div class="content">
