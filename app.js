@@ -658,7 +658,6 @@ function openPrintWindowForStudents(students, settings, title) {
   //
   //   Forstander
   //   <forstandernavn>
-  
   function parseStatementForPrint(statementText) {
     const raw = String(statementText || '');
     let text = raw.replace(//g, '');
@@ -676,6 +675,16 @@ function openPrintWindowForStudents(students, settings, title) {
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].trim()) { title = lines[i].trim(); firstIdx = i; break; }
     }
+
+    // Body: everything after the title line (preserve spacing + any signature lines)
+    let bodyLines = (firstIdx >= 0) ? lines.slice(firstIdx + 1) : lines.slice();
+    // Remove leading blank lines in body
+    while (bodyLines.length && !bodyLines[0].trim()) bodyLines.shift();
+    const bodyText = bodyLines.join('
+').trimEnd();
+
+    return { title, bodyText };
+  }
 
     // Body: everything after the title line (preserve spacing + any signature lines)
     let bodyLines = (firstIdx >= 0) ? lines.slice(firstIdx + 1) : lines.slice();
