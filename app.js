@@ -866,11 +866,43 @@ async function printAllKGroups() {
   }
 
   const kGroups = buildKGroups(studs);
-  const all = [];
 
-  // Flatten i gruppe-rækkefølge (stabilt og forudsigeligt)
-  kGroups.forEach(g => {
-    (g.students || []).forEach(s => all.push(s));
+// Sortering i 2 niveauer:
+// 1) K-grupper efter K-lærer1 (initialer) – derefter K-lærer2 – derefter nøgle
+// 2) Elever i hver gruppe alfabetisk efter fornavn (da-DK)
+const coll = new Intl.Collator('da', { sensitivity: 'base' });
+
+kGroups.sort((g1, g2) => {
+  const a0 = (g1.students && g1.students[0]) ? g1.students[0] : {};
+  const b0 = (g2.students && g2.students[0]) ? g2.students[0] : {};
+  const aK1 = toInitials(a0.kontaktlaerer1_ini || '');
+  const bK1 = toInitials(b0.kontaktlaerer1_ini || '');
+  const c1 = coll.compare(aK1, bK1);
+  if (c1) return c1;
+
+  const aK2 = toInitials(a0.kontaktlaerer2_ini || '');
+  const bK2 = toInitials(b0.kontaktlaerer2_ini || '');
+  const c2 = coll.compare(aK2, bK2);
+  if (c2) return c2;
+
+  return coll.compare(String(g1.key || ''), String(g2.key || ''));
+});
+
+for (const g of kGroups) {
+  (g.students || []).sort((x, y) => {
+    const c = coll.compare((x.fornavn || '').trim(), (y.fornavn || '').trim());
+    if (c) return c;
+    // tie-break: efternavn
+    return coll.compare((x.efternavn || '').trim(), (y.efternavn || '').trim());
+  });
+}
+
+const all = [];
+
+// Flatten i gruppe-rækkefølge (stabilt og forudsigeligt)
+kGroups.forEach(g => {
+  (g.students || []).forEach(s => all.push(s));
+});
   });
 
   if (!all.length) {
@@ -883,6 +915,32 @@ async function printAllKGroups() {
   // preserveOrder=true så vi ikke mister gruppe-ordenen ved intern sortering.
   openPrintWindowForStudents(all, getSettings(), title, { preserveOrder: true });
 }
+
+async function printAllStudents() {
+  // Keep overrides fresh for printing unless the user is actively editing templates.
+  try {
+    await loadRemoteOverrides();
+    applyTemplatesFromOverridesToLocal({ preserveLocks: true });
+  } catch(_) {}
+
+  const studs = getStudents();
+  if (!studs.length) {
+    alert('Der er ingen elevliste indlæst endnu.');
+    return;
+  }
+
+  const coll = new Intl.Collator('da', { sensitivity: 'base' });
+  const all = studs.slice().sort((a, b) => {
+    const c = coll.compare((a.fornavn || '').trim(), (b.fornavn || '').trim());
+    if (c) return c;
+    return coll.compare((a.efternavn || '').trim(), (b.efternavn || '').trim());
+  });
+
+  const title = 'Udtalelser v1.0 – print alle elever';
+  openPrintWindowForStudents(all, getSettings(), title, { preserveOrder: true });
+}
+
+
 
 function importLocalBackup(file) {
   if (!file) return;
@@ -4661,7 +4719,11 @@ try {
     const btnPrintAllK = $("btnPrintAllK");
     if (btnPrintAllK) btnPrintAllK.addEventListener("click", printAllKStudents);
 
-    // Indstillinger → Eksport: Print alle K-grupper (alle elever)
+        // Indstillinger → Eksport: Print alle elever (alfabetisk efter fornavn)
+    const btnPrintAllStudents = $("btnPrintAllStudents");
+    if (btnPrintAllStudents) btnPrintAllStudents.addEventListener("click", printAllStudents);
+
+// Indstillinger → Eksport: Print alle K-grupper (alle elever)
     const btnPrintAllGroups = $("btnPrintAllGroups");
     if (btnPrintAllGroups) btnPrintAllGroups.addEventListener("click", printAllKGroups);
 
