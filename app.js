@@ -687,7 +687,21 @@ function openPrintWindowForStudents(students, settings, title) {
       const between = lines.slice(idxKontakt + 1, idxForst).map(norm).filter(Boolean);
       const after = lines.slice(idxForst + 1).map(norm).filter(Boolean);
 
-      out.ct1 = between[0] || '';
+      // Some templates place the contact-teacher line *before* the "Kontaktlærere/Kontaktgruppelærere" label.
+      // If so, capture the last non-empty line before the label and remove it from the main text.
+      let contactLineFromBefore = '';
+      if (!between.length) {
+        for (let i = before.length - 1; i >= 0; i--) {
+          const t = norm(before[i]);
+          if (!t) continue;
+          contactLineFromBefore = t;
+          // Remove it from "before" so it doesn't stay in mainText.
+          before.splice(i, 1);
+          break;
+        }
+      }
+
+      out.ct1 = between[0] || contactLineFromBefore || '';
       out.ct2 = between[1] || '';
       out.principal = after[0] || '';
 
@@ -860,14 +874,12 @@ function openPrintWindowForStudents(students, settings, title) {
       column-gap: 26mm;
       row-gap: 2mm;
       justify-content:center;
+      justify-items:start;
       align-items:start;
       margin-top: 10mm;
-      font-size: 10pt;
+      font-size: 12pt; /* match body text */
     }
-    .signatureBlock .label{
-      font-size: 9pt;
-      font-weight: 600;
-    }
+    .signatureBlock .label{ font-size: 11.5pt; font-weight: 600; }
     /* iOS/iPadOS Safari: disable scaling transforms to avoid alternating blank pages */
     @supports (-webkit-touch-callout: none) {
       .page { --s: 1 !important; }
