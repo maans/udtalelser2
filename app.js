@@ -3623,14 +3623,14 @@ $('preview').textContent = buildStatement(st, getSettings());
     const legendEl = $('marksLegend');
     const pickTextForStudent = (snippet, st) => {
       if (!snippet) return '';
-      const pr = genderGroup(st.koen || st.gender || st.sex || '');
+      const pr = pronouns(st.koen || st.gender || st.sex || '');
       const isFemale = pr && pr.HAN_HUN === 'hun';
       return (isFemale ? (snippet.text_k || snippet.text_m || '') : (snippet.text_m || snippet.text_k || ''));
     };
     const placeholderMapFor = (st) => {
       const full = `${st.fornavn||''} ${st.efternavn||''}`.trim();
       const first = (st.fornavn||'').trim() || full.split(' ')[0] || '';
-      const pr = genderGroup(st.koen || st.gender || st.sex || '');
+      const pr = pronouns(st.koen || st.gender || st.sex || '');
       return {
         "FORNAVN": first,
         "ELEV_FORNAVN": first,
