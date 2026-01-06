@@ -4355,7 +4355,7 @@ if (document.getElementById('btnDownloadElevraad')) {
           const m = marks[st.unilogin] || {};
           return { Unilogin: st.unilogin, Navn: full, Sang_variant: m.sang_variant || '' };
         });
-        downloadText('sang_marks.csv', toCsv(rows, ['Unilogin','Navn','Sang_variant']));
+        downloadText('sang_vurderinger.csv', toCsv(rows, ['Unilogin','Navn','Sang_variant']));
       }
       if (type === 'gym') {
         const marks = getMarks(KEYS.marksGym);
@@ -4368,7 +4368,7 @@ if (document.getElementById('btnDownloadElevraad')) {
           roleCodes.forEach(rc => row[rc] = m[rc] ? 1 : 0);
           return row;
         });
-        downloadText('gym_marks.csv', toCsv(rows, headers));
+        downloadText('gym_rolle_vurderinger.csv', toCsv(rows, headers));
       }
       if (type === 'elevraad') {
         const marks = getMarks(KEYS.marksElev);
@@ -4377,7 +4377,7 @@ if (document.getElementById('btnDownloadElevraad')) {
           const m = marks[st.unilogin] || {};
           return { Unilogin: st.unilogin, Navn: full, Elevraad: m.elevraad ? 1 : 0 };
         });
-        downloadText('elevraad_marks.csv', toCsv(rows, ['Unilogin','Navn','Elevraad']));
+        downloadText('elevraad_vurderinger.csv', toCsv(rows, ['Unilogin','Navn','Elevraad']));
       }
     });
 
