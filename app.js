@@ -1774,7 +1774,12 @@ function normalizePlaceholderKey(key) {
   function normalizeHeader(input) { return normalizeName(input).replace(/[^a-z0-9]+/g, ""); }
 
   // ---------- util ----------
-  function escapeAttr(s) { return (s ?? '').toString().replace(/"/g,'&quot;'); }
+  function escapeAttr(s) { return (s ?? '').toString()
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/\r?\n/g,'&#10;'); }
   function $(id){ return document.getElementById(id); }
 
 // Focus + open K-lærer picker (waits for DOM + picker init)
@@ -3298,15 +3303,17 @@ const prog = mineList.reduce((acc, st) => {
         const hasS = isTruthy(mS.sang_variant) || isTruthy(mS.variant) || mS.S1 === true || mS.S2 === true || mS.S3 === true || hasAnyTruthyValue(mS);
         const hasG = isTruthy(mG.gym_variant) || (Array.isArray(mG.gym_roles) && mG.gym_roles.length > 0) || hasAnyTruthyValue(mG);
         const hasE = isTruthy(mE.elevraad_variant) || isTruthy(mE.variant) || isTruthy(mE.elevraad) || hasAnyTruthyValue(mE);
+        const hasAnyProgress = !!(hasU || hasP || hasK || hasS || hasG || hasE);
+        const isWip = !!(hasAnyProgress && !isComplete);
         const markLabels = [hasS ? 'Sang' : '', hasG ? 'Gym' : '', hasE ? 'Elevråd' : ''].filter(Boolean);
         const marksLine = markLabels.length ? ` · ${markLabels.join(' · ')}` : '';
 
         return `
-          <div class="card clickable ${isComplete ? "complete" : ""}" data-unilogin="${escapeAttr(st.unilogin)}">
+          <div class="card clickable ${isComplete ? "complete" : (isWip ? "wip" : "")}" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
+              ${isComplete ? `<span class="dot done" title="Færdig: U, P og K er udfyldt."></span>` : (isWip ? `<span class="dot wip" title="Undervejs: der er indhold, men ikke alt er færdigt endnu."></span>` : ``)}
               <div class="cardFlags muted small">${statusRight}</div>
-              ${isComplete ? `<span class="dot done" title="Udtalelsen er udfyldt (U, P og K)."></span>` : ``}
             </div>
             <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || '') + marksLine)}</div>
           </div>
@@ -3761,6 +3768,26 @@ $('preview').textContent = buildStatement(st, getSettings());
       // data-u/data-k bruges af click-handleren på marks-tabellen
       return `<td class="cb"><button type="button" class="${cls}" data-u="${escapeAttr(unilogin)}" data-k="${escapeAttr(key)}" aria-pressed="${pressed}" title="${escapeAttr(tooltip||'')}"><span class="check">✓</span></button></td>`;
     }
+
+    function tooltipTextFor(st, scope, key){
+      try {
+        let snip = null;
+        if (scope === 'roller') snip = (SNIPPETS.roller || {})[key];
+        else snip = (SNIPPETS[scope] || {})[key];
+        if (!snip) return '';
+        const p = pronouns(st.koen || st.køn || st.gender || '');
+        const base = (p.HAN_HUN === 'hun' && snip.text_k) ? snip.text_k : (snip.text_m || snip.text_k || '');
+        const filled = applyPlaceholders(base, Object.assign({ FORNAVN: st.fornavn || '' }, p));
+        const flat = String(filled || '').trim().replace(/\s+/g,' ');
+        if (!flat) return '';
+        const pretty = flat.replace(/([.!?])\s+/g, '$1\n\n');
+        const title = String(snip.title || key).trim();
+        return (title ? (title + '\n\n') : '') + pretty;
+      } catch(e) {
+        return '';
+      }
+    }
+
 
 
 
