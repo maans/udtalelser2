@@ -2309,6 +2309,9 @@ if (chosen && erObj[chosen]) {
       "HAN_HUN": pr.HAN_HUN,
       "HAM_HENDE": pr.HAM_HENDE,
       "HANS_HENDES": pr.HANS_HENDES,
+      "HAN_HUN_CAP": pr.HAN_HUN_CAP,
+      "HAM_HENDE_CAP": pr.HAM_HENDE_CAP,
+      "HANS_HENDES_CAP": pr.HANS_HENDES_CAP,
       "ELEV_EFTERNAVN": (student.efternavn || '').trim(),
       "ELEV_KLASSE": formatClassLabel(student.klasse),
       "PERIODE_FRA": period.from,
@@ -2348,6 +2351,9 @@ if (chosen && erObj[chosen]) {
       "HAN_HUN": pr.HAN_HUN,
       "HAM_HENDE": pr.HAM_HENDE,
       "HANS_HENDES": pr.HANS_HENDES,
+      "HAN_HUN_CAP": pr.HAN_HUN_CAP,
+      "HAM_HENDE_CAP": pr.HAM_HENDE_CAP,
+      "HANS_HENDES_CAP": pr.HANS_HENDES_CAP,
 
       /* legacy placeholders */
       "NAVN": fullName,
@@ -3650,6 +3656,9 @@ $('preview').textContent = buildStatement(st, getSettings());
         "HAN_HUN": pr.HAN_HUN,
         "HAM_HENDE": pr.HAM_HENDE,
         "HANS_HENDES": pr.HANS_HENDES,
+        "HAN_HUN_CAP": pr.HAN_HUN_CAP,
+        "HAM_HENDE_CAP": pr.HAM_HENDE_CAP,
+        "HANS_HENDES_CAP": pr.HANS_HENDES_CAP,
         "SIG_HAM_HENDE": pr.SIG_HAM_HENDE
       };
     };
