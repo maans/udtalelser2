@@ -536,6 +536,20 @@ function applySnippetOverrides() {
         if (typeof it.text_k === 'string') SNIPPETS.roller[k].text_k = it.text_k;
       });
     }
+    // --- Roller (separat scope)
+    const roller = pack.roller && (pack.roller.roles ? pack.roller : (pack.roller.roller ? pack.roller.roller : null));
+    if (roller && roller.roles) {
+      Object.keys(roller.roles).forEach(k => {
+        const it = roller.roles[k] || {};
+        if (!SNIPPETS.roller[k]) SNIPPETS.roller[k] = { title: k, text_m: '', text_k: '' };
+        // Rollenavne er faste, men vi accepterer tekstfelterne.
+        if (typeof it.text === 'string') { SNIPPETS.roller[k].text_m = it.text; SNIPPETS.roller[k].text_k = it.text; }
+        if (typeof it.text_m === 'string') SNIPPETS.roller[k].text_m = it.text_m;
+        if (typeof it.text_k === 'string') SNIPPETS.roller[k].text_k = it.text_k;
+      });
+    }
+
+
 
     // --- Elevråd (YES)
     const er = pack.elevraad && (typeof pack.elevraad.text === 'string') ? pack.elevraad : (pack.elevraad && pack.elevraad.elevraad ? pack.elevraad.elevraad : null);
@@ -1105,22 +1119,18 @@ function buildOverridePackage(scope) {
       const text = ($('gymText_'+k)?.value || '').trim();
       variants[k] = { label, text };
     });
+    pkg.payload.gym = { variants, variantOrder: ['G1','G2','G3'] };
+  }
 
+  if (scope === 'roller') {
     const roles = {};
     const roleRows = Array.from(document.querySelectorAll('[data-role-key]'));
     roleRows.forEach(row => {
       const key = row.getAttribute('data-role-key');
-      const label = (row.querySelector('.roleLabel')?.value || '').trim() || key;
       const text = (row.querySelector('.roleText')?.value || '').trim();
-      if (key) roles[key] = { label, text };
+      if (key) roles[key] = { label: key, text };
     });
-
-    pkg.payload.gym = {
-      variants,
-      variantOrder: ['G1','G2','G3'],
-      roles,
-      roleOrder: Object.keys(roles)
-    };
+    pkg.payload.roller = { roles, roleOrder: Object.keys(roles) };
   }
 
   if (scope === 'elevraad') {
@@ -1153,14 +1163,35 @@ function importOverridePackage(expectedScope, obj) {
     if (p.sang && p.sang.items) overrides.sang = p.sang;
   }
   if (obj.scope === 'all' || obj.scope === 'gym') {
-    if (p.gym) overrides.gym = p.gym;
+    if (p.gym) {
+      const prev = overrides.gym || {};
+      overrides.gym = Object.assign({}, prev, p.gym);
+      // Backward compat: ældre gym-pakker kan indeholde roller.
+      if (p.gym.roles) {
+        const prevR = overrides.roller || {};
+        overrides.roller = {
+          roles: Object.assign({}, prevR.roles || {}, p.gym.roles),
+          roleOrder: p.gym.roleOrder || prevR.roleOrder || Object.keys(p.gym.roles)
+        };
+      }
+    }
   }
+  if (obj.scope === 'all' || obj.scope === 'roller') {
+    if (p.roller && p.roller.roles) {
+      const prevR = overrides.roller || {};
+      overrides.roller = {
+        roles: Object.assign({}, prevR.roles || {}, p.roller.roles),
+        roleOrder: p.roller.roleOrder || prevR.roleOrder || Object.keys(p.roller.roles)
+      };
+    }
+  }
+
   if (obj.scope === 'all' || obj.scope === 'elevraad') {
     if (p.elevraad) overrides.elevraad = p.elevraad;
   }
 
   // Mark local snippet edits so auto-refresh does not overwrite them.
-  if (obj.scope === 'all' || obj.scope === 'sang' || obj.scope === 'gym' || obj.scope === 'elevraad') {
+  if (obj.scope === 'all' || obj.scope === 'sang' || obj.scope === 'gym' || obj.scope === 'roller' || obj.scope === 'elevraad') {
     setSnippetsDirty(true);
   }
 
@@ -2870,9 +2901,16 @@ function renderSnippetsEditor() {
   const er = (SNIPPETS.elevraad && SNIPPETS.elevraad.YES) ? SNIPPETS.elevraad.YES : { text_m: '', text_k: '' };
   $('elevraadText').value = (er.text_m || er.text_k || '');
 
-  // Roller (gym)
-  const list = document.getElementById('gymRolesList');
+  // Roller
+  const list = document.getElementById('rolesList') || document.getElementById('gymRolesList');
   if (!list) return;
+  if (!list.dataset._boundInput) {
+    list.dataset._boundInput = '1';
+    list.addEventListener('input', (e) => {
+      const t = e.target;
+      if (t && t.classList && t.classList.contains('roleText')) commitSnippetsFromUI('roller');
+    });
+  }
   list.innerHTML = '';
   Object.keys(SNIPPETS.roller || {}).forEach(key => {
     const it = SNIPPETS.roller[key];
@@ -2883,7 +2921,7 @@ function renderSnippetsEditor() {
       <div class="row gap wrap" style="align-items:center">
         <div class="field" style="min-width:220px;flex:1">
           <label>Rolle-navn</label>
-          <input class="roleLabel" type="text" value="${escapeHtml(it.title || key)}">
+          <input class="roleLabel" type="text" value="${escapeHtml(it.title || key)}" readonly disabled>
         </div>
         <div class="field" style="flex:2;min-width:280px">
           <label>Tekst</label>
@@ -2955,16 +2993,17 @@ function commitSnippetsFromUI(scope) {
         text: ($('gymText_'+k).value || '').trim()
       };
     });
+    overrides.gym = { variants, variantOrder: ['G1','G2','G3'] };
+  }
+
+  if (scope === 'roller') {
     const roles = {};
     Array.from(document.querySelectorAll('[data-role-key]')).forEach(row => {
       const key = row.getAttribute('data-role-key');
       if (!key) return;
-      roles[key] = {
-        label: (row.querySelector('.roleLabel')?.value || '').trim() || key,
-        text: (row.querySelector('.roleText')?.value || '').trim()
-      };
+      roles[key] = { label: key, text: (row.querySelector('.roleText')?.value || '').trim() };
     });
-    overrides.gym = { variants, roles, variantOrder: ['G1','G2','G3'], roleOrder: Object.keys(roles) };
+    overrides.roller = { roles, roleOrder: Object.keys(roles) };
   }
 
   if (scope === 'elevraad') {
@@ -3627,7 +3666,7 @@ $('preview').textContent = buildStatement(st, getSettings());
 
     const type = (typeEl && typeEl.value) ? typeEl.value : 'sang';
 
-    const storageKey = (type === 'sang') ? KEYS.marksSang : (type === 'gym') ? KEYS.marksGym : KEYS.marksElev;
+    const storageKey = (type === 'sang') ? KEYS.marksSang : (type === 'gym' || type === 'roller') ? KEYS.marksGym : KEYS.marksElev;
     const q = normalizeName((searchEl && searchEl.value) ? searchEl.value : '').trim();
 
     if (!studs || !studs.length){
@@ -3816,15 +3855,13 @@ $('preview').textContent = buildStatement(st, getSettings());
       const marks = getMarks(KEYS.marksGym);
       $('marksLegend').textContent = '';
       const cols = Object.keys(SNIPPETS.gym);
-      const roleCodes = Object.keys(SNIPPETS.roller || {});
 
       wrap.innerHTML = `
         <table>
           <thead>
             <tr>
               ${nameTh}${thKgrp}${thKlasse}
-              ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.gym[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.gym[c].title||'')}</span></th>`).join('')}
-              ${roleCodes.map(r => `<th class="cb" title="${escapeAttr((SNIPPETS.roller[r]||{}).hint||'')}"><span class="muted small">${escapeHtml((SNIPPETS.roller[r]||{}).title||r)}</span></th>`).join('')}
+              ${cols.map(c => `<th class="cb" title="${escapeAttr((SNIPPETS.gym[c]||{}).hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.gym[c].title||c)}</span></th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -3836,7 +3873,39 @@ $('preview').textContent = buildStatement(st, getSettings());
                 <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
                 <td class="muted small">${escapeHtml(st.klasse||'')}</td>
                 ${cols.map(c => renderTick(st.unilogin, c, ((m.gym_variant||'')===c))).join('')}
-                ${roleCodes.map(r => renderTick(st.unilogin, 'role:'+r, (Array.isArray(m.gym_roles)?m.gym_roles:[]).includes(r))).join('')}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+      attachInlineMarksSearch();
+      attachMarksSortButtons();
+      return;
+    }
+
+    if (type === 'roller') {
+      const marks = getMarks(KEYS.marksGym);
+      $('marksLegend').textContent = '';
+      const roleCodes = Object.keys(SNIPPETS.roller || {});
+
+      wrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              ${nameTh}${thKgrp}${thKlasse}
+              ${roleCodes.map(r => `<th class="cb" title="${escapeAttr((SNIPPETS.roller[r]||{}).hint||'')}"><span class="muted small">${escapeHtml((SNIPPETS.roller[r]||{}).title||r)}</span></th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${list.map(st => {
+              const m = marks[st.unilogin] || {};
+              const full = `${st.fornavn||''} ${st.efternavn||''}`.trim();
+              const roles = Array.isArray(m.gym_roles) ? m.gym_roles : [];
+              return `<tr>
+                <td>${escapeHtml(full)}</td>
+                <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
+                <td class="muted small">${escapeHtml(st.klasse||'')}</td>
+                ${roleCodes.map(r => renderTick(st.unilogin, 'role:'+r, roles.includes(r))).join('')}
               </tr>`;
             }).join('')}
           </tbody>
@@ -4197,57 +4266,53 @@ if (document.getElementById('btnDownloadGym')) {
     const pkg = buildOverridePackage('gym');
     downloadJson('snippets_gym_override.json', pkg);
   });
-  if (document.getElementById('btnImportGymSnippets') && document.getElementById('fileImportGymSnippets')) {
-    on('btnImportGymSnippets','click', () => $('fileImportGymSnippets').click());
-    on('fileImportGymSnippets','change', async (e) => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    const txt = await f.text();
-    const obj = JSON.parse(txt);
-    importOverridePackage('gym', obj);
-    renderSettings();
-    e.target.value = '';
+  if (document.getElementById('btnImportGym') && document.getElementById('fileImportGym')) {
+    on('btnImportGym','click', () => $('fileImportGym').click());
+    on('fileImportGym','change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const txt = await f.text();
+      const obj = JSON.parse(txt);
+      importOverridePackage('gym', obj);
+      renderSettings();
+      e.target.value = '';
     });
   }
-  on('btnRestoreGymSnippets','click', async () => {
-    await loadRemoteOverrides();
-    clearLocalSnippetScope('gym');
-    applySnippetOverrides();
-    renderSettings();
-    if (state.tab === 'edit') renderEdit();
-  });
-
-  on('btnAddRole','click', () => {
-    const keyRaw = prompt('Kort nøgle til rollen (fx FANEBÆRER, REDSKAB, DGI):');
-    if (!keyRaw) return;
-    const key = keyRaw.trim().toUpperCase().replace(/\s+/g,'_');
-    if (!key) return;
-    const o = getSnippetDraft();
-    if (!o.gym) o.gym = { variants: {}, roles: {} };
-    if (!o.gym.roles) o.gym.roles = {};
-    if (!o.gym.roles[key]) o.gym.roles[key] = { label: keyRaw.trim(), text: '' };
-    setSnippetDraft(o);
-    applySnippetOverrides();
-    renderSettings();
-  });
-
-  const rolesList = document.getElementById('gymRolesList');
-  if (rolesList) {
-    rolesList.addEventListener('click', (ev) => {
-      const btn = ev.target.closest('[data-remove-role]');
-      if (!btn) return;
-      const key = btn.getAttribute('data-remove-role');
-      if (!key) return;
-      const o = getSnippetDraft();
-      // Hvis rollen kun findes som override, så fjern den her; ellers gem "tom" override for at kunne skjule?
-      // Minimal: fjern override-rollen + fjern fra defaults via et "tombstone"
-      if (!o.gym) o.gym = {};
-      if (!o.gym.roles) o.gym.roles = {};
-      // Tombstone for at kunne fjerne en default-rolle:
-      o.gym.roles[key] = { label: '', text: '' , _deleted: true };
-      setSnippetDraft(o);
+  if (document.getElementById('btnRestoreGym')) {
+    on('btnRestoreGym','click', async () => {
+      await loadRemoteOverrides();
+      clearLocalSnippetScope('gym');
       applySnippetOverrides();
       renderSettings();
+      if (state.tab === 'edit') renderEdit();
+    });
+  }
+}
+
+if (document.getElementById('btnDownloadRoller')) {
+  on('btnDownloadRoller','click', () => {
+    const pkg = buildOverridePackage('roller');
+    downloadJson('snippets_roller_override.json', pkg);
+  });
+  if (document.getElementById('btnImportRoller') && document.getElementById('fileImportRoller')) {
+    on('btnImportRoller','click', () => $('fileImportRoller').click());
+    on('fileImportRoller','change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const txt = await f.text();
+      const obj = JSON.parse(txt);
+      importOverridePackage('roller', obj);
+      renderSettings();
+      e.target.value = '';
+    });
+  }
+  if (document.getElementById('btnRestoreRoller')) {
+    on('btnRestoreRoller','click', async () => {
+      await loadRemoteOverrides();
+      clearLocalSnippetScope('roller');
+      applySnippetOverrides();
+      renderSettings();
+      if (state.tab === 'edit') renderEdit();
     });
   }
 }
@@ -4542,7 +4607,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         const k = el.getAttribute('data-k');
         if (!u || !k) return;
         const type = (state.marksType || 'sang');
-        const storageKey = (type === 'gym') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
+        const storageKey = (type === 'gym' || type === 'roller') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
         const marks = getMarks(storageKey);
         marks[u] = marks[u] || {};
 
@@ -4580,7 +4645,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         const k = btn.getAttribute('data-k');
         if (!u || !k) return;
         const type = (state.marksType || 'sang');
-        const storageKey = (type === 'gym') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
+        const storageKey = (type === 'gym' || type === 'roller') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
         const marks = getMarks(storageKey);
         marks[u] = marks[u] || {};
 
@@ -4617,7 +4682,7 @@ if (document.getElementById('btnDownloadElevraad')) {
       btnExport.__wired = true;
       btnExport.addEventListener('click', () => {
         const type = (state.marksType || 'sang');
-        const storageKey = (type === 'gym') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
+        const storageKey = (type === 'gym' || type === 'roller') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
         const studs = getStudents() || [];
         if (!studs.length) { alert('Upload elevliste først.'); return; }
         const marks = getMarks(storageKey) || {};

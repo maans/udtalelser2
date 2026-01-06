@@ -317,13 +317,15 @@
         <div class="tabs small centered" id="marksTypeTabs">
           <!-- data-type values are internal codes used by app.js -->
           <button type="button" class="tab" data-type="sang" title="Vurder elevernes deltagelse i sang og del det med kontaktlærerne.">Sang</button>
-          <button type="button" class="tab" data-type="gym" title="Vurder elevernes deltagelse i fællesgymnastik (inkl. roller) og del det med kontaktlærerne.">Gymnastik</button>
+          <button type="button" class="tab" data-type="gym" title="Vurder elevernes deltagelse i fællesgymnastik og del det med kontaktlærerne.">Gymnastik</button>
+          <button type="button" class="tab" data-type="roller" title="Marker elever med faste roller (fx fanebærer) og del det med kontaktlærerne.">Roller</button>
           <button type="button" class="tab" data-type="elevraad" title="Marker elevrådsrepræsentant og del det med kontaktlærerne.">Elevråd</button>
           <button type="button" class="tab exportTab" id="btnExportMarks" title="Eksporterer vurderinger fra den aktive fane som én CSV-fil">↓ Eksportér CSV</button>
         </div>
         <select id="marksType" style="display:none">
           <option value="sang">Sang</option>
           <option value="gym">Gymnastik</option>
+          <option value="roller">Roller</option>
           <option value="elevraad">Elevråd</option>
         </select>
       </div>
@@ -469,9 +471,19 @@
             <textarea id="gymText_G3" rows="4"></textarea>
           </div>
 
-          <div class="divider"></div>
-          <div class="cardSubTitle">Roller</div>
-          <div id="gymRolesList"></div>
+        </details>
+
+        
+        <details>
+          <summary><b>Roller</b></summary>
+          <div class="row gap wrap" style="margin:.5rem 0">
+            <button class="btn" id="btnDownloadRoller" type="button">⬇️ Download ændringer</button>
+            <button class="btn ghost" id="btnImportRoller" type="button">⬆️ Importér ændringer</button>
+            <button class="btn ghost" id="btnRestoreRoller" type="button">↩️ Gendan standard</button>
+            <input id="fileImportRoller" type="file" accept=".json" style="display:none"/>
+          </div>
+          <div class="muted small" style="margin-bottom:.5rem">Rollenavne er faste. Du kan kun redigere teksten.</div>
+          <div id="rolesList"></div>
         </details>
 
         <details>
