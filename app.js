@@ -287,8 +287,8 @@ function resolveFullName(row) {
   },
   "REDSKAB": {
     "title": "Redskabshold",
-    "text_m": "{{FORNAVN}} har været en del af redskabsholdet, som {{HAN_HUN}} frivilligt har meldt sig til. {{HAN_HUN}} har ydet en stor indsats og taget ansvar.",
-    "text_k": "{{FORNAVN}} har været en del af redskabsholdet, som {{HAN_HUN}} frivilligt har meldt sig til. {{HAN_HUN}} har ydet en stor indsats og taget ansvar."
+    "text_m": "{{FORNAVN}} har været en del af redskabsholdet, som {{HAN_HUN}} frivilligt har meldt sig til. {(HAN_HUN_CAP)} har ydet en stor indsats og taget ansvar.",
+    "text_k": "{{FORNAVN}} har været en del af redskabsholdet, som {{HAN_HUN}} frivilligt har meldt sig til. {(HAN_HUN_CAP)} har ydet en stor indsats og taget ansvar."
   },
   "DGI": {
     "title": "DGI-instruktør",
@@ -2139,14 +2139,25 @@ function setStudents(studs){ lsSet(KEYS.students, studs); rebuildAliasMapFromStu
     const isFemale = (g === 'k' || g === 'f' || g === 'p' || g.includes('pige') || g.includes('kvinde') || g.includes('female'));
     const isMale = (g === 'm' || g === 'd' || g.includes('dreng') || g.includes('mand') || /\bmale\b/.test(g));
 
-    if (isFemale && !isMale) {
-      return { HAN_HUN: 'hun', HAM_HENDE: 'hende', HANS_HENDES: 'hendes', SIG_HAM_HENDE: 'sig' };
-    }
-    if (isMale && !isFemale) {
-      return { HAN_HUN: 'han', HAM_HENDE: 'ham', HANS_HENDES: 'hans', SIG_HAM_HENDE: 'sig' };
-    }
+    const cap1 = (s) => {
+      const str = String(s || '');
+      return str ? (str.charAt(0).toUpperCase() + str.slice(1)) : str;
+    };
+
+    const pack = (hanHun, hamHende, hansHendes) => ({
+      HAN_HUN: hanHun,
+      HAM_HENDE: hamHende,
+      HANS_HENDES: hansHendes,
+      SIG_HAM_HENDE: 'sig',
+      HAN_HUN_CAP: cap1(hanHun),
+      HAM_HENDE_CAP: cap1(hamHende),
+      HANS_HENDES_CAP: cap1(hansHendes),
+    });
+
+    if (isFemale && !isMale) return pack('hun', 'hende', 'hendes');
+    if (isMale && !isFemale) return pack('han', 'ham', 'hans');
     // Ukendt/neutral
-    return { HAN_HUN: 'han/hun', HAM_HENDE: 'ham/hende', HANS_HENDES: 'hans/hendes', SIG_HAM_HENDE: 'sig' };
+    return pack('han/hun', 'ham/hende', 'hans/hendes');
   }
 
 
@@ -2174,8 +2185,8 @@ function setStudents(studs){ lsSet(KEYS.students, studs); rebuildAliasMapFromStu
   // 1) exact uppercased key
   // 2) normalized key (æ/ø/å -> AE/OE/AA + diacritics stripped)
   // 3) raw key as-is
-  return s.replace(/\{\{\s*([^{}]+?)\s*\}\}|\{\s*([^{}]+?)\s*\}/g, (m, k1, k2) => {
-    const rawKey = (k1 || k2 || "").trim();
+  return s.replace(/\{\{\s*([^{}]+?)\s*\}\}|\{\(\s*([^){}]+?)\s*\)\}|\{\s*([^{}]+?)\s*\}/g, (m, k1, k2, k3) => {
+    const rawKey = (k1 || k2 || k3 || "").trim();
     if (!rawKey) return "";
     const keyUpper = rawKey.toUpperCase();
     const keyNorm = normalizePlaceholderKey(rawKey);
