@@ -3304,7 +3304,7 @@ const prog = mineList.reduce((acc, st) => {
         const hasU = !!(free.elevudvikling || '').trim();
         const hasP = !!(free.praktisk || '').trim();
         const hasK = !!(free.kgruppe || '').trim();
-        const isComplete = !!(hasU && hasP && hasK);
+        const hasUPK = !!(hasU && hasP && hasK);
 
         // ALL-mode status: U · P · K → initials (last editor)
         const lastBy = ((free.lastEditedBy || '') + '').trim();
@@ -3323,6 +3323,7 @@ const prog = mineList.reduce((acc, st) => {
         const hasS = isTruthy(mS.sang_variant) || isTruthy(mS.variant) || mS.S1 === true || mS.S2 === true || mS.S3 === true || hasAnyTruthyValue(mS);
         const hasG = isTruthy(mG.gym_variant) || (Array.isArray(mG.gym_roles) && mG.gym_roles.length > 0) || hasAnyTruthyValue(mG);
         const hasE = isTruthy(mE.elevraad_variant) || isTruthy(mE.variant) || isTruthy(mE.elevraad) || hasAnyTruthyValue(mE);
+        const isComplete = !!(hasUPK && hasS && hasG);
         const hasAnyProgress = !!(hasU || hasP || hasK || hasS || hasG || hasE);
         const isWip = !!(hasAnyProgress && !isComplete);
         const markLabels = [hasS ? 'Sang' : '', hasG ? 'Gym' : '', hasE ? 'Elevråd' : ''].filter(Boolean);
