@@ -3655,7 +3655,7 @@ $('preview').textContent = buildStatement(st, getSettings());
       // Avoid extreme whitespace
       out = out.replace(/[\t\r]+/g, ' ').trim();
       return out;
-    };wise buttons feel "broken").
+    }; // (ellers føles knapperne 'døde').
     const hasStudents = !!(studs && studs.length);
     const disableWithHint = (id, disabled, hint) => {
       const el = document.getElementById(id);
