@@ -2273,7 +2273,10 @@ if (chosen && erObj[chosen]) {
       "NAVN": fullName,
       "HAN_HUN": pr.HAN_HUN,
       "HAM_HENDE": pr.HAM_HENDE,
-      "HANS_HENDES": pr.HANS_HENDES
+      "HANS_HENDES": pr.HANS_HENDES,
+      "HAN_HUN_CAP": pr.HAN_HUN_CAP,
+      "HAM_HENDE_CAP": pr.HAM_HENDE_CAP,
+      "HANS_HENDES_CAP": pr.HANS_HENDES_CAP
     };
     sangAfsnit = applyPlaceholders(sangAfsnit, snMap);
     gymAfsnit = applyPlaceholders(gymAfsnit, snMap);
