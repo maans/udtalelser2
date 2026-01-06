@@ -3643,14 +3643,19 @@ $('preview').textContent = buildStatement(st, getSettings());
       };
     };
     const previewFor = (st, rawText) => {
-      const txt = (rawText || '').trim();
+      let txt = (rawText || '').trim();
       if (!txt) return '';
-      return applyPlaceholders(txt, placeholderMapFor(st)).replace(/\s+/g,' ').trim();
-    };
-
-    if (!wrap || !legendEl) return;
-
-    // UX: Disable actions when no students are loaded (otherwise buttons feel "broken").
+      // Support legacy placeholder style: {(HAN_HUN)} etc. -> {HAN_HUN}
+      txt = txt.replace(/\{\(\s*([^{}()]+?)\s*\)\}/g, '{$1}')
+               .replace(/\{\{\(\s*([^{}()]+?)\s*\)\}\}/g, '{{$1}}');
+      // Apply placeholders (same engine as the print-template)
+      let out = applyPlaceholders(txt, placeholderMapFor(st)).trim();
+      // Make preview readable (only for tooltip): insert line breaks after sentence ends.
+      out = out.replace(/([.!?])\s+/g, '$1\n\n');
+      // Avoid extreme whitespace
+      out = out.replace(/[\t\r]+/g, ' ').trim();
+      return out;
+    };wise buttons feel "broken").
     const hasStudents = !!(studs && studs.length);
     const disableWithHint = (id, disabled, hint) => {
       const el = document.getElementById(id);
@@ -4066,7 +4071,7 @@ function tooltipTextFor(st, scope, key){
               <td>${escapeHtml(full)}</td>
               <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
               <td class="muted small">${escapeHtml(st.klasse||'')}</td>
-              ${cols.map(c => renderTick(st.unilogin, c, ((m.elevraad_variant||'')===c))).join('')}
+              ${cols.map(c => renderTick(st.unilogin, c, ((m.elevraad_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.elevraad[c], st)))).join('')}
             </tr>`;
           }).join('')}
         </tbody>
