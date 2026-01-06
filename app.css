@@ -111,6 +111,8 @@ code{font-family:var(--mono)}
 }
 .brand{display:flex; align-items:center; gap:.6rem; min-width:190px}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--accent); box-shadow: 0 0 0 3px rgba(139,211,255,.15)}
+.dot.done{background:rgba(60,220,150,1); box-shadow: 0 0 0 3px rgba(60,220,150,.15)}
+.card.complete{border-color:rgba(60,220,150,.55); box-shadow: 0 0 0 1px rgba(60,220,150,.25), 0 10px 30px rgba(0,0,0,.35)}
 .tabs{display:flex; gap:.4rem; flex:1; justify-content:center}
 .tab{
   display:inline-flex; align-items:center; gap:.45rem;

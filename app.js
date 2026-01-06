@@ -3279,6 +3279,7 @@ const prog = mineList.reduce((acc, st) => {
         const hasU = !!(free.elevudvikling || '').trim();
         const hasP = !!(free.praktisk || '').trim();
         const hasK = !!(free.kgruppe || '').trim();
+        const isComplete = !!(hasU && hasP && hasK);
 
         // ALL-mode status: U · P · K → initials (last editor)
         const lastBy = ((free.lastEditedBy || '') + '').trim();
@@ -3301,10 +3302,11 @@ const prog = mineList.reduce((acc, st) => {
         const marksLine = markLabels.length ? ` · ${markLabels.join(' · ')}` : '';
 
         return `
-          <div class="card clickable" data-unilogin="${escapeAttr(st.unilogin)}">
+          <div class="card clickable ${isComplete ? "complete" : ""}" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
               <div class="cardFlags muted small">${statusRight}</div>
+              ${isComplete ? `<span class="dot done" title="Udtalelsen er udfyldt (U, P og K)."></span>` : ``}
             </div>
             <div class="cardSub muted small">${escapeHtml(formatClassLabel(st.klasse || '') + marksLine)}</div>
           </div>
@@ -3612,6 +3614,33 @@ $('preview').textContent = buildStatement(st, getSettings());
     const typeEl = $('marksType');
     const searchEl = $('marksSearch');
     const legendEl = $('marksLegend');
+    const pickTextForStudent = (snippet, st) => {
+      if (!snippet) return '';
+      const pr = genderGroup(st.koen || st.gender || st.sex || '');
+      const isFemale = pr && pr.HAN_HUN === 'hun';
+      return (isFemale ? (snippet.text_k || snippet.text_m || '') : (snippet.text_m || snippet.text_k || ''));
+    };
+    const placeholderMapFor = (st) => {
+      const full = `${st.fornavn||''} ${st.efternavn||''}`.trim();
+      const first = (st.fornavn||'').trim() || full.split(' ')[0] || '';
+      const pr = genderGroup(st.koen || st.gender || st.sex || '');
+      return {
+        "FORNAVN": first,
+        "ELEV_FORNAVN": first,
+        "ELEV_NAVN": full,
+        "ELEV_FULDE_NAVN": full,
+        "HAN_HUN": pr.HAN_HUN,
+        "HAM_HENDE": pr.HAM_HENDE,
+        "HANS_HENDES": pr.HANS_HENDES,
+        "SIG_HAM_HENDE": pr.SIG_HAM_HENDE
+      };
+    };
+    const previewFor = (st, rawText) => {
+      const txt = (rawText || '').trim();
+      if (!txt) return '';
+      return applyPlaceholders(txt, placeholderMapFor(st)).replace(/\s+/g,' ').trim();
+    };
+
     if (!wrap || !legendEl) return;
 
     // UX: Disable actions when no students are loaded (otherwise buttons feel "broken").
@@ -3726,11 +3755,11 @@ $('preview').textContent = buildStatement(st, getSettings());
       list = [...list].sort((a,b) => dir * cmp(a,b));
     }
 
-    function renderTick(unilogin, key, on){
+    function renderTick(unilogin, key, on, tooltip){
       const pressed = on ? 'true' : 'false';
       const cls = 'tickbox' + (on ? ' on' : '');
       // data-u/data-k bruges af click-handleren på marks-tabellen
-      return `<td class="cb"><button type="button" class="${cls}" data-u="${escapeAttr(unilogin)}" data-k="${escapeAttr(key)}" aria-pressed="${pressed}"><span class="check">✓</span></button></td>`;
+      return `<td class="cb"><button type="button" class="${cls}" data-u="${escapeAttr(unilogin)}" data-k="${escapeAttr(key)}" aria-pressed="${pressed}" title="${escapeAttr(tooltip||'')}"><span class="check">✓</span></button></td>`;
     }
 
 
@@ -3840,7 +3869,7 @@ $('preview').textContent = buildStatement(st, getSettings());
                 <td>${escapeHtml(full)}</td>
                 <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
                 <td class="muted small">${escapeHtml(st.klasse||'')}</td>
-                ${cols.map(c => renderTick(st.unilogin, c, ((m.sang_variant||'')===c))).join('')}
+                ${cols.map(c => renderTick(st.unilogin, c, ((m.sang_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.sang[c], st)))).join('')}
               </tr>`;
             }).join('')}
           </tbody>
@@ -3872,7 +3901,7 @@ $('preview').textContent = buildStatement(st, getSettings());
                 <td>${escapeHtml(full)}</td>
                 <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
                 <td class="muted small">${escapeHtml(st.klasse||'')}</td>
-                ${cols.map(c => renderTick(st.unilogin, c, ((m.gym_variant||'')===c))).join('')}
+                ${cols.map(c => renderTick(st.unilogin, c, ((m.gym_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.gym[c], st)))).join('')}
               </tr>`;
             }).join('')}
           </tbody>
@@ -3905,7 +3934,7 @@ $('preview').textContent = buildStatement(st, getSettings());
                 <td>${escapeHtml(full)}</td>
                 <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
                 <td class="muted small">${escapeHtml(st.klasse||'')}</td>
-                ${roleCodes.map(r => renderTick(st.unilogin, 'role:'+r, roles.includes(r))).join('')}
+                ${roleCodes.map(r => renderTick(st.unilogin, 'role:'+r, roles.includes(r), previewFor(st, pickTextForStudent(SNIPPETS.roller[r], st)))).join('')}
               </tr>`;
             }).join('')}
           </tbody>
