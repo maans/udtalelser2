@@ -3948,14 +3948,14 @@ function tooltipTextFor(st, scope, key){
     if (type === 'sang') {
       const marks = getMarks(KEYS.marksSang);
       $('marksLegend').textContent = '';
-      const cols = Object.keys(SNIPPETS.sang);
+      const cols = ['S1','S2','S3'].filter(k => (SNIPPETS.sang||{})[k]);
 
       wrap.innerHTML = `
         <table>
           <thead>
             <tr>
               ${nameTh}${thKgrp}${thKlasse}
-              ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.sang[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.sang[c].title||'')}</span></th>`).join('')}
+              ${cols.map((c,i) => `<th class="cb" title="${escapeAttr((SNIPPETS.sang[c]||{}).title||'')}"><span class="muted small">Niveau ${i+1}</span></th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -4048,14 +4048,14 @@ function tooltipTextFor(st, scope, key){
     // elevraad
     const marks = getMarks(KEYS.marksElev);
     $('marksLegend').textContent = '';
-    const cols = Object.keys(SNIPPETS.elevraad);
+    const cols = Object.keys(SNIPPETS.elevraad || {});
 
     wrap.innerHTML = `
       <table>
         <thead>
           <tr>
             ${nameTh}${thKgrp}${thKlasse}
-            ${cols.map(c => `<th class="cb" title="${escapeAttr(SNIPPETS.elevraad[c].hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.elevraad[c].title||'')}</span></th>`).join('')}
+            ${cols.map((c,i) => `<th class="cb" title="${escapeAttr((SNIPPETS.elevraad[c]||{}).title||'')}"><span class="muted small">${cols.length===1?'Elevråd':'Valg '+(i+1)}</span></th>`).join('')}
           </tr>
         </thead>
         <tbody>
@@ -4074,6 +4074,7 @@ function tooltipTextFor(st, scope, key){
     `;
     attachInlineMarksSearch();
     attachMarksSortButtons();
+    bindMarksHoverTips(wrap);
 }
 
   async function importMarksFile(e, kind) {
