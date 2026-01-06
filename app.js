@@ -3321,7 +3321,7 @@ const prog = mineList.reduce((acc, st) => {
         const mG = marksG[u] || {};
         const mE = marksE[u] || {};
         const hasS = isTruthy(mS.sang_variant) || isTruthy(mS.variant) || mS.S1 === true || mS.S2 === true || mS.S3 === true || hasAnyTruthyValue(mS);
-        const hasG = isTruthy(mG.gym_variant) || (Array.isArray(mG.gym_roles) && mG.gym_roles.length > 0) || hasAnyTruthyValue(mG);
+        const hasG = !!(mG.gym_variant || mG.variant || mG.gym || mG.G1 || mG.G2 || mG.G3);
         const hasE = isTruthy(mE.elevraad_variant) || isTruthy(mE.variant) || isTruthy(mE.elevraad) || hasAnyTruthyValue(mE);
         const isComplete = !!(hasUPK && hasS && hasG);
         const hasAnyProgress = !!(hasU || hasP || hasK || hasS || hasG || hasE);
