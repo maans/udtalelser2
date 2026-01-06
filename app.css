@@ -864,3 +864,22 @@ body.udt-readonly main.app{
 
 /* Help: small ASCII flow diagram */
 .asciiFlow{white-space:pre; overflow:auto; padding:.5rem .6rem; border:1px dashed var(--border); border-radius: var(--radius); background: rgba(0,0,0,.10); margin:.35rem 0 0 0}
+
+
+/* Custom hover tooltip used in Eksport marks tables */
+.hoverTip{
+  position: fixed;
+  z-index: 9999;
+  display: none;
+  max-width: 420px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(10,12,16,.95);
+  color: rgba(255,255,255,.92);
+  box-shadow: 0 14px 40px rgba(0,0,0,.55);
+  font-size: 12.5px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  pointer-events: none;
+}

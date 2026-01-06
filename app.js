@@ -3766,10 +3766,80 @@ $('preview').textContent = buildStatement(st, getSettings());
       const pressed = on ? 'true' : 'false';
       const cls = 'tickbox' + (on ? ' on' : '');
       // data-u/data-k bruges af click-handleren på marks-tabellen
-      return `<td class="cb"><button type="button" class="${cls}" data-u="${escapeAttr(unilogin)}" data-k="${escapeAttr(key)}" aria-pressed="${pressed}" title="${escapeAttr(tooltip||'')}"><span class="check">✓</span></button></td>`;
+      return `<td class="cb"><button type="button" class="${cls}" data-u="${escapeAttr(unilogin)}" data-k="${escapeAttr(key)}" aria-pressed="${pressed}" data-tip="${escapeAttr(tooltip||'')}"><span class="check">✓</span></button></td>`;
     }
 
-    function tooltipTextFor(st, scope, key){
+    
+    // --- Custom hover tooltip (multi-line). We don't use the browser title-tooltip because it can't wrap nicely.
+    let _hoverTipEl = null;
+    function ensureHoverTipEl(){
+      if (_hoverTipEl) return _hoverTipEl;
+      const el = document.createElement('div');
+      el.className = 'hoverTip';
+      el.style.display = 'none';
+      document.body.appendChild(el);
+      _hoverTipEl = el;
+      return el;
+    }
+    function showHoverTip(text, x, y){
+      if (!text) return;
+      const el = ensureHoverTipEl();
+      el.textContent = text;
+      el.style.display = 'block';
+      // position with clamping
+      const pad = 12;
+      const rect = el.getBoundingClientRect();
+      let left = x + pad;
+      let top  = y + pad;
+      const maxLeft = window.innerWidth - rect.width - 8;
+      const maxTop  = window.innerHeight - rect.height - 8;
+      if (left > maxLeft) left = Math.max(8, x - rect.width - pad);
+      if (top  > maxTop)  top  = Math.max(8, y - rect.height - pad);
+      el.style.left = left + 'px';
+      el.style.top  = top  + 'px';
+    }
+    function hideHoverTip(){
+      if (!_hoverTipEl) return;
+      _hoverTipEl.style.display = 'none';
+    }
+    function bindMarksHoverTips(container){
+      if (!container || container.dataset._hoverTipsBound) return;
+      container.dataset._hoverTipsBound = '1';
+
+      let currentBtn = null;
+
+      container.addEventListener('mousemove', (e) => {
+        if (!currentBtn) return;
+        const tip = currentBtn.getAttribute('data-tip') || '';
+        if (!tip) return;
+        showHoverTip(tip, e.clientX, e.clientY);
+      });
+
+      container.addEventListener('mouseleave', () => {
+        currentBtn = null;
+        hideHoverTip();
+      });
+
+      container.addEventListener('mouseover', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('button[data-tip]') : null;
+        if (!btn) return;
+        const tip = btn.getAttribute('data-tip') || '';
+        if (!tip) return;
+        currentBtn = btn;
+        showHoverTip(tip, e.clientX, e.clientY);
+      });
+
+      container.addEventListener('mouseout', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('button[data-tip]') : null;
+        if (!btn) return;
+        if (btn === currentBtn) {
+          currentBtn = null;
+          hideHoverTip();
+        }
+      });
+    }
+
+function tooltipTextFor(st, scope, key){
       try {
         let snip = null;
         if (scope === 'roller') snip = (SNIPPETS.roller || {})[key];
@@ -3904,6 +3974,7 @@ $('preview').textContent = buildStatement(st, getSettings());
       `;
       attachInlineMarksSearch();
       attachMarksSortButtons();
+      bindMarksHoverTips(wrap);
       return;
     }
 
@@ -3936,6 +4007,7 @@ $('preview').textContent = buildStatement(st, getSettings());
       `;
       attachInlineMarksSearch();
       attachMarksSortButtons();
+      bindMarksHoverTips(wrap);
       return;
     }
 
@@ -3969,6 +4041,7 @@ $('preview').textContent = buildStatement(st, getSettings());
       `;
       attachInlineMarksSearch();
       attachMarksSortButtons();
+      bindMarksHoverTips(wrap);
       return;
     }
 
