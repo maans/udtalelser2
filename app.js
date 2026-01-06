@@ -4009,14 +4009,14 @@ function tooltipTextFor(st, scope, key){
     if (type === 'gym') {
       const marks = getMarks(KEYS.marksGym);
       $('marksLegend').textContent = '';
-      const cols = Object.keys(SNIPPETS.gym);
+      const cols = ['G1','G2','G3'].filter(k => (SNIPPETS.gym||{})[k]);
 
       wrap.innerHTML = `
         <table>
           <thead>
             <tr>
               ${nameTh}${thKgrp}${thKlasse}
-              ${cols.map(c => `<th class="cb" title="${escapeAttr((SNIPPETS.gym[c]||{}).hint||'')}"><span class="muted small">${escapeHtml(SNIPPETS.gym[c].title||c)}</span></th>`).join('')}
+              ${cols.map((c,i) => `<th class="cb" title="${escapeAttr((SNIPPETS.gym[c]||{}).title||'')}"><span class="muted small">${['Engageret','Stabil','Varierende'][i]||escapeHtml((SNIPPETS.gym[c]||{}).title||c)}</span></th>`).join('')}
             </tr>
           </thead>
           <tbody>
