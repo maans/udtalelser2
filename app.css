@@ -851,3 +851,10 @@ body.udt-readonly .udt-lock-banner{
 body.udt-readonly main.app{
   filter: saturate(0.85);
 }
+
+/* Export help foldout: compact, mobile-friendly */
+.exportHelpFold{margin:.35rem 0 .55rem 0; padding:.45rem .6rem}
+.exportHelpFold summary{font-weight:700}
+
+/* Help: small ASCII flow diagram */
+.asciiFlow{white-space:pre; overflow:auto; padding:.5rem .6rem; border:1px dashed var(--border); border-radius: var(--radius); background: rgba(0,0,0,.10); margin:.35rem 0 0 0}

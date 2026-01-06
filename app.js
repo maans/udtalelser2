@@ -3575,6 +3575,22 @@ $('preview').textContent = buildStatement(st, getSettings());
     const legendEl = $('marksLegend');
     if (!wrap || !legendEl) return;
 
+    // UX: Disable actions when no students are loaded (otherwise buttons feel "broken").
+    const hasStudents = !!(studs && studs.length);
+    const disableWithHint = (id, disabled, hint) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = !!disabled;
+      // Preserve original title when enabled.
+      if (!el.dataset._origTitle) el.dataset._origTitle = el.getAttribute('title') || '';
+      el.setAttribute('title', disabled ? (hint || 'Indlæs først elevliste (students.csv).') : el.dataset._origTitle);
+      el.classList.toggle('disabled', !!disabled);
+    };
+    // Export/print depends on students. Backup should stay available.
+    disableWithHint('btnExportMarks', !hasStudents, 'Indlæs først elevliste (students.csv), før du kan eksportere.');
+    disableWithHint('btnPrintAllStudents', !hasStudents, 'Indlæs først elevliste (students.csv), før du kan printe.');
+    disableWithHint('btnPrintAllGroups', !hasStudents, 'Indlæs først elevliste (students.csv), før du kan printe.');
+
     // Sticky kolonneheader i eksport-tabellen (marks)
     if (!document.getElementById('marksStickyCss')) {
       const st = document.createElement('style');
