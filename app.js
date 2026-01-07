@@ -5017,49 +5017,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         const stamp = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
         a.download = `${type}_marks_${stamp}.csv`;
         a.href = URL.createObjectURL(blob);
-        docu
-    // Globale genvejstaster (tastatur-navigation)
-    // Vigtigt: Undgår Ctrl+Alt (AltGr på DK-layout). Bruger Ctrl+Shift (Win/Linux) og Cmd+Shift (Mac).
-    if (!window.__huShortcutsWired) {
-      window.__huShortcutsWired = true;
-      document.addEventListener('keydown', (e) => {
-        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
-        const modOk = (isMac ? (e.metaKey && e.shiftKey) : (e.ctrlKey && e.shiftKey));
-        if (!modOk) return;
-        if (e.altKey) return; // hold Alt fri (også pga. AltGr-varianter)
-
-        const key = (e.key || '').toLowerCase();
-
-        const goTab = (tab) => { try { setTab(tab); } catch (_) {} };
-        const goSet = (sub) => {
-          try { setTab('set'); } catch (_) {}
-          try { if (typeof setSettingsSubtab === 'function') setSettingsSubtab(sub); } catch (_) {}
-          try { renderAll(); } catch (_) {}
-        };
-
-        // K = K-elever, R = Redigér, S = Indstillinger
-        if (key === 'k') { e.preventDefault(); goTab('k'); return; }
-        if (key === 'r') { e.preventDefault(); goTab('edit'); return; }
-        if (key === 's') { e.preventDefault(); goTab('set'); return; }
-
-        // I/E/T = Import / Eksport / Tekster (under Indstillinger)
-        if (key === 'i') { e.preventDefault(); goSet('data'); return; }
-        if (key === 'e') { e.preventDefault(); goSet('export'); return; }
-        if (key === 't') { e.preventDefault(); goSet('texts'); return; }
-        if (key === 'h') { e.preventDefault(); goSet('help'); return; }
-
-        // B = Gem backup (download) – virker uanset hvor man er
-        if (key === 'b') {
-          e.preventDefault();
-          try {
-            const btn = document.getElementById('btnBackupDownload');
-            if (btn) btn.click();
-          } catch (_) {}
-          return;
-        }
-      }, true);
-    }
-ment.body.appendChild(a);
+        document.body.appendChild(a);
         a.click();
         setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
       });
@@ -5077,6 +5035,53 @@ try {
 }
 
     wireEvents();
+
+    // Globale genvejstaster (baseline): Ctrl+Alt + bogstav
+    // Vi klikker på eksisterende UI-knapper (id'er), så navigationen følger appens normale flow.
+    if (!window.__huShortcutsWired) {
+      window.__huShortcutsWired = true;
+
+      const isTypingTarget = (el) => {
+        if (!el) return false;
+        const tag = (el.tagName || '').toUpperCase();
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        if (el.isContentEditable) return true;
+        return false;
+      };
+
+      const clickById = (id) => {
+        try {
+          const el = document.getElementById(id);
+          if (el && !el.disabled) el.click();
+        } catch (_) {}
+      };
+
+      const goSettingsSubtab = (subtabId) => {
+        clickById('tab-set');
+        clickById(subtabId);
+      };
+
+      document.addEventListener('keydown', (e) => {
+        const modOk = (e.ctrlKey && e.altKey);
+        if (!modOk) return;
+
+        const key = (e.key || '').toLowerCase();
+        const typing = isTypingTarget(e.target);
+        // Kapr ikke genveje mens man skriver – undtagelse: Backup må gerne være global.
+        if (typing && key !== 'b') return;
+
+        if (key === 'k') { e.preventDefault(); clickById('tab-k'); return; }
+        if (key === 'r') { e.preventDefault(); clickById('tab-edit'); return; }
+        if (key === 's') { e.preventDefault(); clickById('tab-set'); return; }
+
+        if (key === 'i') { e.preventDefault(); goSettingsSubtab('settingsTab-data'); return; }
+        if (key === 'e') { e.preventDefault(); goSettingsSubtab('settingsTab-export'); return; }
+        if (key === 't') { e.preventDefault(); goSettingsSubtab('settingsTab-texts'); return; }
+        if (key === 'h') { e.preventDefault(); goSettingsSubtab('settingsTab-help'); return; }
+
+        if (key === 'b') { e.preventDefault(); clickById('btnBackupDownload'); return; }
+      }, true);
+    }
 
     // Print scaling (single-student print)
     if (!window.__printScaleWired) {
