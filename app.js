@@ -850,7 +850,8 @@ async function openPrintWindowForStudents(students, settings, title) {
       </div>`;
   }).join('');
 
-    const printModeClass = (pages && pages.length > 1) ? 'print-multi' : 'print-single';
+  // Single vs multi print: multi-print uses per-page absolute footer to avoid overlapping fixed elements
+  const printModeClass = (list.length > 1) ? 'print-multi' : 'print-single';
 
 const docTitle = escapeHtml(title || 'Print');
 
