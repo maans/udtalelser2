@@ -5107,9 +5107,8 @@ try {
           }
         }
 
-        // Ctrl+P / Cmd+P: print det mest oplagte i den aktuelle visning.
-        // - K-elever (viewMode=K): print aktiv K-gruppe / mine K-elever
-        // - K-elever (viewMode=ALL): print alle K-grupper
+        // Ctrl+P / Cmd+P: print det samme som den primære print-knap i den aktuelle fane.
+        // - K-elever / Alle K-grupper: print aktiv K-gruppe (matcher knappen i view'et)
         // - Redigér: print elev (PDF med logo)
         // - Indstillinger/Hjælp: lad browserens standard print ske
         const isCtrlOrCmd = !!(e.ctrlKey || e.metaKey);
@@ -5117,14 +5116,9 @@ try {
         if (isCtrlOrCmd && !e.altKey && keyLower === 'p') {
           if (state && state.tab === 'k') {
             e.preventDefault();
-            // I "Alle K-grupper"-tilstand giver Ctrl+P "print alle K-grupper".
-            if (state.viewMode === 'ALL') {
-              // Bruger samme printmotor som knappen i Indstillinger → Eksport.
-              printAllKGroups();
-            } else {
-              // Bruger samme printmotor som knappen på K-elever-siden.
-              printAllKStudents();
-            }
+            // Bruger samme printmotor som knappen på K-elever-siden.
+            // NB: I viewMode=ALL printer den stadig kun den aktive K-gruppe.
+            printAllKStudents();
             return;
           }
           if (state && state.tab === 'edit') {
