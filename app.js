@@ -4054,7 +4054,7 @@ function tooltipTextFor(st, scope, key){
       <th class="nameTh">
         <div class="thName compact">
           <div class="thControl">
-            <input id="marksSearchInline" type="text" placeholder="Søg navn…" aria-label="Filtrer navn" autocomplete="off" title="Find elever ved at skrive hele eller dele af navnet" />
+            <input id="marksSearchInline" type="text" placeholder="Søg navn…" title="Find elever ved at skrive hele eller dele af navnet" aria-label="Filtrer navn" autocomplete="off" />
             <button class="clearBtn" id="marksSearchInlineClear" title="Ryd" aria-label="Ryd" hidden>×</button>
           </div>
         </div>
@@ -4066,7 +4066,7 @@ function tooltipTextFor(st, scope, key){
       return state.marksSort.dir === 1 ? '↑' : '↓';
     };
     const thKgrp = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKgrp" title="Sortér elever efter kontaktgruppe">K-grp<span class="sortIcon">${sortIcon('kgrp')}</span></button></th>`;
-    const thKlasse = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKlasse" title="Sortér elever efter klasse">Klasse<span class="sortIcon">${sortIcon('klasse')}</span></button></th>`
+    const thKlasse = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKlasse" title="Sortér elever efter klasse">Klasse<span class="sortIcon">${sortIcon('klasse')}</span></button></th>`;
 
     if (type === 'sang') {
       const marks = getMarks(KEYS.marksSang);
@@ -4101,7 +4101,7 @@ function tooltipTextFor(st, scope, key){
       return;
     }
 
-    if (type === 'gym') {
+    if (type === 'gym' || type === 'roller') {
       const marks = getMarks(KEYS.marksGym);
       $('marksLegend').textContent = '';
       const cols = ['G1','G2','G3'].filter(k => (SNIPPETS.gym||{})[k]);
@@ -4724,7 +4724,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         });
         downloadText('sang_vurderinger.csv', toCsv(rows, ['Unilogin','Navn','Sang_variant']));
       }
-      if (type === 'gym') {
+      if (type === 'gym' || type === 'roller') {
         const marks = getMarks(KEYS.marksGym);
         const roleCodes = Object.keys(SNIPPETS.roller);
         const headers = ['Unilogin','Navn','Gym_variant', ...roleCodes];
@@ -4995,7 +4995,7 @@ if (document.getElementById('btnDownloadElevraad')) {
           } else if (type === 'elevraad') {
             const v = m.elevraad_variant || '';
             for (const c of Object.keys(SNIPPETS.elevraad || {})) out[c] = (v === c) ? '1' : '';
-          } else if (type === 'gym') {
+          } else if (type === 'gym' || type === 'roller') {
             const v = m.gym_variant || '';
             for (const c of Object.keys(SNIPPETS.gym || {})) out[c] = (v === c) ? '1' : '';
             const roles = Array.isArray(m.gym_roles) ? m.gym_roles : [];
@@ -5017,7 +5017,48 @@ if (document.getElementById('btnDownloadElevraad')) {
         const stamp = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
         a.download = `${type}_marks_${stamp}.csv`;
         a.href = URL.createObjectURL(blob);
-        document.body.appendChild(a);
+        docu
+    // Globale genvejstaster (tastatur-navigation)
+    // Vigtigt: Undgår Ctrl+Alt (AltGr på DK-layout). Bruger Ctrl+Shift (Win/Linux) og Cmd+Shift (Mac).
+    if (!window.__huShortcutsWired) {
+      window.__huShortcutsWired = true;
+      document.addEventListener('keydown', (e) => {
+        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        const modOk = (isMac ? (e.metaKey && e.shiftKey) : (e.ctrlKey && e.shiftKey));
+        if (!modOk) return;
+        if (e.altKey) return; // hold Alt fri (også pga. AltGr-varianter)
+
+        const key = (e.key || '').toLowerCase();
+
+        const goTab = (tab) => { try { setTab(tab); } catch (_) {} };
+        const goSet = (sub) => {
+          try { setTab('set'); } catch (_) {}
+          try { if (typeof setSettingsSubtab === 'function') setSettingsSubtab(sub); } catch (_) {}
+          try { renderAll(); } catch (_) {}
+        };
+
+        // K = K-elever, R = Redigér, S = Indstillinger
+        if (key === 'k') { e.preventDefault(); goTab('k'); return; }
+        if (key === 'r') { e.preventDefault(); goTab('edit'); return; }
+        if (key === 's') { e.preventDefault(); goTab('set'); return; }
+
+        // I/E/T = Import / Eksport / Tekster (under Indstillinger)
+        if (key === 'i') { e.preventDefault(); goSet('data'); return; }
+        if (key === 'e') { e.preventDefault(); goSet('export'); return; }
+        if (key === 't') { e.preventDefault(); goSet('texts'); return; }
+
+        // B = Gem backup (download) – virker uanset hvor man er
+        if (key === 'b') {
+          e.preventDefault();
+          try {
+            const btn = document.getElementById('btnBackupDownload');
+            if (btn) btn.click();
+          } catch (_) {}
+          return;
+        }
+      }, true);
+    }
+ment.body.appendChild(a);
         a.click();
         setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
       });
@@ -5328,75 +5369,3 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
-
-// ---------- Keyboard shortcuts (v1.0) ----------
-document.addEventListener('keydown', (e) => {
-  // Use Ctrl+Alt on Windows/Linux, Option+Command on macOS.
-  const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
-  const modOK = (e.ctrlKey && e.altKey) || (isMac && e.metaKey && e.altKey);
-  if (!modOK) return;
-
-  // Avoid interfering with browser/system shortcuts that use Shift as well
-  if (e.shiftKey) return;
-
-  // If user is typing inside inputs, only react to these explicit modifier combos (already enforced by modOK)
-  const key = (e.key || '').toLowerCase();
-
-  const click = (id) => {
-    const el = document.getElementById(id);
-    if (el) { el.click(); return true; }
-    return false;
-  };
-
-  const goTab = (tabId) => {
-    // Prefer internal function if present (keeps state consistent), otherwise click the tab button
-    try {
-      if (typeof setTab === 'function') { setTab(tabId); return true; }
-    } catch (_) {}
-    return click('tab-' + tabId);
-  };
-
-  const goSettingsSub = (subId) => {
-    // Ensure we're in settings first
-    try { goTab('set'); } catch (_) {}
-    return click('settingsTab-' + subId);
-  };
-
-  let handled = true;
-
-  switch (key) {
-    case 'k': // K-elever
-      goTab('k');
-      break;
-    case 'r': // Redigér
-      goTab('edit');
-      break;
-    case 's': // Indstillinger (Settings)
-      goTab('set');
-      break;
-    case 'i': // Import (Settings)
-      goSettingsSub('data');
-      break;
-    case 'e': // Eksport (Settings)
-      goSettingsSub('export');
-      break;
-    case 't': // Tekster / skabeloner (Settings)
-      goSettingsSub('texts');
-      break;
-    case 'b': // Backup (download) — global
-      // Open settings/import first if button isn't mounted yet
-      if (!click('btnBackupDownload')) {
-        try { goSettingsSub('data'); } catch (_) {}
-        click('btnBackupDownload');
-      }
-      break;
-    default:
-      handled = false;
-  }
-
-  if (handled) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-}, true);
-
