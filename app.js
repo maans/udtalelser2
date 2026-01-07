@@ -957,6 +957,7 @@ async function openPrintWindowForStudents(students, settings, title) {
     .sig-right{ text-align: center; }
     .sig-name{ display:block; }
     .sig-label{ display:block; margin-top: 2px; }
+    .sig-left .sig-label{ text-align: center; }
 
 
 </style>
