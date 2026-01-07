@@ -169,6 +169,13 @@ p{margin:.25rem 0 .25rem 0; line-height:1.55}
   box-shadow: var(--shadow);
 }
 
+/* Tastatur-navigation: marker aktivt elevkort uden at ændre statuskanten */
+.card.kbdActive{
+  outline: 2px solid var(--accent);
+  outline-offset: -6px; /* ligger inde i kortet, så farvekanten bevares */
+}
+
+
 /* Tydelig "farlig" zone til nulstilling */
 .dangerZone{
   border-color: rgba(255,123,123,.45);
