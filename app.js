@@ -5107,6 +5107,35 @@ try {
           }
         }
 
+        // Ctrl+P / Cmd+P: print det mest oplagte i den aktuelle visning.
+        // - K-elever (viewMode=K): print aktiv K-gruppe / mine K-elever
+        // - K-elever (viewMode=ALL): print alle K-grupper
+        // - Redigér: print elev (PDF med logo)
+        // - Indstillinger/Hjælp: lad browserens standard print ske
+        const isCtrlOrCmd = !!(e.ctrlKey || e.metaKey);
+        const keyLower = ((e.key || '') + '').toLowerCase();
+        if (isCtrlOrCmd && !e.altKey && keyLower === 'p') {
+          if (state && state.tab === 'k') {
+            e.preventDefault();
+            // I "Alle K-grupper"-tilstand giver Ctrl+P "print alle K-grupper".
+            if (state.viewMode === 'ALL') {
+              // Bruger samme printmotor som knappen i Indstillinger → Eksport.
+              printAllKGroups();
+            } else {
+              // Bruger samme printmotor som knappen på K-elever-siden.
+              printAllKStudents();
+            }
+            return;
+          }
+          if (state && state.tab === 'edit') {
+            e.preventDefault();
+            // Genbrug samme handler som "🖨️ Print <elev>"-knappen.
+            clickById('btnPrint');
+            return;
+          }
+          // I andre visninger: lad browserens standard print ske.
+        }
+
 
         // A+B (Redigér):
         // A: Hvis Redigér åbnes via tastatur (Enter fra K-elever), fokuseres Udvikling-feltet (done i renderEdit).
