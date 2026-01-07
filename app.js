@@ -5062,10 +5062,22 @@ try {
       };
 
       document.addEventListener('keydown', (e) => {
+        // ESC: slip fokus fra tekstfelter, så genveje virker igen
+        if (e.key === 'Escape') {
+          const ae = document.activeElement;
+          if (isTypingTarget(ae)) {
+            try { ae.blur(); } catch(_) {}
+            return;
+          }
+        }
+
         const modOk = (e.ctrlKey && e.altKey);
         if (!modOk) return;
 
-        const key = (e.key || '').toLowerCase();
+        const keyRaw = (e.key || '');
+        const key0 = (keyRaw + '').toLowerCase();
+        // På dansk tastatur kan Ctrl+Alt+E være AltGr+E (= '€')
+        const key = (key0 === '€') ? 'e' : key0;
         const typing = isTypingTarget(e.target);
         // Kapr ikke genveje mens man skriver – undtagelse: Backup må gerne være global.
         if (typing && key !== 'b') return;
@@ -5073,6 +5085,9 @@ try {
         if (key === 'k') { e.preventDefault(); clickById('tab-k'); return; }
         if (key === 'r') { e.preventDefault(); clickById('tab-edit'); return; }
         if (key === 's') { e.preventDefault(); clickById('tab-set'); return; }
+        if (key === 'z') { e.preventDefault(); clickById('tab-set'); return; }
+        if (key === 'x') { e.preventDefault(); clickById('tab-set'); requestAnimationFrame(() => { clickById('settingsTab-general'); requestAnimationFrame(() => { try { const inp = document.getElementById('meInput'); if (inp) { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch(_) {} } } catch(_) {} }); }); return; }
+
 
         if (key === 'i') { e.preventDefault(); goSettingsSubtab('settingsTab-data'); return; }
         if (key === 'e') { e.preventDefault(); goSettingsSubtab('settingsTab-export'); return; }
