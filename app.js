@@ -3359,23 +3359,6 @@ if (gi < totalGroups - 1) {
     // Sortér altid alfabetisk efter fornavn i den viste liste
     mineList.sort((a,b)=>(a.fornavn||'').localeCompare(b.fornavn||'', 'da') || (a.efternavn||'').localeCompare(b.efternavn||'', 'da'));
 
-    // --- Tastatur-navigation: gem synlig elevliste + aktiv markør (uden at ændre statuskanter) ---
-    state.visibleKElevIds = mineList.map(st => st.unilogin || '').filter(Boolean);
-
-    // Bevar aktiv elev hvis muligt (eller brug valgt elev), ellers første i listen.
-    (function syncKbdActive(){
-      const ids = state.visibleKElevIds || [];
-      if (!ids.length) { state.kbdActiveUnilogin = null; state.kbdActiveIndex = -1; return; }
-
-      const preferred = (state.selectedUnilogin && ids.includes(state.selectedUnilogin)) ? state.selectedUnilogin : null;
-      const current = (state.kbdActiveUnilogin && ids.includes(state.kbdActiveUnilogin)) ? state.kbdActiveUnilogin : null;
-
-      const use = preferred || current || ids[0];
-      state.kbdActiveUnilogin = use;
-      state.kbdActiveIndex = Math.max(0, ids.indexOf(use));
-    })();
-
-
 
 const prog = mineList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
@@ -3435,14 +3418,13 @@ const prog = mineList.reduce((acc, st) => {
         const hasG = !!(mG.gym_variant || mG.variant || mG.gym || mG.G1 || mG.G2 || mG.G3);
         const hasE = isTruthy(mE.elevraad_variant) || isTruthy(mE.variant) || isTruthy(mE.elevraad) || hasAnyTruthyValue(mE);
         const isComplete = !!(hasUPK && hasS && hasG);
-        const isKbdActive = ((st.unilogin||'') === (state.kbdActiveUnilogin||''));
         const hasAnyProgress = !!(hasU || hasP || hasK || hasS || hasG || hasE);
         const isWip = !!(hasAnyProgress && !isComplete);
         const markLabels = [hasS ? 'Sang' : '', hasG ? 'Gym' : '', hasE ? 'Elevråd' : ''].filter(Boolean);
         const marksLine = markLabels.length ? ` · ${markLabels.join(' · ')}` : '';
 
         return `
-          <div class="card clickable ${isKbdActive ? "kbdActive" : ""} ${isComplete ? "complete" : (isWip ? "wip" : "")}" data-unilogin="${escapeAttr(st.unilogin)}">
+          <div class="card clickable ${isComplete ? "complete" : (isWip ? "wip" : "")}" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
               ${isComplete ? `<span class="dot done" title="Færdig: U, P og K er udfyldt."></span>` : (isWip ? `<span class="dot wip" title="Undervejs: der er indhold, men ikke alt er færdigt endnu."></span>` : ``)}
@@ -3455,11 +3437,7 @@ const prog = mineList.reduce((acc, st) => {
 
       kList.querySelectorAll('[data-unilogin]').forEach(el => {
         el.addEventListener('click', () => {
-          const u = el.getAttribute('data-unilogin');
-          state.selectedUnilogin = u;
-          // Keep keyboard marker in sync with last clicked card
-          state.kbdActiveUnilogin = u;
-          if (state.visibleKElevIds && Array.isArray(state.visibleKElevIds)) state.kbdActiveIndex = Math.max(0, state.visibleKElevIds.indexOf(u));
+          state.selectedUnilogin = el.getAttribute('data-unilogin');
           setTab('edit');
           renderAll();
           });
@@ -4076,7 +4054,7 @@ function tooltipTextFor(st, scope, key){
       <th class="nameTh">
         <div class="thName compact">
           <div class="thControl">
-            <input id="marksSearchInline" type="text" placeholder="Søg navn…" aria-label="Filtrer navn" autocomplete="off" />
+            <input id="marksSearchInline" type="text" placeholder="Søg navn…" title="Find elever ved at skrive hele eller dele af navnet" aria-label="Filtrer navn" autocomplete="off" />
             <button class="clearBtn" id="marksSearchInlineClear" title="Ryd" aria-label="Ryd" hidden>×</button>
           </div>
         </div>
@@ -4087,8 +4065,8 @@ function tooltipTextFor(st, scope, key){
       if (state.marksSort.key !== key || !state.marksSort.dir) return '';
       return state.marksSort.dir === 1 ? '↑' : '↓';
     };
-    const thKgrp = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKgrp">K-grp<span class="sortIcon">${sortIcon('kgrp')}</span></button></th>`;
-    const thKlasse = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKlasse">Klasse<span class="sortIcon">${sortIcon('klasse')}</span></button></th>`;
+    const thKgrp = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKgrp" title="Sortér elever efter kontaktgruppe">K-grp<span class="sortIcon">${sortIcon('kgrp')}</span></button></th>`;
+    const thKlasse = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKlasse" title="Sortér elever efter klasse">Klasse<span class="sortIcon">${sortIcon('klasse')}</span></button></th>`;
 
     if (type === 'sang') {
       const marks = getMarks(KEYS.marksSang);
@@ -4123,7 +4101,7 @@ function tooltipTextFor(st, scope, key){
       return;
     }
 
-    if (type === 'gym') {
+    if (type === 'gym' || type === 'roller') {
       const marks = getMarks(KEYS.marksGym);
       $('marksLegend').textContent = '';
       const cols = ['G1','G2','G3'].filter(k => (SNIPPETS.gym||{})[k]);
@@ -4294,112 +4272,6 @@ function tooltipTextFor(st, scope, key){
     setTab('edit');
   });
     on('tab-set','click', () => setTab('set'));
-
-    // ---------- Tastaturgenveje (Ctrl+Alt + bogstav) ----------
-    // Genveje er deaktiveret, når man skriver i input/textarea/editor (for ikke at stjæle AltGr/tekst).
-    const isTypingTarget = (el) => {
-      if (!el) return false;
-      const tag = (el.tagName || '').toUpperCase();
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-      if (el.isContentEditable) return true;
-      return false;
-    };
-
-    const openSettingsSubtab = (sub) => {
-      setTab('set');
-      setSettingsSubtab(sub);
-      renderAll();
-      // Optional: give focus to the subtab header for accessibility
-      try {
-        const btn = document.querySelector(`#settingsSubtabs button[data-subtab="${sub}"]`);
-        if (btn) btn.focus();
-      } catch(_) {}
-    };
-
-    const setKbdActiveIndex = (newIndex, opts = {}) => {
-      const ids = (state.visibleKElevIds && Array.isArray(state.visibleKElevIds)) ? state.visibleKElevIds : [];
-      if (!ids.length) return;
-      const idx = Math.max(0, Math.min(newIndex, ids.length - 1));
-      state.kbdActiveIndex = idx;
-      state.kbdActiveUnilogin = ids[idx];
-
-      const host = $('kList');
-      if (!host) return;
-      // Update classes without rerender
-      host.querySelectorAll('.card.kbdActive').forEach(n => n.classList.remove('kbdActive'));
-      const el = host.querySelector(`[data-unilogin="${CSS.escape(state.kbdActiveUnilogin)}"]`);
-      if (el) {
-        el.classList.add('kbdActive');
-        if (opts.scroll) {
-          try { el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }); } catch(_) {}
-        }
-      }
-    };
-
-    const openActiveKCardInEdit = () => {
-      const u = state.kbdActiveUnilogin || (state.selectedUnilogin || null);
-      if (!u) return;
-      state.selectedUnilogin = u;
-      setTab('edit');
-      renderAll();
-    };
-
-    document.addEventListener('keydown', (e) => {
-      // Shortcuts: Ctrl+Alt + key (ignore when typing)
-      const typing = isTypingTarget(e.target);
-      const key = String(e.key || '').toLowerCase();
-
-      if (e.ctrlKey && e.altKey && !e.metaKey) {
-        if (!typing) {
-          if (key === 'k') {
-            e.preventDefault();
-            if (state.tab === 'k') {
-              state.viewMode = (state.viewMode === 'ALL') ? 'K' : 'ALL';
-              renderStatus(); renderKList(); updateTabLabels();
-            } else {
-              setTab('k'); renderAll();
-            }
-            return;
-          }
-          if (key === 'r') { e.preventDefault(); setTab('edit'); renderAll(); return; }
-          if (key === 'i') { e.preventDefault(); openSettingsSubtab('data'); return; }
-          if (key === 'e') { e.preventDefault(); openSettingsSubtab('export'); return; }
-          if (key === 't') { e.preventDefault(); openSettingsSubtab('texts'); return; }
-          if (key === 'h') { e.preventDefault(); openSettingsSubtab('help'); return; }
-        }
-        // Backup should be allowed even when typing (optional) – but only if it exists
-        if (key === 'b') {
-          e.preventDefault();
-          const b = $('btnBackupDownload');
-          if (b && !b.disabled) b.click();
-          return;
-        }
-      }
-
-      // Piletaster + Enter i K-visning
-      if (state.tab !== 'k') return;
-      if (typing) return;
-
-      if (key === 'arrowleft') {
-        if (state.viewMode === 'ALL') {
-          const btnPrev = $('btnPrevGroup');
-          if (btnPrev && btnPrev.style.visibility !== 'hidden') { e.preventDefault(); btnPrev.click(); }
-        }
-        return;
-      }
-      if (key === 'arrowright') {
-        if (state.viewMode === 'ALL') {
-          const btnNext = $('btnNextGroup');
-          if (btnNext && btnNext.style.visibility !== 'hidden') { e.preventDefault(); btnNext.click(); }
-        }
-        return;
-      }
-      if (key === 'arrowup') { e.preventDefault(); setKbdActiveIndex((state.kbdActiveIndex ?? 0) - 1, { scroll: true }); return; }
-      if (key === 'arrowdown') { e.preventDefault(); setKbdActiveIndex((state.kbdActiveIndex ?? 0) + 1, { scroll: true }); return; }
-      if (key === 'enter') { e.preventDefault(); openActiveKCardInEdit(); return; }
-    }, { capture: true });
-
-
 
     // Indstillinger: subtabs
     const st = document.getElementById('settingsSubtabs');
@@ -4852,7 +4724,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         });
         downloadText('sang_vurderinger.csv', toCsv(rows, ['Unilogin','Navn','Sang_variant']));
       }
-      if (type === 'gym') {
+      if (type === 'gym' || type === 'roller') {
         const marks = getMarks(KEYS.marksGym);
         const roleCodes = Object.keys(SNIPPETS.roller);
         const headers = ['Unilogin','Navn','Gym_variant', ...roleCodes];
@@ -5123,7 +4995,7 @@ if (document.getElementById('btnDownloadElevraad')) {
           } else if (type === 'elevraad') {
             const v = m.elevraad_variant || '';
             for (const c of Object.keys(SNIPPETS.elevraad || {})) out[c] = (v === c) ? '1' : '';
-          } else if (type === 'gym') {
+          } else if (type === 'gym' || type === 'roller') {
             const v = m.gym_variant || '';
             for (const c of Object.keys(SNIPPETS.gym || {})) out[c] = (v === c) ? '1' : '';
             const roles = Array.isArray(m.gym_roles) ? m.gym_roles : [];
@@ -5145,7 +5017,49 @@ if (document.getElementById('btnDownloadElevraad')) {
         const stamp = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
         a.download = `${type}_marks_${stamp}.csv`;
         a.href = URL.createObjectURL(blob);
-        document.body.appendChild(a);
+        docu
+    // Globale genvejstaster (tastatur-navigation)
+    // Vigtigt: Undgår Ctrl+Alt (AltGr på DK-layout). Bruger Ctrl+Shift (Win/Linux) og Cmd+Shift (Mac).
+    if (!window.__huShortcutsWired) {
+      window.__huShortcutsWired = true;
+      document.addEventListener('keydown', (e) => {
+        const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+        const modOk = (isMac ? (e.metaKey && e.shiftKey) : (e.ctrlKey && e.shiftKey));
+        if (!modOk) return;
+        if (e.altKey) return; // hold Alt fri (også pga. AltGr-varianter)
+
+        const key = (e.key || '').toLowerCase();
+
+        const goTab = (tab) => { try { setTab(tab); } catch (_) {} };
+        const goSet = (sub) => {
+          try { setTab('set'); } catch (_) {}
+          try { if (typeof setSettingsSubtab === 'function') setSettingsSubtab(sub); } catch (_) {}
+          try { renderAll(); } catch (_) {}
+        };
+
+        // K = K-elever, R = Redigér, S = Indstillinger
+        if (key === 'k') { e.preventDefault(); goTab('k'); return; }
+        if (key === 'r') { e.preventDefault(); goTab('edit'); return; }
+        if (key === 's') { e.preventDefault(); goTab('set'); return; }
+
+        // I/E/T = Import / Eksport / Tekster (under Indstillinger)
+        if (key === 'i') { e.preventDefault(); goSet('data'); return; }
+        if (key === 'e') { e.preventDefault(); goSet('export'); return; }
+        if (key === 't') { e.preventDefault(); goSet('texts'); return; }
+        if (key === 'h') { e.preventDefault(); goSet('help'); return; }
+
+        // B = Gem backup (download) – virker uanset hvor man er
+        if (key === 'b') {
+          e.preventDefault();
+          try {
+            const btn = document.getElementById('btnBackupDownload');
+            if (btn) btn.click();
+          } catch (_) {}
+          return;
+        }
+      }, true);
+    }
+ment.body.appendChild(a);
         a.click();
         setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
       });
