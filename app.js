@@ -1986,7 +1986,7 @@ function marksExportFilename(type) {
   const stamp = _dateStampYYYYMMDD();
   // Keep filenames ASCII-friendly for Windows/Drive etc.
   if (type === 'sang') return `Sangkarakterer_${stamp}.csv`;
-  if (type === 'gym')  return `Gymnastikkarakterer_og_roller_Fanebaerer_Redskabshold_DGI-instruktoer_${stamp}.csv`;
+  if (type === 'gym' || type === 'roller') return `gym_rolle_vurderinger.csv`;
   if (type === 'elevraad') return `Elevraadsrepraesentanter_${stamp}.csv`;
   return `Markeringer_${stamp}.csv`;
 }
@@ -4724,7 +4724,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         });
         downloadText('sang_vurderinger.csv', toCsv(rows, ['Unilogin','Navn','Sang_variant']));
       }
-      if (type === 'gym') {
+      if (type === 'gym' || type === 'roller') {
         const marks = getMarks(KEYS.marksGym);
         const roleCodes = Object.keys(SNIPPETS.roller);
         const headers = ['Unilogin','Navn','Gym_variant', ...roleCodes];
@@ -4977,7 +4977,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         let extraCols = [];
         if (type === 'sang') extraCols = Object.keys(SNIPPETS.sang || {});
         else if (type === 'elevraad') extraCols = Object.keys(SNIPPETS.elevraad || {});
-        else if (type === 'gym') extraCols = [...Object.keys(SNIPPETS.gym || {}), ...Object.keys(SNIPPETS.roller || {}).map(r => `role:${r}`)];
+        else if (type === 'gym' || type === 'roller') extraCols = [...Object.keys(SNIPPETS.gym || {}), ...Object.keys(SNIPPETS.roller || {}).map(r => `role:${r}`)];
 
         const header = [...baseCols, ...extraCols];
 
@@ -4995,7 +4995,7 @@ if (document.getElementById('btnDownloadElevraad')) {
           } else if (type === 'elevraad') {
             const v = m.elevraad_variant || '';
             for (const c of Object.keys(SNIPPETS.elevraad || {})) out[c] = (v === c) ? '1' : '';
-          } else if (type === 'gym') {
+          } else if (type === 'gym' || type === 'roller') {
             const v = m.gym_variant || '';
             for (const c of Object.keys(SNIPPETS.gym || {})) out[c] = (v === c) ? '1' : '';
             const roles = Array.isArray(m.gym_roles) ? m.gym_roles : [];
