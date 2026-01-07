@@ -3455,6 +3455,31 @@ const prog = mineList.reduce((acc, st) => {
     }
 }
 
+// TRIN 2 helper: opdater aktiv elev-markering i K-listen uden at ændre DOM-fokus.
+// - Bruger state.kActiveIndex (indeks) og tilføjer/fjerner class "kbActive" på kort.
+// - Scroll-into-view (nearest) så markøren følger med.
+function updateKActiveCardUI() {
+  try {
+    const host = document.getElementById('kList');
+    if (!host) return;
+    const cards = Array.from(host.querySelectorAll('[data-unilogin]'));
+    const n = cards.length;
+    if (!n) return;
+
+    let idx = Number.isFinite(state.kActiveIndex) ? state.kActiveIndex : 0;
+    idx = Math.max(0, Math.min(idx, n - 1));
+    state.kActiveIndex = idx;
+
+    for (let i = 0; i < n; i++) {
+      cards[i].classList.toggle('kbActive', i === idx);
+    }
+
+    const el = cards[idx];
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+  } catch (_) {}
+}
+
+
 function setEditEnabled(enabled) {
     ['txtElevudv','txtPraktisk','txtKgruppe','fileStudentInput','btnPickStudentPdf','btnOpenStudentInput','btnClearStudentInput','btnPrint']
       .forEach(id => { const el = $(id); if (el) el.disabled = !enabled; });
@@ -5110,31 +5135,29 @@ try {
           // - Kun i K-fanen
           // - Markør er et indeks i state (ingen DOM-fokus)
           // - Auto scroll-into-view
-          if (k === 'ArrowUp' || k === 'ArrowDown') {
+          //
+          // NOTE: Vi opdaterer UI direkte (updateKActiveCardUI) i stedet for at rerendere hele listen,
+          // fordi nogle miljøer/handlers kan gøre at en rerender ikke giver synlig feedback ved piletaster.
+          const code = e.code || '';
+          if (k === 'ArrowUp' || k === 'ArrowDown' || code === 'ArrowUp' || code === 'ArrowDown') {
             const typing = isTypingTarget(e.target);
             if (!typing && state && state.tab === 'k') {
-              const ids = Array.isArray(state.visibleKElevIds) ? state.visibleKElevIds : [];
-              const n = ids.length || 0;
+              const host = document.getElementById('kList');
+              const cards = host ? Array.from(host.querySelectorAll('[data-unilogin]')) : [];
+              const n = cards.length;
               if (n > 0) {
                 e.preventDefault();
                 let idx = Number.isFinite(state.kActiveIndex) ? state.kActiveIndex : 0;
                 idx = Math.max(0, Math.min(idx, n - 1));
-                if (k === 'ArrowUp') idx = Math.max(0, idx - 1);
-                if (k === 'ArrowDown') idx = Math.min(n - 1, idx + 1);
+                if (k === 'ArrowUp' || code === 'ArrowUp') idx = Math.max(0, idx - 1);
+                if (k === 'ArrowDown' || code === 'ArrowDown') idx = Math.min(n - 1, idx + 1);
                 state.kActiveIndex = idx;
-                renderKList();
-                requestAnimationFrame(() => {
-                  try {
-                    const host = document.getElementById('kList');
-                    if (!host) return;
-                    const card = host.querySelector(`[data-unilogin="${CSS.escape(ids[idx] || '')}"]`);
-                    if (card && card.scrollIntoView) card.scrollIntoView({ block: 'nearest' });
-                  } catch (_) {}
-                });
+                updateKActiveCardUI();
                 return;
               }
             }
           }
+        }
         }
 
         const modOk = (e.ctrlKey && e.altKey);
