@@ -1986,7 +1986,7 @@ function marksExportFilename(type) {
   const stamp = _dateStampYYYYMMDD();
   // Keep filenames ASCII-friendly for Windows/Drive etc.
   if (type === 'sang') return `Sangkarakterer_${stamp}.csv`;
-  if (type === 'gym' || type === 'roller') return `gym_rolle_vurderinger.csv`;
+  if (type === 'gym')  return `Gymnastikkarakterer_og_roller_Fanebaerer_Redskabshold_DGI-instruktoer_${stamp}.csv`;
   if (type === 'elevraad') return `Elevraadsrepraesentanter_${stamp}.csv`;
   return `Markeringer_${stamp}.csv`;
 }
@@ -4054,7 +4054,7 @@ function tooltipTextFor(st, scope, key){
       <th class="nameTh">
         <div class="thName compact">
           <div class="thControl">
-            <input id="marksSearchInline" type="text" placeholder="Søg navn…" aria-label="Filtrer navn" autocomplete="off" />
+            <input id="marksSearchInline" type="text" placeholder="Søg navn…" aria-label="Filtrer navn" autocomplete="off" title="Find elever ved at skrive hele eller dele af navnet" />
             <button class="clearBtn" id="marksSearchInlineClear" title="Ryd" aria-label="Ryd" hidden>×</button>
           </div>
         </div>
@@ -4065,8 +4065,8 @@ function tooltipTextFor(st, scope, key){
       if (state.marksSort.key !== key || !state.marksSort.dir) return '';
       return state.marksSort.dir === 1 ? '↑' : '↓';
     };
-    const thKgrp = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKgrp">K-grp<span class="sortIcon">${sortIcon('kgrp')}</span></button></th>`;
-    const thKlasse = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKlasse">Klasse<span class="sortIcon">${sortIcon('klasse')}</span></button></th>`;
+    const thKgrp = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKgrp" title="Sortér elever efter kontaktgruppe">K-grp<span class="sortIcon">${sortIcon('kgrp')}</span></button></th>`;
+    const thKlasse = `<th class="sortTh"><button type="button" class="sortBtn" id="marksSortKlasse" title="Sortér elever efter klasse">Klasse<span class="sortIcon">${sortIcon('klasse')}</span></button></th>`
 
     if (type === 'sang') {
       const marks = getMarks(KEYS.marksSang);
@@ -4724,7 +4724,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         });
         downloadText('sang_vurderinger.csv', toCsv(rows, ['Unilogin','Navn','Sang_variant']));
       }
-      if (type === 'gym' || type === 'roller') {
+      if (type === 'gym') {
         const marks = getMarks(KEYS.marksGym);
         const roleCodes = Object.keys(SNIPPETS.roller);
         const headers = ['Unilogin','Navn','Gym_variant', ...roleCodes];
@@ -4977,7 +4977,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         let extraCols = [];
         if (type === 'sang') extraCols = Object.keys(SNIPPETS.sang || {});
         else if (type === 'elevraad') extraCols = Object.keys(SNIPPETS.elevraad || {});
-        else if (type === 'gym' || type === 'roller') extraCols = [...Object.keys(SNIPPETS.gym || {}), ...Object.keys(SNIPPETS.roller || {}).map(r => `role:${r}`)];
+        else if (type === 'gym') extraCols = [...Object.keys(SNIPPETS.gym || {}), ...Object.keys(SNIPPETS.roller || {}).map(r => `role:${r}`)];
 
         const header = [...baseCols, ...extraCols];
 
@@ -4995,7 +4995,7 @@ if (document.getElementById('btnDownloadElevraad')) {
           } else if (type === 'elevraad') {
             const v = m.elevraad_variant || '';
             for (const c of Object.keys(SNIPPETS.elevraad || {})) out[c] = (v === c) ? '1' : '';
-          } else if (type === 'gym' || type === 'roller') {
+          } else if (type === 'gym') {
             const v = m.gym_variant || '';
             for (const c of Object.keys(SNIPPETS.gym || {})) out[c] = (v === c) ? '1' : '';
             const roles = Array.isArray(m.gym_roles) ? m.gym_roles : [];
@@ -5328,3 +5328,75 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+// ---------- Keyboard shortcuts (v1.0) ----------
+document.addEventListener('keydown', (e) => {
+  // Use Ctrl+Alt on Windows/Linux, Option+Command on macOS.
+  const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || '');
+  const modOK = (e.ctrlKey && e.altKey) || (isMac && e.metaKey && e.altKey);
+  if (!modOK) return;
+
+  // Avoid interfering with browser/system shortcuts that use Shift as well
+  if (e.shiftKey) return;
+
+  // If user is typing inside inputs, only react to these explicit modifier combos (already enforced by modOK)
+  const key = (e.key || '').toLowerCase();
+
+  const click = (id) => {
+    const el = document.getElementById(id);
+    if (el) { el.click(); return true; }
+    return false;
+  };
+
+  const goTab = (tabId) => {
+    // Prefer internal function if present (keeps state consistent), otherwise click the tab button
+    try {
+      if (typeof setTab === 'function') { setTab(tabId); return true; }
+    } catch (_) {}
+    return click('tab-' + tabId);
+  };
+
+  const goSettingsSub = (subId) => {
+    // Ensure we're in settings first
+    try { goTab('set'); } catch (_) {}
+    return click('settingsTab-' + subId);
+  };
+
+  let handled = true;
+
+  switch (key) {
+    case 'k': // K-elever
+      goTab('k');
+      break;
+    case 'r': // Redigér
+      goTab('edit');
+      break;
+    case 's': // Indstillinger (Settings)
+      goTab('set');
+      break;
+    case 'i': // Import (Settings)
+      goSettingsSub('data');
+      break;
+    case 'e': // Eksport (Settings)
+      goSettingsSub('export');
+      break;
+    case 't': // Tekster / skabeloner (Settings)
+      goSettingsSub('texts');
+      break;
+    case 'b': // Backup (download) — global
+      // Open settings/import first if button isn't mounted yet
+      if (!click('btnBackupDownload')) {
+        try { goSettingsSub('data'); } catch (_) {}
+        click('btnBackupDownload');
+      }
+      break;
+    default:
+      handled = false;
+  }
+
+  if (handled) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, true);
+
