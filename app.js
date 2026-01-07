@@ -5146,6 +5146,35 @@ try {
           }
         }
 
+        // TRIN 3: Enter = åbn aktiv elev (samme handling som klik på elevkort)
+        // - Kun når fokus ikke er i input/textarea/contenteditable
+        // - Kun i K-fanen
+        if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+          const k = e.key;
+          const code = e.code;
+          if (k === 'Enter' || code === 'Enter' || code === 'NumpadEnter') {
+            const typing = isTypingTarget(e.target);
+            if (!typing && state && state.tab === 'k') {
+              const kList = $("kList");
+              const cards = kList ? Array.from(kList.querySelectorAll('[data-unilogin]')) : [];
+              const n = cards.length;
+              if (n > 0) {
+                e.preventDefault();
+                let idx = Number.isFinite(state.kActiveIndex) ? state.kActiveIndex : 0;
+                idx = Math.max(0, Math.min(idx, n - 1));
+                state.kActiveIndex = idx;
+                const u = (cards[idx] && cards[idx].getAttribute('data-unilogin')) || '';
+                if (u) {
+                  state.selectedUnilogin = u;
+                  setTab('edit');
+                  renderAll();
+                  return;
+                }
+              }
+            }
+          }
+        }
+
 const modOk = (e.ctrlKey && e.altKey);
         if (!modOk) return;
 
