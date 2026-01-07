@@ -850,7 +850,9 @@ async function openPrintWindowForStudents(students, settings, title) {
       </div>`;
   }).join('');
 
-  const docTitle = escapeHtml(title || 'Print');
+    const printModeClass = (pages && pages.length > 1) ? 'print-multi' : 'print-single';
+
+const docTitle = escapeHtml(title || 'Print');
 
   const html = `<!doctype html>
 <html>
@@ -952,32 +954,28 @@ async function openPrintWindowForStudents(students, settings, title) {
       font-size: 10.5pt;
       line-height: 1.25;
     }
-    .sig-col{ width: 48%; break-inside: avoid; page-break-inside: avoid; }
+ 
+    @media print{
+      /* Footer-signatur: fixed for enkelt-elev print, absolut pr. side ved multi-print (for at undgå overlappende fixed-elementer) */
+      body.print-single .signatures{ position: fixed; bottom: 32px; left: 0; right: 0; width: 100%; }
+      body.print-multi .page{ position: relative; }
+      body.print-multi .content{ position: relative; min-height: 273mm; }
+      body.print-multi .signatures{ position: absolute; bottom: 32px; left: 0; right: 0; width: 100%; }
+      /* Sørg for at brødtekst aldrig kan løbe ned i signaturen */
+      pre.statement{ padding-bottom: 110px; }
+    }
+
+   .sig-col{ width: 48%; break-inside: avoid; page-break-inside: avoid; }
     .sig-left{ text-align: left; }
     .sig-right{ text-align: center; }
     .sig-name{ display:block; }
     .sig-label{ display:block; margin-top: 2px; }
     .sig-left .sig-label{ text-align: center; }
 
-    /* Print/PDF: fast footer-signatur + ekstra plads i brødtekst */
-    @media print {
-      .signatures{
-        position: fixed;
-        bottom: 32px;
-        left: 0;
-        right: 0;
-        width: 100%;
-        margin-top: 0;
-      }
-      pre.statement{
-        padding-bottom: 100px; /* ca. signaturens højde */
-      }
-    }
-
 
 </style>
 </head>
-<body>
+<body class="${printModeClass}">
 ${pagesHtml}
 <script>
 (function(){
