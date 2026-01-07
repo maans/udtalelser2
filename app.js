@@ -3359,13 +3359,6 @@ if (gi < totalGroups - 1) {
     // Sortér altid alfabetisk efter fornavn i den viste liste
     mineList.sort((a,b)=>(a.fornavn||'').localeCompare(b.fornavn||'', 'da') || (a.efternavn||'').localeCompare(b.efternavn||'', 'da'));
 
-    // TRIN 2: synlig elevliste til tastaturnavigation (state-baseret indeks)
-    state.visibleKElevIds = mineList.map(st => st.unilogin).filter(Boolean);
-    const nVis = state.visibleKElevIds.length;
-    if (!Number.isFinite(state.kActiveIndex)) state.kActiveIndex = 0;
-    if (nVis <= 0) state.kActiveIndex = 0;
-    else state.kActiveIndex = Math.max(0, Math.min(state.kActiveIndex, nVis - 1));
-
 
 const prog = mineList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
@@ -3430,10 +3423,8 @@ const prog = mineList.reduce((acc, st) => {
         const markLabels = [hasS ? 'Sang' : '', hasG ? 'Gym' : '', hasE ? 'Elevråd' : ''].filter(Boolean);
         const marksLine = markLabels.length ? ` · ${markLabels.join(' · ')}` : '';
 
-        const isActive = (Number.isFinite(state.kActiveIndex) && idx === state.kActiveIndex);
-
         return `
-          <div class="card clickable ${isComplete ? "complete" : (isWip ? "wip" : "")} ${isActive ? "kbActive" : ""}" data-unilogin="${escapeAttr(st.unilogin)}">
+          <div class="card clickable ${((idx === state.kActiveIndex) ? "kbActive " : "")}${isComplete ? "complete" : (isWip ? "wip" : "")}" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
               ${isComplete ? `<span class="dot done" title="Færdig: U, P og K er udfyldt."></span>` : (isWip ? `<span class="dot wip" title="Undervejs: der er indhold, men ikke alt er færdigt endnu."></span>` : ``)}
@@ -3444,9 +3435,8 @@ const prog = mineList.reduce((acc, st) => {
         `;
       }).join('');
 
-      kList.querySelectorAll('[data-unilogin]').forEach((el, idx) => {
+      kList.querySelectorAll('[data-unilogin]').forEach(el => {
         el.addEventListener('click', () => {
-          state.kActiveIndex = idx;
           state.selectedUnilogin = el.getAttribute('data-unilogin');
           setTab('edit');
           renderAll();
@@ -3454,31 +3444,6 @@ const prog = mineList.reduce((acc, st) => {
       });
     }
 }
-
-// TRIN 2 helper: opdater aktiv elev-markering i K-listen uden at ændre DOM-fokus.
-// - Bruger state.kActiveIndex (indeks) og tilføjer/fjerner class "kbActive" på kort.
-// - Scroll-into-view (nearest) så markøren følger med.
-function updateKActiveCardUI() {
-  try {
-    const host = document.getElementById('kList');
-    if (!host) return;
-    const cards = Array.from(host.querySelectorAll('[data-unilogin]'));
-    const n = cards.length;
-    if (!n) return;
-
-    let idx = Number.isFinite(state.kActiveIndex) ? state.kActiveIndex : 0;
-    idx = Math.max(0, Math.min(idx, n - 1));
-    state.kActiveIndex = idx;
-
-    for (let i = 0; i < n; i++) {
-      cards[i].classList.toggle('kbActive', i === idx);
-    }
-
-    const el = cards[idx];
-    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
-  } catch (_) {}
-}
-
 
 function setEditEnabled(enabled) {
     ['txtElevudv','txtPraktisk','txtKgruppe','fileStudentInput','btnPickStudentPdf','btnOpenStudentInput','btnClearStudentInput','btnPrint']
@@ -5084,6 +5049,28 @@ try {
         return false;
       };
 
+  // TRIN 2: Tastatur-aktivt elevkort (state-baseret markør, ikke DOM-fokus)
+  function updateKActiveCardUI() {
+    try {
+      const kList = $("kList");
+      if (!kList) return;
+      const cards = Array.from(kList.querySelectorAll('[data-unilogin]'));
+      if (!cards.length) return;
+
+      let idx = Number.isFinite(state.kActiveIndex) ? state.kActiveIndex : 0;
+      idx = Math.max(0, Math.min(idx, cards.length - 1));
+      state.kActiveIndex = idx;
+
+      cards.forEach((el, i) => {
+        if (i === idx) el.classList.add("kbActive");
+        else el.classList.remove("kbActive");
+      });
+
+      try { cards[idx].scrollIntoView({ block: "nearest" }); } catch(_) {}
+    } catch(_) {}
+  }
+
+
       const clickById = (id) => {
         try {
           const el = document.getElementById(id);
@@ -5129,24 +5116,24 @@ try {
               }
             }
           }
+        }
 
-          // TRIN 2: ↑ / ↓ over elevkort (state-baseret markør)
-          // - Kun når fokus ikke er i input/textarea/select/contenteditable
-          // - Kun i K-fanen
-          // - Markør er et indeks i state (ingen DOM-fokus)
-          // - Auto scroll-into-view
-          //
-          // NOTE: Vi opdaterer UI direkte (updateKActiveCardUI) i stedet for at rerendere hele listen,
-          // fordi nogle miljøer/handlers kan gøre at en rerender ikke giver synlig feedback ved piletaster.
-          const code = e.code || '';
+        
+
+        // TRIN 2: ↑ / ↓ over elevkort (state-indeks, ikke DOM-fokus)
+        // - Kun når fokus ikke er i input/textarea/contenteditable
+        // - Kun i K-fanen
+        // - Ingen Enter her
+        if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+          const k = e.key;
+          const code = e.code;
           if (k === 'ArrowUp' || k === 'ArrowDown' || code === 'ArrowUp' || code === 'ArrowDown') {
             const typing = isTypingTarget(e.target);
             if (!typing && state && state.tab === 'k') {
-              const host = document.getElementById('kList');
-              const cards = host ? Array.from(host.querySelectorAll('[data-unilogin]')) : [];
-              const n = cards.length;
+              e.preventDefault();
+              const kList = $("kList");
+              const n = kList ? kList.querySelectorAll('[data-unilogin]').length : 0;
               if (n > 0) {
-                e.preventDefault();
                 let idx = Number.isFinite(state.kActiveIndex) ? state.kActiveIndex : 0;
                 idx = Math.max(0, Math.min(idx, n - 1));
                 if (k === 'ArrowUp' || code === 'ArrowUp') idx = Math.max(0, idx - 1);
@@ -5158,9 +5145,8 @@ try {
             }
           }
         }
-        }
 
-        const modOk = (e.ctrlKey && e.altKey);
+const modOk = (e.ctrlKey && e.altKey);
         if (!modOk) return;
 
         const keyRaw = (e.key || '');
