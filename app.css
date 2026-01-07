@@ -111,9 +111,12 @@ code{font-family:var(--mono)}
 }
 .brand{display:flex; align-items:center; gap:.6rem; min-width:190px}
 
-/* Tastatur-aktivt elevkort (diskret, konkurrerer ikke med statuskanter) */
-.kbActive{
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.65);
+/* Tastatur-aktivt elevkort (diskret, konkurrerer ikke med statuskanter)
+   Brug outline (ikke box-shadow), så vi ikke bliver overskrevet af
+   .card.complete/.card.wip som allerede sætter box-shadow. */
+.card.kbActive{
+  outline: 2px solid rgba(255,255,255,0.70);
+  outline-offset: -2px;
   border-radius: 12px;
 }
 .cardTopRow .dot{margin:0 6px 0 2px; align-self:center}
