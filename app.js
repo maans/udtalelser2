@@ -959,6 +959,21 @@ async function openPrintWindowForStudents(students, settings, title) {
     .sig-label{ display:block; margin-top: 2px; }
     .sig-left .sig-label{ text-align: center; }
 
+    /* Print/PDF: fast footer-signatur + ekstra plads i brødtekst */
+    @media print {
+      .signatures{
+        position: fixed;
+        bottom: 32px;
+        left: 0;
+        right: 0;
+        width: 100%;
+        margin-top: 0;
+      }
+      pre.statement{
+        padding-bottom: 100px; /* ca. signaturens højde */
+      }
+    }
+
 
 </style>
 </head>
