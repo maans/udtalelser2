@@ -3359,6 +3359,13 @@ if (gi < totalGroups - 1) {
     // Sortér altid alfabetisk efter fornavn i den viste liste
     mineList.sort((a,b)=>(a.fornavn||'').localeCompare(b.fornavn||'', 'da') || (a.efternavn||'').localeCompare(b.efternavn||'', 'da'));
 
+    // TRIN 2: synlig elevliste til tastaturnavigation (state-baseret indeks)
+    state.visibleKElevIds = mineList.map(st => st.unilogin).filter(Boolean);
+    const nVis = state.visibleKElevIds.length;
+    if (!Number.isFinite(state.kActiveIndex)) state.kActiveIndex = 0;
+    if (nVis <= 0) state.kActiveIndex = 0;
+    else state.kActiveIndex = Math.max(0, Math.min(state.kActiveIndex, nVis - 1));
+
 
 const prog = mineList.reduce((acc, st) => {
       const f = getTextFor(st.unilogin);
@@ -3392,7 +3399,7 @@ const prog = mineList.reduce((acc, st) => {
     }
 
     if (kList) {
-      kList.innerHTML = mineList.map(st => {
+      kList.innerHTML = mineList.map((st, idx) => {
         const full = `${st.fornavn || ''} ${st.efternavn || ''}`.trim();
         const free = getTextFor(st.unilogin);
         const hasU = !!(free.elevudvikling || '').trim();
@@ -3423,8 +3430,10 @@ const prog = mineList.reduce((acc, st) => {
         const markLabels = [hasS ? 'Sang' : '', hasG ? 'Gym' : '', hasE ? 'Elevråd' : ''].filter(Boolean);
         const marksLine = markLabels.length ? ` · ${markLabels.join(' · ')}` : '';
 
+        const isActive = (Number.isFinite(state.kActiveIndex) && idx === state.kActiveIndex);
+
         return `
-          <div class="card clickable ${isComplete ? "complete" : (isWip ? "wip" : "")}" data-unilogin="${escapeAttr(st.unilogin)}">
+          <div class="card clickable ${isComplete ? "complete" : (isWip ? "wip" : "")} ${isActive ? "kbActive" : ""}" data-unilogin="${escapeAttr(st.unilogin)}">
             <div class="cardTopRow">
               <div class="cardTitle"><b>${escapeHtml(full)}</b></div>
               ${isComplete ? `<span class="dot done" title="Færdig: U, P og K er udfyldt."></span>` : (isWip ? `<span class="dot wip" title="Undervejs: der er indhold, men ikke alt er færdigt endnu."></span>` : ``)}
@@ -3435,8 +3444,9 @@ const prog = mineList.reduce((acc, st) => {
         `;
       }).join('');
 
-      kList.querySelectorAll('[data-unilogin]').forEach(el => {
+      kList.querySelectorAll('[data-unilogin]').forEach((el, idx) => {
         el.addEventListener('click', () => {
+          state.kActiveIndex = idx;
           state.selectedUnilogin = el.getAttribute('data-unilogin');
           setTab('edit');
           renderAll();
@@ -5090,6 +5100,37 @@ try {
                 if (k === 'ArrowLeft' && gi > 0) state.kGroupIndex = gi - 1;
                 if (k === 'ArrowRight' && gi < n - 1) state.kGroupIndex = gi + 1;
                 renderKList();
+                return;
+              }
+            }
+          }
+
+          // TRIN 2: ↑ / ↓ over elevkort (state-baseret markør)
+          // - Kun når fokus ikke er i input/textarea/select/contenteditable
+          // - Kun i K-fanen
+          // - Markør er et indeks i state (ingen DOM-fokus)
+          // - Auto scroll-into-view
+          if (k === 'ArrowUp' || k === 'ArrowDown') {
+            const typing = isTypingTarget(e.target);
+            if (!typing && state && state.tab === 'k') {
+              const ids = Array.isArray(state.visibleKElevIds) ? state.visibleKElevIds : [];
+              const n = ids.length || 0;
+              if (n > 0) {
+                e.preventDefault();
+                let idx = Number.isFinite(state.kActiveIndex) ? state.kActiveIndex : 0;
+                idx = Math.max(0, Math.min(idx, n - 1));
+                if (k === 'ArrowUp') idx = Math.max(0, idx - 1);
+                if (k === 'ArrowDown') idx = Math.min(n - 1, idx + 1);
+                state.kActiveIndex = idx;
+                renderKList();
+                requestAnimationFrame(() => {
+                  try {
+                    const host = document.getElementById('kList');
+                    if (!host) return;
+                    const card = host.querySelector(`[data-unilogin="${CSS.escape(ids[idx] || '')}"]`);
+                    if (card && card.scrollIntoView) card.scrollIntoView({ block: 'nearest' });
+                  } catch (_) {}
+                });
                 return;
               }
             }
