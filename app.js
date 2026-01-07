@@ -5071,6 +5071,31 @@ try {
           }
         }
 
+        // TRIN 1: ← / → til K-grupper (kun i "Alle K-grupper"-tilstand)
+        // - Kun aktiv når fokus ikke er i input/textarea/contenteditable
+        // - Kun i K-fanen og kun når viewMode === 'ALL'
+        // - preventDefault() for at undgå browser-scroll/hop
+        // - Ingen øvrige taster (Op/Ned/Enter) håndteres her endnu
+        if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+          const k = e.key;
+          if (k === 'ArrowLeft' || k === 'ArrowRight') {
+            const typing = isTypingTarget(e.target);
+            if (!typing && state && state.tab === 'k' && state.viewMode === 'ALL') {
+              const studsNow = getStudents();
+              const groups = (state.__kGroups && Array.isArray(state.__kGroups)) ? state.__kGroups : buildKGroups(studsNow);
+              const n = (groups && groups.length) ? groups.length : 0;
+              if (n > 0) {
+                e.preventDefault();
+                const gi = Math.max(0, Math.min(state.kGroupIndex || 0, n - 1));
+                if (k === 'ArrowLeft' && gi > 0) state.kGroupIndex = gi - 1;
+                if (k === 'ArrowRight' && gi < n - 1) state.kGroupIndex = gi + 1;
+                renderKList();
+                return;
+              }
+            }
+          }
+        }
+
         const modOk = (e.ctrlKey && e.altKey);
         if (!modOk) return;
 
