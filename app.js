@@ -3908,7 +3908,7 @@ $('preview').textContent = buildStatement(st, getSettings());
               const c = Number(b.getAttribute('data-col') || 0);
               state.marksFocus = { row: rid, col: c };
             } catch (_) {}
-            try { b.focus(); } catch(_) {}
+            try { try { b.focus({ preventScroll: true }); } catch(_) { b.focus(); } } catch(_) {}
           };
 
           // Toggle (keep focus)
@@ -3962,7 +3962,7 @@ $('preview').textContent = buildStatement(st, getSettings());
           const esc = (v) => v.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
           const sel = `button.tickbox[data-row="${esc(row)}"][data-col="${esc(col)}"]`;
           const btn = wrap.querySelector(sel);
-          if (btn && typeof btn.focus === 'function') btn.focus();
+          if (btn && typeof btn.focus === 'function') try { btn.focus({ preventScroll: true }); } catch(_) { btn.focus(); }
         } catch (_) {}
       });
     }
@@ -4392,7 +4392,7 @@ function tooltipTextFor(st, scope, key){
                 <td>${escapeHtml(full)}</td>
                 <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
                 <td class="muted small">${escapeHtml(st.klasse||'')}</td>
-                ${roleCodes.map(r => renderTick(st.unilogin, 'role:'+r, roles.includes(r), previewFor(st, pickTextForStudent(SNIPPETS.roller[r], st)))).join('')}
+                ${roleCodes.map((r,ci) => renderTick(st.unilogin, 'role:'+r, roles.includes(r), previewFor(st, pickTextForStudent(SNIPPETS.roller[r], st)), ci)).join('')}
               </tr>`;
             }).join('')}
           </tbody>
@@ -5190,7 +5190,7 @@ if (document.getElementById('btnDownloadElevraad')) {
             const c = Number(b.getAttribute('data-col') || 0);
             state.marksFocus = { row: rid, col: c };
           } catch (_) {}
-          b.focus();
+          try { b.focus({ preventScroll: true }); } catch(_) { b.focus(); }
         };
 
         // Toggle
@@ -5448,7 +5448,7 @@ try {
                   const c = Number(btn.getAttribute('data-col') || 0);
                   state.marksFocus = { row: rid, col: c };
                 } catch(_) {}
-                try { btn.focus(); } catch(_) {}
+                try { try { btn.focus({ preventScroll: true }); } catch(_) { btn.focus(); } } catch(_) {}
               };
 
               const ensureActiveBtn = () => {
