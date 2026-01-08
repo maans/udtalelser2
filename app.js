@@ -3824,6 +3824,130 @@ $('preview').textContent = buildStatement(st, getSettings());
     const searchEl = $('marksSearch');
     const legendEl = $('marksLegend');
 
+    // Robust wiring: marksTableWrap is created/removed when switching subtabs.
+    // So we wire click + keyboard navigation here (when the DOM exists),
+    // instead of relying on a one-time init.
+    function wireMarksGridOnce() {
+      if (!wrap) return;
+
+      // Click / toggle
+      if (!wrap.__wiredClick) {
+        wrap.__wiredClick = true;
+        wrap.addEventListener('click', (e) => {
+          const btn = e.target && (e.target.closest ? e.target.closest('button.tickbox[data-u][data-k]') : null);
+          if (!btn) return;
+          // Keep interaction local + predictable
+          e.preventDefault();
+          e.stopPropagation();
+
+          const u = btn.getAttribute('data-u');
+          const k = btn.getAttribute('data-k');
+          if (!u || !k) return;
+
+          const rowId = btn.getAttribute('data-row') || u;
+          const colIdx = Number(btn.getAttribute('data-col') || 0);
+          state.marksFocus = { row: rowId, col: colIdx };
+
+          const type = (state.marksType || (typeEl && typeEl.value) || 'sang');
+          const storageKey = (type === 'gym' || type === 'roller') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
+          const marks = getMarks(storageKey);
+          marks[u] = marks[u] || {};
+
+          if (k.startsWith('role:')) {
+            const roleKey = k.slice(5);
+            const arr = Array.isArray(marks[u].gym_roles) ? marks[u].gym_roles : [];
+            const has = arr.includes(roleKey);
+            if (has) arr.splice(arr.indexOf(roleKey), 1);
+            else arr.push(roleKey);
+            marks[u].gym_roles = arr;
+          } else {
+            const field = (type === 'gym') ? 'gym_variant' : (type === 'elevraad' ? 'elevraad_variant' : 'sang_variant');
+            const cur = (marks[u][field] || '');
+            marks[u][field] = (cur === k) ? '' : k;
+          }
+
+          setMarks(storageKey, marks);
+          try { updateImportStatsUI(); } catch (_) {}
+          if (state.tab === 'k') { try { renderKList(); } catch (_) {} }
+
+          // Re-render table; focus is restored via restoreMarksGridFocus() below.
+          renderMarksTable();
+        }, true);
+      }
+
+      // Keyboard navigation (arrows + Enter/Space + PageUp/PageDown + Esc)
+      if (!wrap.__wiredKeydown) {
+        wrap.__wiredKeydown = true;
+        wrap.addEventListener('keydown', (e) => {
+          const btn = e.target && (e.target.closest ? e.target.closest('button.tickbox[data-u][data-k]') : null);
+          if (!btn) return;
+
+          const key = e.key;
+
+          if (key === 'Escape' || key === 'Esc') {
+            e.preventDefault();
+            e.stopPropagation();
+            try { btn.blur(); } catch(_) {}
+            return;
+          }
+
+          const tr = btn.closest ? btn.closest('tr') : null;
+          if (!tr) return;
+          const tbody = tr.parentElement;
+          const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+          if (!rows.length) return;
+
+          const rowId = btn.getAttribute('data-row') || btn.getAttribute('data-u') || '';
+          const colIdx = Number(btn.getAttribute('data-col') || 0);
+
+          const focusBtn = (b) => {
+            if (!b) return;
+            try {
+              const rid = b.getAttribute('data-row') || b.getAttribute('data-u') || '';
+              const c = Number(b.getAttribute('data-col') || 0);
+              state.marksFocus = { row: rid, col: c };
+            } catch (_) {}
+            try { b.focus(); } catch(_) {}
+          };
+
+          // Toggle (keep focus)
+          if (key === 'Enter' || key === ' ') {
+            e.preventDefault();
+            state.marksFocus = { row: rowId, col: colIdx };
+            btn.click();
+            return;
+          }
+
+          // Left/Right: same row
+          if (key === 'ArrowLeft' || key === 'ArrowRight') {
+            e.preventDefault();
+            const rowBtns = Array.from(tr.querySelectorAll('button.tickbox[data-u][data-k]'));
+            if (!rowBtns.length) return;
+            const nextCol = colIdx + (key === 'ArrowRight' ? 1 : -1);
+            const b = rowBtns[Math.max(0, Math.min(rowBtns.length - 1, nextCol))];
+            focusBtn(b);
+            return;
+          }
+
+          // Up/Down + PageUp/PageDown: same column
+          const jump = (key === 'PageDown' ? 10 : (key === 'PageUp' ? -10 : (key === 'ArrowDown' ? 1 : (key === 'ArrowUp' ? -1 : 0))));
+          if (jump !== 0) {
+            e.preventDefault();
+            const i = rows.indexOf(tr);
+            if (i === -1) return;
+            const ni = i + jump;
+            if (ni < 0 || ni >= rows.length) return;
+            const targetRow = rows[ni];
+            const targetBtns = Array.from(targetRow.querySelectorAll('button.tickbox[data-u][data-k]'));
+            if (!targetBtns.length) return;
+            const b = targetBtns[Math.max(0, Math.min(targetBtns.length - 1, colIdx))];
+            focusBtn(b);
+            return;
+          }
+        });
+      }
+    }
+
     // Keep keyboard focus stable in the marks grid across re-renders
     function restoreMarksGridFocus(){
       const f = state.marksFocus;
@@ -3841,6 +3965,9 @@ $('preview').textContent = buildStatement(st, getSettings());
         } catch (_) {}
       });
     }
+
+    // Make sure interactions are wired whenever the export subtab is visible.
+    wireMarksGridOnce();
 
     const pickTextForStudent = (snippet, st) => {
       if (!snippet) return '';
