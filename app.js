@@ -4336,7 +4336,7 @@ function tooltipTextFor(st, scope, key){
       return;
     }
 
-    if (type === 'gym' || type === 'roller') {
+    if (type === 'gym') {
       const marks = getMarks(KEYS.marksGym);
       $('marksLegend').textContent = '';
       const cols = ['G1','G2','G3'].filter(k => (SNIPPETS.gym||{})[k]);
@@ -4961,7 +4961,7 @@ if (document.getElementById('btnDownloadElevraad')) {
         });
         downloadText('sang_vurderinger.csv', toCsv(rows, ['Unilogin','Navn','Sang_variant']));
       }
-      if (type === 'gym' || type === 'roller') {
+      if (type === 'gym') {
         const marks = getMarks(KEYS.marksGym);
         const roleCodes = Object.keys(SNIPPETS.roller);
         const headers = ['Unilogin','Navn','Gym_variant', ...roleCodes];
@@ -5308,7 +5308,7 @@ if (document.getElementById('btnDownloadElevraad')) {
           } else if (type === 'elevraad') {
             const v = m.elevraad_variant || '';
             for (const c of Object.keys(SNIPPETS.elevraad || {})) out[c] = (v === c) ? '1' : '';
-          } else if (type === 'gym' || type === 'roller') {
+          } else if (type === 'gym') {
             const v = m.gym_variant || '';
             for (const c of Object.keys(SNIPPETS.gym || {})) out[c] = (v === c) ? '1' : '';
             const roles = Array.isArray(m.gym_roles) ? m.gym_roles : [];
