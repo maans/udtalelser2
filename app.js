@@ -5129,7 +5129,8 @@ if (document.getElementById('btnDownloadElevraad')) {
         const k = el.getAttribute('data-k');
         if (!u || !k) return;
         // Keep keyboard focus stable across re-render
-        state.marksFocus = { row: u, col: Number(btn.getAttribute('data-col') || 0) };
+        // Keep keyboard focus stable across re-render (fallback col=0 for input checkboxes)
+        state.marksFocus = { row: u, col: Number(el.getAttribute('data-col') || 0) };
         const type = (state.marksType || 'sang');
         const storageKey = (type === 'gym' || type === 'roller') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
         const marks = getMarks(storageKey);
@@ -5477,23 +5478,7 @@ try {
                 const gi = Math.max(0, Math.min(state.kGroupIndex || 0, n - 1));
                 if (k === 'ArrowLeft' && gi > 0) state.kGroupIndex = gi - 1;
                 if (k === 'ArrowRight' && gi < n - 1) state.kGroupIndex = gi + 1;
-                
-        // TRIN 1B: ← / → i Redigér (forrige/næste elev)
-        // - Kun når fokus ikke er i input/textarea/contenteditable
-        // - Ingen ændring af data eller genveje
-        if (!e.ctrlKey && !e.altKey && !e.metaKey) {
-          const k = e.key;
-          if (k === 'ArrowLeft' || k === 'ArrowRight') {
-            const typing = isTypingTarget(e.target);
-            if (!typing && state && state.tab === 'edit') {
-              e.preventDefault();
-              gotoAdjacentStudent(k === 'ArrowRight' ? 'next' : 'prev');
-              return;
-            }
-          }
-        }
-
-renderKList();
+                renderKList();
                 return;
               }
             }
@@ -5501,6 +5486,21 @@ renderKList();
         }
 
         
+
+// TRIN 1B: ← / → i Redigér (forrige/næste elev)
+// - Kun når fokus ikke er i input/textarea/contenteditable
+// - Matcher navigationstankegangen fra "Alle K-grupper"
+if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+  const k = e.key;
+  if (k === 'ArrowLeft' || k === 'ArrowRight') {
+    const typing = isTypingTarget(e.target);
+    if (!typing && state && state.tab === 'edit') {
+      e.preventDefault();
+      gotoAdjacentStudent(k === 'ArrowRight' ? 'next' : 'prev');
+      return;
+    }
+  }
+}
 
         // TRIN 2: ↑ / ↓ over elevkort (state-indeks, ikke DOM-fokus)
         // - Kun når fokus ikke er i input/textarea/contenteditable
