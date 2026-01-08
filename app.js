@@ -3823,6 +3823,25 @@ $('preview').textContent = buildStatement(st, getSettings());
     const typeEl = $('marksType');
     const searchEl = $('marksSearch');
     const legendEl = $('marksLegend');
+
+    // Keep keyboard focus stable in the marks grid across re-renders
+    function restoreMarksGridFocus(){
+      const f = state.marksFocus;
+      if (!f || !wrap) return;
+      // Defer until DOM has been painted
+      requestAnimationFrame(() => {
+        try {
+          const row = String(f.row || '');
+          const col = String(f.col || 0);
+          // Escape for CSS attribute selector (minimal)
+          const esc = (v) => v.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+          const sel = `button.tickbox[data-row="${esc(row)}"][data-col="${esc(col)}"]`;
+          const btn = wrap.querySelector(sel);
+          if (btn && typeof btn.focus === 'function') btn.focus();
+        } catch (_) {}
+      });
+    }
+
     const pickTextForStudent = (snippet, st) => {
       if (!snippet) return '';
       const pr = pronouns(st.koen || st.gender || st.sex || '');
@@ -3972,11 +3991,11 @@ $('preview').textContent = buildStatement(st, getSettings());
       list = [...list].sort((a,b) => dir * cmp(a,b));
     }
 
-    function renderTick(unilogin, key, on, tooltip){
+    function renderTick(unilogin, key, on, tooltip, colIndex){
       const pressed = on ? 'true' : 'false';
       const cls = 'tickbox' + (on ? ' on' : '');
       // data-u/data-k bruges af click-handleren på marks-tabellen
-      return `<td class="cb"><button type="button" class="${cls}" data-u="${escapeAttr(unilogin)}" data-k="${escapeAttr(key)}" aria-pressed="${pressed}" data-tip="${escapeAttr(tooltip||'')}"><span class="check">✓</span></button></td>`;
+      return `<td class="cb"><button type="button" class="${cls}" data-u="${escapeAttr(unilogin)}" data-k="${escapeAttr(key)}" aria-pressed="${pressed}" data-tip="${escapeAttr(tooltip||'')}" data-row="${escapeAttr(unilogin)}" data-col="${(colIndex==null?0:colIndex)}" tabindex="0"><span class="check">✓</span></button></td>`;
     }
 
     
@@ -4176,7 +4195,7 @@ function tooltipTextFor(st, scope, key){
                 <td>${escapeHtml(full)}</td>
                 <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
                 <td class="muted small">${escapeHtml(st.klasse||'')}</td>
-                ${cols.map(c => renderTick(st.unilogin, c, ((m.sang_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.sang[c], st)))).join('')}
+                ${cols.map((c,ci) => renderTick(st.unilogin, c, ((m.sang_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.sang[c], st)), ci)).join('')}
               </tr>`;
             }).join('')}
           </tbody>
@@ -4185,6 +4204,7 @@ function tooltipTextFor(st, scope, key){
       attachInlineMarksSearch();
       attachMarksSortButtons();
       bindMarksHoverTips(wrap);
+      restoreMarksGridFocus();
       return;
     }
 
@@ -4209,7 +4229,7 @@ function tooltipTextFor(st, scope, key){
                 <td>${escapeHtml(full)}</td>
                 <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
                 <td class="muted small">${escapeHtml(st.klasse||'')}</td>
-                ${cols.map(c => renderTick(st.unilogin, c, ((m.gym_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.gym[c], st)))).join('')}
+                ${cols.map((c,ci) => renderTick(st.unilogin, c, ((m.gym_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.gym[c], st)), ci)).join('')}
               </tr>`;
             }).join('')}
           </tbody>
@@ -4218,6 +4238,7 @@ function tooltipTextFor(st, scope, key){
       attachInlineMarksSearch();
       attachMarksSortButtons();
       bindMarksHoverTips(wrap);
+      restoreMarksGridFocus();
       return;
     }
 
@@ -4252,6 +4273,7 @@ function tooltipTextFor(st, scope, key){
       attachInlineMarksSearch();
       attachMarksSortButtons();
       bindMarksHoverTips(wrap);
+      restoreMarksGridFocus();
       return;
     }
 
@@ -4276,7 +4298,7 @@ function tooltipTextFor(st, scope, key){
               <td>${escapeHtml(full)}</td>
               <td class="muted small">${escapeHtml(kgrpLabel(st))}</td>
               <td class="muted small">${escapeHtml(st.klasse||'')}</td>
-              ${cols.map(c => renderTick(st.unilogin, c, ((m.elevraad_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.elevraad[c], st)))).join('')}
+              ${cols.map((c,ci) => renderTick(st.unilogin, c, ((m.elevraad_variant||'')===c), previewFor(st, pickTextForStudent(SNIPPETS.elevraad[c], st)), ci)).join('')}
             </tr>`;
           }).join('')}
         </tbody>
@@ -4979,6 +5001,8 @@ if (document.getElementById('btnDownloadElevraad')) {
         const u = el.getAttribute('data-u');
         const k = el.getAttribute('data-k');
         if (!u || !k) return;
+        // Keep keyboard focus stable across re-render
+        state.marksFocus = { row: u, col: Number(btn.getAttribute('data-col') || 0) };
         const type = (state.marksType || 'sang');
         const storageKey = (type === 'gym' || type === 'roller') ? KEYS.marksGym : (type === 'elevraad' ? KEYS.marksElev : KEYS.marksSang);
         const marks = getMarks(storageKey);
@@ -5004,6 +5028,71 @@ if (document.getElementById('btnDownloadElevraad')) {
         try { updateImportStatsUI(); } catch (err) {}
         if (state.tab === 'k') { try { renderKList(); } catch (err) {} }
         renderMarksTable();
+      });
+
+      // Keyboard navigation in marks grid (arrow keys + Enter/Space)
+      marksWrap.addEventListener('keydown', (e) => {
+        const btn = e.target && (e.target.closest ? e.target.closest('button.tickbox[data-u][data-k]') : null);
+        if (!btn) return;
+
+        const key = e.key;
+        const tr = btn.closest ? btn.closest('tr') : null;
+
+        const rowId = btn.getAttribute('data-row') || btn.getAttribute('data-u') || '';
+        const colAttr = btn.getAttribute('data-col');
+        const colIdx = (colAttr != null && colAttr !== '') ? Number(colAttr) : (() => {
+          if (!tr) return 0;
+          const rowBtns = Array.from(tr.querySelectorAll('button.tickbox[data-u][data-k]'));
+          return Math.max(0, rowBtns.indexOf(btn));
+        })();
+
+        const focusBtn = (b) => {
+          if (!b) return;
+          try {
+            const rid = b.getAttribute('data-row') || b.getAttribute('data-u') || '';
+            const c = Number(b.getAttribute('data-col') || 0);
+            state.marksFocus = { row: rid, col: c };
+          } catch (_) {}
+          b.focus();
+        };
+
+        // Toggle
+        if (key === 'Enter' || key === ' ') {
+          e.preventDefault();
+          state.marksFocus = { row: rowId, col: colIdx };
+          btn.click();
+          return;
+        }
+
+        if (!tr) return;
+        const tbody = tr.parentElement;
+        const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+        const rowBtns = Array.from(tr.querySelectorAll('button.tickbox[data-u][data-k]'));
+
+        // Left/Right: same row
+        if (key === 'ArrowLeft' || key === 'ArrowRight') {
+          e.preventDefault();
+          const nextCol = colIdx + (key === 'ArrowRight' ? 1 : -1);
+          const b = rowBtns[Math.max(0, Math.min(rowBtns.length - 1, nextCol))];
+          focusBtn(b);
+          return;
+        }
+
+        // Up/Down + PageUp/PageDown: same column
+        const jump = (key === 'PageDown' ? 10 : (key === 'PageUp' ? -10 : (key === 'ArrowDown' ? 1 : (key === 'ArrowUp' ? -1 : 0))));
+        if (jump !== 0) {
+          e.preventDefault();
+          const i = rows.indexOf(tr);
+          if (i === -1) return;
+          const ni = i + jump;
+          if (ni < 0 || ni >= rows.length) return;
+          const targetRow = rows[ni];
+          const targetBtns = Array.from(targetRow.querySelectorAll('button.tickbox[data-u][data-k]'));
+          if (!targetBtns.length) return;
+          const b = targetBtns[Math.max(0, Math.min(targetBtns.length - 1, colIdx))];
+          focusBtn(b);
+          return;
+        }
       });
     }
 
