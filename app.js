@@ -5036,6 +5036,14 @@ if (document.getElementById('btnDownloadElevraad')) {
         if (!btn) return;
 
         const key = e.key;
+
+        // ESC: slip fokus fra tickbox-knapperne, så globale genveje virker igen
+        if (key === 'Escape' || key === 'Esc') {
+          e.preventDefault();
+          e.stopPropagation();
+          try { btn.blur(); } catch(_) {}
+          return;
+        }
         const tr = btn.closest ? btn.closest('tr') : null;
 
         const rowId = btn.getAttribute('data-row') || btn.getAttribute('data-u') || '';
