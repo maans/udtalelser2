@@ -966,9 +966,10 @@ const docTitle = escapeHtml(title || 'Print');
       pre.statement{ padding-bottom: 110px; }
     }
 
-   .sig-col{ width: 48%; break-inside: avoid; page-break-inside: avoid; }
-    .sig-left{ text-align: left; }
-    .sig-right{ text-align: center; }
+    /* Giv Kontaktlærere mere plads end Forstander (2 navne vs 1) */
+    .sig-col{ break-inside: avoid; page-break-inside: avoid; min-width: 0; }
+    .sig-left{ text-align: left; flex: 2 1 0; }
+    .sig-right{ text-align: center; flex: 1 1 0; }
     .sig-name{ display:block; }
     .sig-label{ display:block; margin-top: 2px; }
     .sig-left .sig-label{ text-align: center; }
