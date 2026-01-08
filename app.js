@@ -4454,6 +4454,9 @@ function tooltipTextFor(st, scope, key){
     attachInlineMarksSearch();
     attachMarksSortButtons();
     bindMarksHoverTips(wrap);
+    attachMarksTickKeyboard();
+    restoreMarksGridFocus();
+    return;
 }
 
   async function importMarksFile(e, kind) {
