@@ -5406,6 +5406,111 @@ try {
           }
         }
 
+
+        // Marks-grid: robust tastaturnavigation i Eksport (Sang/Gym/Roller/Elevråd)
+        // Gør det muligt at bruge piletaster + Enter/Space uden først at "tabbe" ned i tabellen.
+        if (state.tab === 'set' && state.settingsSubtab === 'export') {
+          const ae = document.activeElement;
+
+          // ESC: slip fokus fra tickbox-knapper også
+          if (e.key === 'Escape' || e.key === 'Esc') {
+            if (ae && ae.closest && ae.closest('button.tickbox[data-u][data-k]')) {
+              e.preventDefault();
+              e.stopPropagation();
+              try { ae.blur(); } catch(_) {}
+              return;
+            }
+          }
+
+          // Kun håndtér når vi ikke skriver i et input/textarea/contenteditable
+          if (!isTypingTarget(ae)) {
+            const wrap = $('marksTableWrap');
+            const key = e.key;
+            const isMarksKey =
+              key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowUp' || key === 'ArrowDown' ||
+              key === 'Enter' || key === ' ' || key === 'PageUp' || key === 'PageDown';
+            if (wrap && isMarksKey) {
+              const getBtnFromFocus = () => {
+                const f = state.marksFocus || {};
+                const row = String(f.row || '');
+                const col = String((f.col == null ? 0 : f.col));
+                if (!row) return null;
+                try {
+                  const esc = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+                  return wrap.querySelector(`button.tickbox[data-row="${esc(row)}"][data-col="${esc(col)}"]`);
+                } catch (_) { return null; }
+              };
+
+              const setFocusFromBtn = (btn) => {
+                if (!btn) return;
+                try {
+                  const rid = btn.getAttribute('data-row') || btn.getAttribute('data-u') || '';
+                  const c = Number(btn.getAttribute('data-col') || 0);
+                  state.marksFocus = { row: rid, col: c };
+                } catch(_) {}
+                try { btn.focus(); } catch(_) {}
+              };
+
+              const ensureActiveBtn = () => {
+                let btn = getBtnFromFocus();
+                if (btn) return btn;
+                // Hvis intet er valgt endnu: tag første tickbox i tabellen
+                btn = wrap.querySelector('button.tickbox[data-u][data-k]');
+                if (btn) setFocusFromBtn(btn);
+                return btn;
+              };
+
+              const btn = ensureActiveBtn();
+              if (!btn) return;
+
+              // Hvis fokus lige nu er et andet sted (fx søgefeltet), så tag styringen alligevel
+              e.preventDefault();
+              e.stopPropagation();
+
+              const rowId = btn.getAttribute('data-row') || btn.getAttribute('data-u') || '';
+              const colIdx = Number(btn.getAttribute('data-col') || 0);
+
+              // Toggle
+              if (key === 'Enter' || key === ' ') {
+                state.marksFocus = { row: rowId, col: colIdx };
+                btn.click();
+                return;
+              }
+
+              const tr = btn.closest ? btn.closest('tr') : null;
+              if (!tr) return;
+              const tbody = tr.parentElement;
+              const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+              if (!rows.length) return;
+
+              // Left/Right: samme række
+              if (key === 'ArrowLeft' || key === 'ArrowRight') {
+                const rowBtns = Array.from(tr.querySelectorAll('button.tickbox[data-u][data-k]'));
+                if (!rowBtns.length) return;
+                const nextCol = colIdx + (key === 'ArrowRight' ? 1 : -1);
+                const b = rowBtns[Math.max(0, Math.min(rowBtns.length - 1, nextCol))];
+                setFocusFromBtn(b);
+                return;
+              }
+
+              // Up/Down + PageUp/PageDown: samme kolonne
+              const jump = (key === 'PageDown' ? 10 : (key === 'PageUp' ? -10 : (key === 'ArrowDown' ? 1 : (key === 'ArrowUp' ? -1 : 0))));
+              if (jump !== 0) {
+                const i = rows.indexOf(tr);
+                if (i === -1) return;
+                const ni = i + jump;
+                if (ni < 0 || ni >= rows.length) return;
+                const targetRow = rows[ni];
+                const targetBtns = Array.from(targetRow.querySelectorAll('button.tickbox[data-u][data-k]'));
+                if (!targetBtns.length) return;
+                const b = targetBtns[Math.max(0, Math.min(targetBtns.length - 1, colIdx))];
+                setFocusFromBtn(b);
+                return;
+              }
+            }
+          }
+        }
+
         // Ctrl+P / Cmd+P: print det samme som den primære print-knap i den aktuelle fane.
         // - K-elever / Alle K-grupper: print aktiv K-gruppe (matcher knappen i view'et)
         // - Redigér: print elev (PDF med logo)
