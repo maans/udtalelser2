@@ -5477,7 +5477,23 @@ try {
                 const gi = Math.max(0, Math.min(state.kGroupIndex || 0, n - 1));
                 if (k === 'ArrowLeft' && gi > 0) state.kGroupIndex = gi - 1;
                 if (k === 'ArrowRight' && gi < n - 1) state.kGroupIndex = gi + 1;
-                renderKList();
+                
+        // TRIN 1B: ← / → i Redigér (forrige/næste elev)
+        // - Kun når fokus ikke er i input/textarea/contenteditable
+        // - Ingen ændring af data eller genveje
+        if (!e.ctrlKey && !e.altKey && !e.metaKey) {
+          const k = e.key;
+          if (k === 'ArrowLeft' || k === 'ArrowRight') {
+            const typing = isTypingTarget(e.target);
+            if (!typing && state && state.tab === 'edit') {
+              e.preventDefault();
+              gotoAdjacentStudent(k === 'ArrowRight' ? 'next' : 'prev');
+              return;
+            }
+          }
+        }
+
+renderKList();
                 return;
               }
             }
