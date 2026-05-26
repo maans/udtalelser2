@@ -854,6 +854,127 @@ function applyOnePagePrintScale() {
 
 
 
+
+
+// --- Printindstillinger-modal (fælles for alle printtyper) ---
+const PRINT_OPTIONS_KEY = LS_PREFIX + 'print_options_v1';
+
+function getDefaultPrintOptions(){
+  return {
+    autoScale: true,
+    allowTwoPages: false,
+    justify: true,
+    showLogo: true,
+    fontSize: 'normal',
+    fontFamily: 'standard',
+    marginMode: 'normal'
+  };
+}
+
+function loadPrintOptions(){
+  try {
+    const raw = localStorage.getItem(PRINT_OPTIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return Object.assign(getDefaultPrintOptions(), parsed || {});
+  } catch(e){
+    return getDefaultPrintOptions();
+  }
+}
+
+function savePrintOptions(opts){
+  try { localStorage.setItem(PRINT_OPTIONS_KEY, JSON.stringify(Object.assign(getDefaultPrintOptions(), opts || {}))); } catch(e) {}
+}
+
+function showPrintOptionsModal(contextLabel){
+  return new Promise((resolve) => {
+    const current = loadPrintOptions();
+    const old = document.getElementById('printOptionsModal');
+    if (old) old.remove();
+
+    const wrap = document.createElement('div');
+    wrap.id = 'printOptionsModal';
+    wrap.className = 'modal-backdrop active no-print';
+    wrap.innerHTML = `
+      <div class="modal-card" style="max-width:620px">
+        <div class="modal-head">
+          <h2>Printindstillinger</h2>
+          <button type="button" class="icon-btn" data-print-cancel title="Luk">✕</button>
+        </div>
+        <div class="modal-body" style="display:grid; gap:14px">
+          <div class="muted">${contextLabel ? contextLabel : 'Vælg hvordan udtalelserne skal printes.'}</div>
+
+          <label class="check-row"><input type="checkbox" id="poAutoScale"> <span>Autoskalér samlet, så alle udtalelser så vidt muligt bliver på én side</span></label>
+          <label class="check-row"><input type="checkbox" id="poAllowTwoPages"> <span>Tillad 2 sider ved meget lange udtalelser</span></label>
+          <label class="check-row"><input type="checkbox" id="poJustify"> <span>Lige højre og venstre margen i brødteksten</span></label>
+          <label class="check-row"><input type="checkbox" id="poShowLogo"> <span>Vis logo i toppen</span></label>
+
+          <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+            <label>Skriftstørrelse
+              <select id="poFontSize">
+                <option value="normal">Normal</option>
+                <option value="compact">Kompakt</option>
+                <option value="large">Stor</option>
+              </select>
+            </label>
+            <label>Skrifttype
+              <select id="poFontFamily">
+                <option value="standard">Standard</option>
+                <option value="serif">Klassisk serif</option>
+                <option value="sans">Moderne sans</option>
+              </select>
+            </label>
+            <label>Margener
+              <select id="poMarginMode">
+                <option value="normal">Normal</option>
+                <option value="narrow">Smal</option>
+                <option value="extraNarrow">Ekstra smal</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="poHint" class="muted" style="font-size:0.92em">
+            Autoskalering bruger samme reduktion på alle sider, så udtalelserne får ens størrelse.
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="secondary" data-print-cancel>Annullér</button>
+          <button type="button" class="primary" id="poPrintBtn">Print / PDF</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+
+    const $ = (id) => wrap.querySelector(id);
+    $('#poAutoScale').checked = !!current.autoScale;
+    $('#poAllowTwoPages').checked = !!current.allowTwoPages;
+    $('#poJustify').checked = !!current.justify;
+    $('#poShowLogo').checked = current.showLogo !== false;
+    $('#poFontSize').value = current.fontSize || 'normal';
+    $('#poFontFamily').value = current.fontFamily || 'standard';
+    $('#poMarginMode').value = current.marginMode || 'normal';
+
+    function close(val){
+      wrap.remove();
+      resolve(val);
+    }
+    wrap.querySelectorAll('[data-print-cancel]').forEach(btn => btn.addEventListener('click', () => close(null)));
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) close(null); });
+    wrap.querySelector('#poPrintBtn').addEventListener('click', () => {
+      const opts = {
+        autoScale: $('#poAutoScale').checked,
+        allowTwoPages: $('#poAllowTwoPages').checked,
+        justify: $('#poJustify').checked,
+        showLogo: $('#poShowLogo').checked,
+        fontSize: $('#poFontSize').value,
+        fontFamily: $('#poFontFamily').value,
+        marginMode: $('#poMarginMode').value
+      };
+      savePrintOptions(opts);
+      close(opts);
+    });
+  });
+}
+
+
 // --- Print logo helpers ---
 function getLocalPrintLogoDataUrl() {
   try { return localStorage.getItem(PRINT_LOGO_LOCAL_KEY) || ''; } catch { return ''; }
@@ -928,6 +1049,9 @@ function syncPrintLogoTestUI() {
 
 
 async function openPrintWindowForStudents(students, settings, title) {
+  const printOptions = await showPrintOptionsModal(title || 'Print udtalelser');
+  if (!printOptions) return;
+
   const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({
     '&': '&amp;',
     '<': '&lt;',
@@ -953,7 +1077,7 @@ async function openPrintWindowForStudents(students, settings, title) {
     headerDateText = _monthYear ? (_monthYear.charAt(0).toUpperCase() + _monthYear.slice(1)) : '';
   }
 
-  const logoSrc = await resolvePrintLogoDataUrl();
+  const logoSrc = printOptions.showLogo === false ? '' : await resolvePrintLogoDataUrl();
   const pagesHtml = list.map(st => {
     const txt = buildStatement(st, settings);
     // Title extraction (first line) — no regex
@@ -1013,7 +1137,7 @@ async function openPrintWindowForStudents(students, settings, title) {
       <div class="page">
         <div class="content">
           <div class="printHeaderTop"><div class="printHeaderDate">${escapeHtml(headerDateText)}</div></div>
-          <div class="printHeaderLogo"><img src="${logoSrc}" alt="Himmerlands Ungdomsskole" /></div>
+          ${printOptions.showLogo === false ? '<div class="printHeaderLogo no-logo"></div>' : `<div class="printHeaderLogo"><img src="${logoSrc}" alt="Himmerlands Efterskole" /></div>`}
           <div class="printTitle">${escapeHtml(titleLine)}</div>
           <pre class="statement">${escapeHtml(bodyForPre)}</pre>${signatureHtml}
         </div>
@@ -1023,37 +1147,43 @@ async function openPrintWindowForStudents(students, settings, title) {
   // Single vs multi print: multi-print uses per-page absolute footer to avoid overlapping fixed elements
   const printModeClass = (list.length > 1) ? 'print-multi' : 'print-single';
 
+  const marginCss = printOptions.marginMode === 'extraNarrow'
+    ? '@page { size: A4; margin: 9mm 10mm; }'
+    : (printOptions.marginMode === 'narrow'
+      ? '@page { size: A4; margin: 10mm 12mm; }'
+      : '@page { size: A4; margin: 12mm 14mm; }');
+  const fontSizeCss = printOptions.fontSize === 'large' ? '11.2pt' : (printOptions.fontSize === 'compact' ? '10pt' : '10.5pt');
+  const lineHeightCss = printOptions.fontSize === 'compact' ? '1.36' : '1.45';
+  const fontFamilyCss = printOptions.fontFamily === 'serif'
+    ? 'Georgia, "Times New Roman", serif'
+    : (printOptions.fontFamily === 'sans' ? 'Arial, Helvetica, sans-serif' : 'Arial, sans-serif');
+  const justifyCss = printOptions.justify ? 'text-align: justify; text-align-last: left; hyphens: auto; -webkit-hyphens: auto;' : 'text-align: left;';
+  const autoScaleFlag = printOptions.autoScale ? '1' : '0';
+  const minScale = printOptions.allowTwoPages ? '0.10' : '0.82';
+
 const docTitle = escapeHtml(title || 'Print');
 
   const html = `<!doctype html>
-<html lang="da">
+<html>
 <head>
   <meta charset="utf-8">
   <title>${docTitle}</title>
   <style>
-    @page { size: A4; margin: 12mm 14mm; }
-    html, body { margin: 0; padding: 0; background: #fff; }
+    ${marginCss}
+    html, body { margin: 0; padding: 0; background: #fff; --printScale: 1; }
     .page{
       page-break-after: always;
     }
-    .content{ width: 100%; }
+    .content{ width: 100%; zoom: var(--printScale); }
     .statement {
       margin: 0;
       white-space: pre-wrap;
-      font-family: Arial, sans-serif;
-      font-size: 10.5pt;
-      line-height: 1.45;
+      font-family: ${fontFamilyCss};
+      font-size: ${fontSizeCss};
+      line-height: ${lineHeightCss};
+      ${justifyCss}
       transform: none;
       transform-origin: top left;
-
-      /* Brødtekst: lige venstre og højre margin i alle appens printvinduer
-         (enkelt elev, aktiv K-gruppe, alle K-grupper og alle elever). */
-      text-align: justify;
-      text-align-last: left;
-      text-justify: inter-word;
-      hyphens: auto;
-      -webkit-hyphens: auto;
-      overflow-wrap: normal;
     }
   
     /* iOS/iPadOS Safari: disable scaling transforms to avoid alternating blank pages */
@@ -1071,7 +1201,7 @@ const docTitle = escapeHtml(title || 'Print');
     }
     .printTitle{
       text-align: center;
-      font-family: Arial, sans-serif;
+      font-family: ${fontFamilyCss};
       font-size: 12pt;
       font-weight: 700;
       margin: 0 0 6mm 0;
@@ -1100,6 +1230,7 @@ const docTitle = escapeHtml(title || 'Print');
       align-items:center;
       margin: 8mm 0 8mm 0;
     }
+    .printHeaderLogo.no-logo{ height: 5mm; margin: 2mm 0 4mm 0; }
     .printHeaderLogo img{
       height: 22mm;
       width: auto;
@@ -1120,12 +1251,6 @@ const docTitle = escapeHtml(title || 'Print');
       white-space: pre-wrap;
       margin: 0;
       overflow: hidden;
-      text-align: justify;
-      text-align-last: left;
-      text-justify: inter-word;
-      hyphens: auto;
-      -webkit-hyphens: auto;
-      overflow-wrap: normal;
     }
 
     /* Signatur: to faste kolonner (Kontaktlærere / Forstander) */
@@ -1135,8 +1260,8 @@ const docTitle = escapeHtml(title || 'Print');
       gap: 16px;
       margin-top: 18px;
       width: 100%;
-      font-family: Arial, sans-serif;
-      font-size: 10.5pt;
+      font-family: ${fontFamilyCss};
+      font-size: ${fontSizeCss};
       line-height: 1.25;
     }
  
@@ -1165,10 +1290,38 @@ const docTitle = escapeHtml(title || 'Print');
 ${pagesHtml}
 <script>
 (function(){
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  const AUTO_SCALE = "${autoScaleFlag}" === "1";
+  const MIN_SCALE = Number("${minScale}") || 0.82;
+  function mmToPx(mm) {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1mm;height:' + mm + 'mm;visibility:hidden;pointer-events:none;';
+    document.body.appendChild(probe);
+    const px = probe.getBoundingClientRect().height;
+    probe.remove();
+    return px || 0;
+  }
+  function applyAutoScale() {
+    document.body.style.setProperty('--printScale', '1');
+    if (!AUTO_SCALE) return;
+    const pages = Array.from(document.querySelectorAll('.page'));
+    const availPx = mmToPx(273);
+    if (!pages.length || !availPx) return;
+    let scale = 1;
+    pages.forEach(page => {
+      const content = page.querySelector('.content');
+      if (!content) return;
+      const needed = content.scrollHeight;
+      if (needed > availPx) scale = Math.min(scale, availPx / needed);
+    });
+    scale = Math.max(MIN_SCALE, Math.min(1, scale));
+    document.body.style.setProperty('--printScale', String(scale));
+    try { document.title = document.title + ' · autoskalering ' + Math.round(scale * 100) + '%'; } catch(e) {}
+  }
   window.addEventListener('load', () => {
-    // Give fonts/images a moment, then open print dialog.
-    setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 250);
+    setTimeout(() => {
+      try { applyAutoScale(); } catch(e) {}
+      setTimeout(() => { try { window.focus(); window.print(); } catch(e) {} }, 120);
+    }, 280);
   });
 })();
 </script>

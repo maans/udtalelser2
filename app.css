@@ -374,14 +374,6 @@ tr:hover td{background: rgba(255,255,255,.02)}
     transform: scale(var(--printScale, 1));
     transform-origin: top left;
     width: calc(100% / var(--printScale, 1));
-
-    /* Fallback hvis browserens standardprint rammer preview direkte. */
-    text-align: justify;
-    text-align-last: left;
-    text-justify: inter-word;
-    hyphens: auto;
-    -webkit-hyphens: auto;
-    overflow-wrap: normal;
   }
   @page{size:A4; margin: 18mm 16mm}
 }
