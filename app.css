@@ -374,27 +374,16 @@ tr:hover td{background: rgba(255,255,255,.02)}
     transform: scale(var(--printScale, 1));
     transform-origin: top left;
     width: calc(100% / var(--printScale, 1));
-  }
-  @page{size:A4; margin: 18mm 16mm}
 
-  /* Justified text in printed statements */
-  #preview p,
-  #preview .statement-body,
-  #preview .statement-body p{
+    /* Fallback hvis browserens standardprint rammer preview direkte. */
     text-align: justify;
     text-align-last: left;
+    text-justify: inter-word;
     hyphens: auto;
     -webkit-hyphens: auto;
+    overflow-wrap: normal;
   }
-
-  #preview h1,
-  #preview h2,
-  #preview h3,
-  #preview .signature-block,
-  #preview .footer{
-    text-align: left;
-  }
-
+  @page{size:A4; margin: 18mm 16mm}
 }
 
 /* Mark buttons (checkbox-style) */

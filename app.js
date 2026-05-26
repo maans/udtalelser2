@@ -1026,7 +1026,7 @@ async function openPrintWindowForStudents(students, settings, title) {
 const docTitle = escapeHtml(title || 'Print');
 
   const html = `<!doctype html>
-<html>
+<html lang="da">
 <head>
   <meta charset="utf-8">
   <title>${docTitle}</title>
@@ -1042,10 +1042,18 @@ const docTitle = escapeHtml(title || 'Print');
       white-space: pre-wrap;
       font-family: Arial, sans-serif;
       font-size: 10.5pt;
-      font-size: 10.5pt;
       line-height: 1.45;
       transform: none;
       transform-origin: top left;
+
+      /* Brødtekst: lige venstre og højre margin i alle appens printvinduer
+         (enkelt elev, aktiv K-gruppe, alle K-grupper og alle elever). */
+      text-align: justify;
+      text-align-last: left;
+      text-justify: inter-word;
+      hyphens: auto;
+      -webkit-hyphens: auto;
+      overflow-wrap: normal;
     }
   
     /* iOS/iPadOS Safari: disable scaling transforms to avoid alternating blank pages */
@@ -1112,6 +1120,12 @@ const docTitle = escapeHtml(title || 'Print');
       white-space: pre-wrap;
       margin: 0;
       overflow: hidden;
+      text-align: justify;
+      text-align-last: left;
+      text-justify: inter-word;
+      hyphens: auto;
+      -webkit-hyphens: auto;
+      overflow-wrap: normal;
     }
 
     /* Signatur: to faste kolonner (Kontaktlærere / Forstander) */
