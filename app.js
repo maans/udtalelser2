@@ -2111,12 +2111,31 @@ function normalizePlaceholderKey(key) {
 
 
   function callName(rawFirstName) {
-    // HU-data: hvis fornavn-feltet indeholder ekstra efternavn, brug kun første ord.
-    // Behold bindestreg-navne (fx Anne-Sofie) uændret.
+    // HU-data: fornavn-feltet kan indeholde sammensat fornavn + mellemnavn.
+    // Regel til omtale i teksten: brug højst de første 2 ord fra Fornavn.
+    // Eksempler: "Anne Sofie Kragh" → "Anne Sofie", "Anne Sofie" → "Anne Sofie", "Anne" → "Anne".
+    // Behold bindestreg-navne (fx Anne-Sofie) uændret som ét ord.
     const s = (rawFirstName ?? '').toString().trim();
     if (!s) return '';
     const parts = s.split(/\s+/).filter(Boolean);
-    return parts.length ? parts[0] : s;
+    return parts.length ? parts.slice(0, 2).join(' ') : s;
+  }
+
+  function studentCallName(student) {
+    // Primær regel: brug hele Fornavn-feltet, dog højst 2 ord.
+    // Reparationsregel for ældre/importerede data hvor et sammensat fornavn
+    // allerede er blevet klippet til første ord og resten er havnet i efternavn:
+    // Anne + Sofie Kragh Petersen -> Anne Sofie.
+    const st = student || {};
+    const direct = callName(st.fornavn || st.firstName || st.firstname || '');
+    const directParts = String(direct || '').trim().split(/\s+/).filter(Boolean);
+    if (directParts.length >= 2) return direct;
+
+    const allParts = [st.fornavn, st.efternavn].join(' ').trim().split(/\s+/).filter(Boolean);
+    if (directParts.length === 1 && allParts.length >= 3 && allParts[0] === directParts[0]) {
+      return allParts.slice(0, 2).join(' ');
+    }
+    return direct;
   }
   function normalizeHeader(input) { return normalizeName(input).replace(/[^a-z0-9]+/g, ""); }
 
@@ -2611,12 +2630,12 @@ if (chosen && erObj[chosen]) {
 }
 
     const fullName = `${student.fornavn} ${student.efternavn}`.trim();
-    const firstName = callName(student.fornavn);
+    const firstName = studentCallName(student);
     const pr = pronouns(student.koen);
     const snMap = {
-      "ELEV_FORNAVN": (student.fornavn||'').trim(),
+      "ELEV_FORNAVN": firstName,
       "ELEV_NAVN": fullName,
-      "FORNAVN": (student.fornavn||'').trim(),
+      "FORNAVN": firstName,
       "NAVN": fullName,
       "HAN_HUN": pr.HAN_HUN,
       "HAM_HENDE": pr.HAM_HENDE,
@@ -2820,18 +2839,18 @@ if (chosen && erObj[chosen]) {
   function normalizeStudentRow(row, map, teacherOverrides) {
     const get = (field) => (row[map[field]] ?? '').trim();
 
-    // Rens fornavn-felt: nogle elever har et "ekstra efternavn" i fornavn-kolonnen.
-    // Regel: hvis fornavn har flere ord og IKKE indeholder bindestreg, så bruges første ord som kaldnavn,
-    // og resten flyttes over i efternavn (foran eksisterende efternavn).
+    // Rens fornavn-felt: nogle elever har sammensat fornavn + mellemnavn i fornavn-kolonnen.
+    // Regel: behold højst 2 ord som fornavn/kaldnavn, og flyt evt. ekstra ord til efternavn.
+    // Eksempel: Fornavn="Anne Sofie Kragh", Efternavn="Petersen" → Fornavn="Anne Sofie", Efternavn="Kragh Petersen".
     const fornavnRaw = get('fornavn');
     let efternavnRaw = get('efternavn');
 
     let fornavn = fornavnRaw;
-    if (fornavnRaw && !fornavnRaw.includes('-')) {
+    if (fornavnRaw) {
       const parts = fornavnRaw.split(/\s+/).filter(Boolean);
-      if (parts.length > 1) {
-        fornavn = parts[0];
-        const extraSurname = parts.slice(1).join(' ');
+      if (parts.length > 2) {
+        fornavn = parts.slice(0, 2).join(' ');
+        const extraSurname = parts.slice(2).join(' ');
         efternavnRaw = (extraSurname + ' ' + (efternavnRaw || '')).trim();
       }
     }
@@ -4176,7 +4195,7 @@ function restoreMarksGridFocus(){
     };
     const placeholderMapFor = (st) => {
       const full = `${st.fornavn||''} ${st.efternavn||''}`.trim();
-      const first = (st.fornavn||'').trim() || full.split(' ')[0] || '';
+      const first = studentCallName(st) || full.split(' ')[0] || '';
       const pr = pronouns(st.koen || st.gender || st.sex || '');
       return {
         "FORNAVN": first,
@@ -4402,7 +4421,7 @@ function tooltipTextFor(st, scope, key){
         if (!snip) return '';
         const p = pronouns(st.koen || st.køn || st.gender || '');
         const base = (p.HAN_HUN === 'hun' && snip.text_k) ? snip.text_k : (snip.text_m || snip.text_k || '');
-        const filled = applyPlaceholders(base, Object.assign({ FORNAVN: st.fornavn || '' }, p));
+        const filled = applyPlaceholders(base, Object.assign({ FORNAVN: studentCallName(st) || st.fornavn || '', ELEV_FORNAVN: studentCallName(st) || st.fornavn || '' }, p));
         const flat = String(filled || '').trim().replace(/\s+/g,' ');
         if (!flat) return '';
         const pretty = flat.replace(/([.!?])\s+/g, '$1\n\n');
